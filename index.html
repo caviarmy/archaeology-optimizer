@@ -621,7 +621,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
       
       <section id="settings-cards" class="settings-section">
-        <div class="small" style="margin-bottom:8px">Select the archaeology cards you own. A normal card gives -10% node health and +10% EXP/loot for that exact node tier and type. A gilded card gives -20% node health and +20% EXP/loot. Polychrome and infernal cards can be recorded here, but their exact multipliers are not yet confirmed, so they do not change scoring.</div>
+        <div class="small" style="margin-bottom:8px">Select the archaeology cards you own. Normal: -10% node health, +10% EXP/loot. Gilded: -20% / +20%. Polychrome: -35% / +35% (base; up to 50% with an Archaeology upgrade) — all scored. Infernal replaces that bonus with a unique global archaeology effect (shown on each card); those global effects are tracked but not yet folded into node scoring.</div>
         <div class="card-bulk">
           <div class="bulk-field">
             <label for="cardBulkRarity">Bulk set rarity</label>
@@ -652,7 +652,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <div class="form-grid">
           <div><label>STR flat damage</label><input id="strFlatDamage" type="number" step="0.001" value="1"></div>
           <div><label>STR damage %</label><input id="strDamagePct" type="number" step="0.001" value="1"></div>
-          <div><label>STR crit damage x</label><input id="strCritDamage" type="number" step="0.001" value="0.045"></div>
+          <div><label>STR crit damage x</label><input id="strCritDamage" type="number" step="0.001" value="0.030"></div>
           <div><label>AGI stamina</label><input id="agiStamina" type="number" step="0.001" value="5"></div>
           <div><label>AGI crit chance %</label><input id="agiCritPct" type="number" step="0.001" value="1"></div>
           <div><label>AGI speed mod %</label><input id="agiSpeedPct" type="number" step="0.001" value="0.2"></div>
@@ -1046,14 +1046,33 @@ const ARCHAEOLOGY_CARD_KEYS = [
 ];
 function cardSettingId(key){ return "card_" + key; }
 function cardBonusForState(state){
+  // Archaeology cards reduce that node's health and raise its EXP/loot. The
+  // rarity tiers scale the same effect (wiki: Cards/Card Effects):
+  //   Standard -10%/+10%, Gilded -20%/+20%, Polychrome -35%/+35% base
+  //   (up to -50%/+50% with an Archaeology upgrade).
   if(state==="owned") return {hpMult:0.9, rewardMult:1.1};
   if(state==="gilded") return {hpMult:0.8, rewardMult:1.2};
-  // Polychrome and infernal cards can be recorded, but their exact multipliers
-  // are not yet confirmed by the wiki, so they are intentionally neutral until
-  // real values are added (see app plan, phase 4). Treating them as no-ops keeps
-  // the optimizer honest instead of scoring guessed numbers.
+  if(state==="polychrome") return {hpMult:0.65, rewardMult:1.35};
+  // Infernal REPLACES the health/EXP-loot bonus with a unique per-card global
+  // archaeology effect (see INFERNAL_CARD_EFFECTS). That effect scales with the
+  // number of infernal cards owned and feeds global stats (crit, armor pen,
+  // mod gains, crosshairs, etc.), not this node's HP/reward. So a neutral
+  // per-node multiplier is the correct representation here; the global effect
+  // is a separate modeling layer.
   return {hpMult:1, rewardMult:1};
 }
+// Per-card infernal effects (wiki: Cards/Card Effects). Surfaced in the UI so
+// players see what igniting a card does, even though these global effects are
+// not yet folded into node scoring.
+const INFERNAL_CARD_EFFECTS = {
+  t1_dirt:"Loot Mod Gain +10%", t2_dirt:"Arch Experience Gain +12%", t3_dirt:"Fragment Gain +8%", t4_dirt:"Gleaming Floor Multi +10%",
+  t1_common:"Arch Crit Damage +6%", t2_common:"Arch Super Crit Damage +7%", t3_common:"Arch Ultra Crit Damage +8%", t4_common:"All Arch Crit Chances +1.5%",
+  t1_rare:"Crosshair Auto-Tap +5%", t2_rare:"Arch Flat Damage +20", t3_rare:"Armor Pen +40%", t4_rare:"Loot Mod Gain +8%",
+  t1_epic:"Gold Crosshair Multi +20%", t2_epic:"Arch Super Crit Chance +4%", t3_epic:"Max Stamina +5%", t4_epic:"Arch Crit Damage +10%",
+  t1_legendary:"Fragment Gain +4%", t2_legendary:"Golden Crosshair Chance +5%", t3_legendary:"Flat Armor Pen +40", t4_legendary:"Flat Maximum Stamina +20",
+  t1_mythic:"Gleaming Floor Chance +1.3%", t2_mythic:"Loot Mod Chance +0.8%", t3_mythic:"Stamina Mod Chance +0.7%", t4_mythic:"Ability Instacharge +1%",
+  t1_divine:"Arch Damage +10%", t2_divine:"Gleaming Floor Chance +1.25%", t3_divine:"Stamina Mod Gain +1", t4_divine:"All Mod Chances +0.5%"
+};
 function cardTierFromKey(key){ return Number(String(key).match(/^t(\d)_/)?.[1] || 0); }
 function cardTypeFromKey(key){ return String(key).split("_")[1] || ""; }
 // A card is only available when its block exists at the current ascension:
@@ -1097,7 +1116,7 @@ function populateCardSettings(){
         <label><input type="radio" name="card_state_${c.key}" value="owned" checked>Normal</label>
         <label><input type="radio" name="card_state_${c.key}" value="gilded">Gilded</label>
         <label><input type="radio" name="card_state_${c.key}" value="polychrome">Polychrome</label>
-        <label class="req-a2"><input type="radio" name="card_state_${c.key}" value="infernal">Infernal</label>
+        <label class="req-a2" title="${INFERNAL_CARD_EFFECTS[c.key] || ""}"><input type="radio" name="card_state_${c.key}" value="infernal">Infernal${INFERNAL_CARD_EFFECTS[c.key] ? ` — ${INFERNAL_CARD_EFFECTS[c.key]}` : ""}</label>
       </div>
     </div>
   `).join("");
@@ -2438,7 +2457,10 @@ function updateSettingsSummary(){
   const tol = primaryProtectionTolerance();
   setText("summaryBuild", statString(n("curStr"), n("curAgi"), n("curPer"), n("curInt"), n("curLuck")));
   setText("summaryBase", `Dmg ${v("baseDamage")} · Stam ${v("baseStamina")} · Crit ${v("baseCritChance")}%`);
-  const activeCards = ARCHAEOLOGY_CARD_KEYS.map(c => document.getElementById(cardSettingId(c.key))?.value || "none").filter(v => v !== "none");
+  const activeCards = ARCHAEOLOGY_CARD_KEYS
+    .filter(c => cardAvailableAtAscension(c.key, asc))
+    .map(c => document.getElementById(cardSettingId(c.key))?.value || "none")
+    .filter(v => v !== "none");
   const rarityCounts = activeCards.reduce((m,v)=>{ m[v]=(m[v]||0)+1; return m; }, {});
   const rarityLabel = {owned:"normal", gilded:"gilded", polychrome:"poly", infernal:"infernal"};
   const breakdown = ["owned","gilded","polychrome","infernal"].filter(r=>rarityCounts[r]).map(r=>`${rarityCounts[r]} ${rarityLabel[r]}`).join(" · ");
