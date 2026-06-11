@@ -1,0 +1,2768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Obelisk Miner Archaeology Optimizer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --bg:#f4f6fb; --card:#fff; --ink:#172033; --muted:#667085;
+  --line:#d8dee9; --soft:#f8fafc; --accent:#0050A9; --accent2:#e8f1ff;
+  --green:#eaf8ef; --amber:#fff7ed; --shadow:0 1px 3px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35}
+header{background:#101828;color:#fff;padding:16px 18px}
+header h1{margin:0;font-size:20px;line-height:1.15}
+header p{margin:6px 0 0;color:#cbd5e1;max-width:1080px;font-size:13px}
+main{max-width:1280px;margin:0 auto;padding:12px}
+button,input,select{font:inherit}
+button{background:var(--accent);color:white;border:0;border-radius:10px;padding:10px 13px;font-weight:800;cursor:pointer}
+button.ghost{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+button:disabled{background:#94a3b8;color:#fff;cursor:not-allowed}
+input[type="number"],select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-size:16px}
+input[type="checkbox"]{width:18px;height:18px}
+label{display:block;font-weight:800;margin:8px 0 5px;font-size:12px;color:#344054}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:14px;margin-bottom:14px}
+.card h2{font-size:17px;margin:0 0 10px}
+.card h3{font-size:13px;margin:14px 0 8px;color:#344054;text-transform:uppercase;letter-spacing:.04em}
+.small{font-size:12px;color:var(--muted)}
+.hidden-control{display:none}
+.section-title{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.section-title h2{margin:0;font-size:17px}
+.section-title .hint{font-size:12px;color:var(--muted)}
+.workflow-card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:12px;margin-bottom:12px}
+.workflow-label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#667085;font-weight:900;margin-bottom:8px}
+.workflow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.tab{border:1px solid var(--line);background:#fff;color:#344054;border-radius:12px;padding:12px;text-align:left;cursor:pointer;min-height:76px}
+.tab strong{display:block;font-size:15px;margin-bottom:4px}
+.tab span{font-size:12px;color:var(--muted)}
+.tab.active{border-color:var(--accent);background:var(--accent2);box-shadow:inset 0 0 0 1px var(--accent)}
+.tab.active strong{color:#003f86}
+.panel{display:none}.panel.active{display:block}
+.settings-card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:0;margin-bottom:14px;overflow:hidden}
+.settings-card-header{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:12px 14px;border-bottom:1px solid #edf0f5}
+.settings-card-header h2{margin:0;font-size:17px}
+.settings-card-header .small{font-size:12px}
+.settings-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
+.setting-row{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:58px;padding:11px 40px 11px 14px;background:#fff;border:0;border-bottom:1px solid #edf0f5;border-right:1px solid #edf0f5;color:var(--ink);text-align:left;border-radius:0}
+.setting-row:nth-child(2n){border-right:0}
+.setting-row:hover{background:#f8fafc}
+.setting-row::after{content:"›";position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:25px;line-height:1;color:#98a2b3}
+.setting-row .k{display:block;font-size:11px;color:#667085;font-weight:900;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.setting-row .v{display:block;font-size:15px;color:#172033;font-weight:900}
+.setting-row .desc{display:block;font-size:11px;color:#667085;margin-top:2px}
+.target-only{display:none}
+body[data-workflow="target"] .target-only{display:flex}
+.pill-note{display:inline-block;background:#eef2ff;color:#1e3a8a;border:1px solid #c7d2fe;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;margin-bottom:8px}
+.helper{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px;color:#7c2d12;margin:8px 0}
+.actionbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.clear-chip{display:none;align-items:center;gap:5px;background:#fff;color:#475467;border:1px solid #cbd5e1;border-radius:999px;padding:7px 10px;font-weight:800}
+.clear-chip::before{content:"×";font-size:16px;line-height:12px;color:#b42318}
+.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.metric{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:11px;min-width:0}
+.metric.good{background:var(--green)}
+.metric.warn{background:var(--amber)}
+.metric .k{font-size:12px;color:var(--muted)}
+.metric .v{font-size:20px;font-weight:900;margin-top:2px;word-break:break-word}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:white;max-height:590px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border-bottom:1px solid #e5e7eb;border-right:1px solid #eef2f7;padding:7px 8px;text-align:right;white-space:nowrap}
+th{position:sticky;top:0;background:#f1f5f9;color:#111827;z-index:1}
+td:first-child,th:first-child{text-align:left}
+tr:nth-child(even) td{background:#fbfbfc}
+tr.best td{background:#e8f1ff!important;font-weight:800}
+details{border:1px solid var(--line);border-radius:10px;background:#fff;margin:10px 0;padding:9px}
+summary{font-weight:900;cursor:pointer;color:#344054}
+.status-toast{position:fixed;right:14px;bottom:14px;z-index:40;max-width:min(520px,calc(100vw - 28px));background:#eef4ff;border:1px solid #c7d7fe;border-radius:12px;color:#1e3a8a;padding:10px;box-shadow:0 6px 20px rgba(15,23,42,.18)}
+.settings-modal{position:fixed;inset:0;background:rgba(15,23,42,.50);display:none;z-index:50;align-items:center;justify-content:center;padding:14px}
+.settings-modal.open{display:flex}
+.settings-panel{width:min(980px,100%);height:min(720px,92vh);background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.25);display:grid;grid-template-columns:190px 1fr;overflow:hidden}
+.settings-nav{background:#f8fafc;border-right:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:6px}
+.settings-nav button{background:transparent;color:#344054;text-align:left;border-radius:9px;padding:10px;border:0}
+.settings-nav button.active{background:var(--accent2);color:#003f86}
+.settings-body{padding:16px;overflow:auto;min-height:0}
+.settings-top{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;margin-bottom:10px}
+.settings-title{text-align:left;min-width:0}
+.settings-top h2{margin:0;font-size:20px}
+.settings-back{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;background:#fff;color:#344054;border:1px solid #cbd5e1;border-radius:999px;padding:0;font-size:22px;line-height:1}
+.settings-footer{position:sticky;bottom:-16px;margin:18px -16px -16px;padding:12px 16px;background:#fff;border-top:1px solid #edf0f5;display:flex;justify-content:flex-end;z-index:3}
+.settings-confirm{background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:999px;padding:10px 16px;font-weight:900}
+.settings-section{display:none;scroll-margin-top:10px}
+.settings-section.active{display:block}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px}
+.check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.check-row{display:flex;gap:8px;align-items:center;border:1px solid #e5e7eb;background:#fafafa;border-radius:10px;padding:10px;font-weight:800;color:#344054;font-size:13px}
+@media(max-width:860px){
+  main{padding:10px}
+  .workflow{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .settings-list{grid-template-columns:1fr}
+  .setting-row{border-right:0}
+}
+@media(max-width:520px){
+  header{padding:18px}
+  header h1{font-size:28px}
+  header p{font-size:18px;line-height:1.3}
+  .workflow-card,.settings-card,.card{border-radius:18px}
+  .workflow{grid-template-columns:1fr}
+  .tab{min-height:78px;padding:14px 16px}
+  .tab strong{font-size:20px}.tab span{font-size:16px}
+  .goal-grid{grid-template-columns:1fr}
+  .tolerance-option{grid-template-columns:auto auto auto 1fr}
+  .tolerance-field{width:auto}
+  .settings-list{grid-template-columns:1fr}
+  .setting-row{min-height:62px}
+  .metric{grid-column:1 / -1}
+  .actionbar button{width:100%}
+  .settings-modal{align-items:stretch;justify-content:stretch;padding:0;background:#fff}
+  .settings-panel{width:100%;height:100dvh;max-height:none;border-radius:0;box-shadow:none;grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow:hidden}
+  .settings-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;overflow:visible;border-right:0;border-bottom:1px solid var(--line);padding:10px;background:#f8fafc}
+  .settings-nav button{white-space:normal;font-size:13px;line-height:1.15;padding:10px 6px;text-align:center}
+  .settings-body{padding:14px;max-height:none;overflow:auto;min-height:0}
+  .settings-top{position:sticky;top:0;z-index:4;background:#fff;border-bottom:1px solid #edf0f5;margin:-14px -14px 12px;padding:12px 14px;grid-template-columns:auto 1fr}
+  .settings-top h2{font-size:20px}
+  .settings-title .small{font-size:11px}
+  .settings-back{width:38px;height:38px;font-size:22px}
+  .settings-footer{position:sticky;bottom:-14px;margin:18px -14px -14px;padding:12px 14px;background:#fff;border-top:1px solid #edf0f5}
+  .settings-confirm{width:auto;min-width:150px;padding:12px 18px;font-size:16px}
+  .form-grid{grid-template-columns:1fr 1fr}
+  .check-grid{grid-template-columns:1fr}
+}
+@media(max-width:380px){
+  .form-grid{grid-template-columns:1fr}
+}
+
+.card-field{border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#fff}
+.card-toggle-head{display:flex;align-items:center;gap:10px;font-weight:700;color:#1f2937}
+.card-toggle-head input[type="checkbox"]{width:18px;height:18px;accent-color:var(--accent)}
+.card-tier-options{display:none;margin-top:10px;padding-top:10px;border-top:1px solid #edf0f5}
+.card-tier-options.open{display:flex;gap:16px;flex-wrap:wrap}
+.card-tier-options label{display:flex;align-items:center;gap:8px;font-size:14px;color:#344054}
+.card-tier-options input[type="radio"]{accent-color:var(--accent)}
+.card-field .small{margin-top:4px}
+
+/* v25: force the primary tolerance field to be a compact 3-character control */
+.goal-card .protection-options .tolerance-option{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+}
+.goal-card .protection-options .tolerance-option > input[type="radio"]{
+  flex:0 0 auto!important;
+}
+.goal-card .protection-options .tolerance-option > span:first-of-type{
+  flex:0 0 auto!important;
+}
+.goal-card .protection-options .tolerance-field{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  flex:0 0 auto!important;
+  width:auto!important;
+  max-width:none!important;
+  min-width:0!important;
+}
+.goal-card .protection-options .tolerance-field > input#primaryToleranceValue{
+  appearance:textfield!important;
+  -webkit-appearance:none!important;
+  box-sizing:border-box!important;
+  flex:0 0 4.25ch!important;
+  width:4.25ch!important;
+  min-width:4.25ch!important;
+  max-width:4.25ch!important;
+  inline-size:4.25ch!important;
+  padding:6px 4px!important;
+  margin:0!important;
+  text-align:center!important;
+}
+.goal-card .protection-options .tolerance-field > input#primaryToleranceValue::-webkit-outer-spin-button,
+.goal-card .protection-options .tolerance-field > input#primaryToleranceValue::-webkit-inner-spin-button{
+  -webkit-appearance:none!important;
+  margin:0!important;
+}
+.goal-card .protection-options .percent-label{
+  flex:0 0 auto!important;
+  font-weight:900!important;
+}
+@media(max-width:520px){
+  .goal-card .protection-options .tolerance-option{
+    display:flex!important;
+    grid-template-columns:none!important;
+  }
+  .goal-card .protection-options .tolerance-field{
+    width:auto!important;
+    grid-column:auto!important;
+  }
+}
+
+
+/* v26: tolerance field sizing: compact, but comfortably fits 0-100 */
+.goal-card .protection-options .tolerance-field > input#primaryToleranceValue{
+  box-sizing:border-box!important;
+  flex:0 0 72px!important;
+  width:72px!important;
+  min-width:72px!important;
+  max-width:72px!important;
+  inline-size:72px!important;
+  padding:6px 8px!important;
+  text-align:center!important;
+}
+
+
+/* v28: Target floor controls are only visible when Target floor is selected as primary or secondary. */
+.goal-target-field{
+  display:none!important;
+}
+body[data-target-used="true"] .goal-target-field{
+  display:block!important;
+}
+body[data-target-used="true"] .target-only{
+  display:flex!important;
+}
+body[data-target-used="false"] .target-only{
+  display:none!important;
+}
+
+
+/* v31: simulation results become the lead card after a simulation run */
+#results.active{display:flex;flex-direction:column}
+#deterministicCard{order:1}
+#simulationCard{order:2}
+body[data-simulation-ready="true"] #simulationCard{order:0}
+.sim-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.sim-card-head h2{margin:0}
+#simulationCard #clearMonteRerank{display:none}
+body[data-simulation-ready="true"] #simulationCard #clearMonteRerank{display:inline-flex}
+@media(max-width:520px){
+  .sim-card-head{align-items:flex-start}
+  .sim-card-head #clearMonteRerank{width:auto;white-space:nowrap}
+}
+
+
+/* v32: transient status messages */
+.status-toast{
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(8px);
+  transition:opacity .22s ease, transform .22s ease;
+}
+.status-toast.show{
+  opacity:1;
+  transform:translateY(0);
+}
+#simulationDetails{overflow-anchor:none}
+#simulationDetails .table-wrap{overflow-anchor:none}
+
+
+/* v33: prevent upward expansion caused by browser scroll anchoring */
+html, body, main, #results, #simulationCard, #deterministicCard, #simulationDetails, #simulationDetails *{
+  overflow-anchor:none!important;
+}
+#simulationDetails{
+  scroll-margin-top:12px;
+}
+
+
+.import-box{border:1px solid var(--line);border-radius:12px;background:#f8fafc;padding:12px;margin:10px 0 14px}
+.import-box h3{margin:0 0 4px;font-size:15px}
+.import-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.import-actions input[type=file]{max-width:100%}
+.import-actions .import-btn{background:var(--accent);color:#fff}
+.reset-btn{background:#fff;color:#b42318;border:1px solid #f3b4ad;border-radius:999px;padding:8px 12px;font-weight:900}
+.reset-btn::before{content:"×";margin-right:6px}
+.ocr-status{margin-top:8px;color:var(--muted)}
+.ocr-output{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;max-height:220px;overflow:auto;font-size:12px}
+
+</style>
+<script id="tesseractCdnScript" src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body data-workflow="results" data-target-used="false" data-simulation-ready="false">
+<header>
+  <h1>Obelisk Miner Archaeology Optimizer</h1>
+  <p>Compare archaeology stat builds for the selected level. Choose how floors spawn nodes, then compare builds shown as STR / AGI / PER / INT / Luck.</p>
+</header>
+
+<main>
+  <input id="mode" class="hidden-control" value="reward">
+  <input id="objective" class="hidden-control" value="total">
+  <input id="speedModel" class="hidden-control" value="none">
+
+  <section class="workflow-card goal-card">
+    <div class="workflow-label">Optimization priority</div>
+    <div class="goal-grid">
+      <div>
+        <label>Primary goal</label>
+        <select id="primaryGoal">
+          <option value="allRewards">All rewards</option>
+          <option value="xp">EXP</option>
+          <option value="allLoot">All loot</option>
+          <option value="common">Common loot</option>
+          <option value="rare">Rare loot</option>
+          <option value="epic">Epic loot</option>
+          <option value="legendary">Legendary loot</option>
+          <option value="mythic">Mythic loot</option>
+          <option value="divine">Divine loot</option>
+          <option value="target">Target floor</option>
+        </select>
+      </div>
+      <div>
+        <label>Secondary goal <span class="small">(must differ from primary)</span></label>
+        <select id="secondaryGoal">
+          <option value="none">None</option>
+          <option value="allRewards" disabled>All rewards</option>
+          <option value="xp">EXP</option>
+          <option value="allLoot">All loot</option>
+          <option value="common">Common loot</option>
+          <option value="rare">Rare loot</option>
+          <option value="epic">Epic loot</option>
+          <option value="legendary">Legendary loot</option>
+          <option value="mythic">Mythic loot</option>
+          <option value="divine">Divine loot</option>
+          <option value="target">Target floor</option>
+        </select>
+      </div>
+      <div class="goal-target-field">
+        <label>Target floor</label>
+        <input id="targetFloor" type="number" min="1" max="200" step="1" inputmode="numeric" value="13">
+      </div>
+      <div>
+        <label>Primary protection</label>
+        <div class="protection-options">
+          <label class="protection-option">
+            <input type="radio" name="primaryProtectionMode" id="primaryProtectionStrict" value="strict" checked>
+            <span>Protect primary</span>
+          </label>
+          <label class="protection-option tolerance-option">
+            <input type="radio" name="primaryProtectionMode" id="primaryProtectionTolerance" value="tolerance">
+            <span>Allow secondary within</span>
+            <span class="tolerance-field">
+              <input id="primaryToleranceValue" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" aria-label="Primary tolerance percentage, 0 to 100" value="2" disabled>
+              <span class="percent-label">%</span>
+            </span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="small goal-help" id="goalHelp">The optimizer protects the primary goal first. The secondary goal is used only among near-best primary builds.</div>
+  </section>
+
+  <section class="settings-card">
+    <div class="settings-card-header">
+      <div>
+        <h2>Run settings</h2>
+        <div class="small">Tap a row to edit. These settings apply to every goal.</div>
+      </div>
+      <button id="resetAllSettings" class="reset-btn" type="button">Reset all</button>
+    </div>
+    <div class="settings-list">
+      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Run scope</span><span class="v" id="summaryLevel">Level —</span><span class="desc">Player level and simulation limit</span></span></button>
+      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Node spawns</span><span class="v" id="summarySpawnModel">Active count</span><span class="desc">How floors create active nodes</span></span></button>
+      <button class="setting-row target-only" data-open-settings="settings-general"><span><span class="k">Target</span><span class="v" id="summaryTarget">Target floor —</span><span class="desc">Floor used for success chance</span></span></button>
+      <button class="setting-row loot-setting" data-open-settings="settings-loot"><span><span class="k">Resource value</span><span class="v" id="summaryLoot">All drops useful</span><span class="desc">Mark drops that do not matter</span></span></button>
+      <button class="setting-row" data-open-settings="settings-base"><span><span class="k">Base stats</span><span class="v" id="summaryBase">—</span><span class="desc">Current unspent-stat values</span></span></button>
+      <button class="setting-row" data-open-settings="settings-cards"><span><span class="k">Card bonuses</span><span class="v" id="summaryCards">No cards selected</span><span class="desc">Owned and gilded archaeology cards</span></span></button>
+      <button class="setting-row" data-open-settings="settings-mc"><span><span class="k">Simulation</span><span class="v" id="summaryMC">—</span><span class="desc">Simulation sample sizes</span></span></button>
+    </div>
+  </section>
+
+  <section id="results" class="panel active">
+    <div class="card" id="deterministicCard">
+      <span class="pill-note">Goal: maximize total value</span>
+      <h2 id="optimizerTitle">Best build</h2>
+      <div class="small" id="optimizerHelp">Find the best stat split for the selected level. Expand the table only when you want to compare close alternatives.</div>
+      <div class="actionbar">
+        <button id="runExact">Find best build</button>
+        <button id="runMonteRerank" class="ghost">Simulate top builds</button>
+      </div>
+      <div class="metrics">
+        <div class="metric good"><div class="k">Best build</div><div class="v" id="bestBuild">—</div></div>
+        <div class="metric"><div class="k" id="bestValueLabel">Primary score</div><div class="v" id="bestRph">—</div></div>
+        <div class="metric"><div class="k">Expected floor</div><div class="v" id="bestFloor">—</div></div>
+        <div class="metric"><div class="k">Mode</div><div class="v" id="bestModeLabel">Reward</div></div>
+        <div class="metric"><div class="k">Candidates</div><div class="v" id="candidateCount">—</div></div>
+        <div class="metric"><div class="k">Primary protection floor</div><div class="v" id="primaryBandFloor">—</div></div>
+      </div>
+      <details>
+        <summary>Top candidate builds</summary>
+        <div class="table-wrap" style="margin-top:8px">
+          <table id="topBuildsTable">
+            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>EV value per tick-hour</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+
+    <div class="card" id="simulationCard">
+      <div class="sim-card-head"><h2>Simulated result</h2><button id="clearMonteRerank" class="clear-chip">Clear simulation</button></div>
+      <div class="helper">Simulates the current top candidates using the same active settings. If settings change, rerun Find best build first.</div>
+      <div class="metrics simulation-summary">
+        <div class="metric good"><div class="k">Best simulated build</div><div class="v" id="simBestBuild">—</div></div>
+        <div class="metric"><div class="k" id="simPrimaryLabel">Sim primary score</div><div class="v" id="simPrimaryScore">—</div></div>
+        <div class="metric"><div class="k">Avg simulated floor</div><div class="v" id="simAvgFloor">—</div></div>
+        <div class="metric"><div class="k">Target hit chance</div><div class="v" id="simTargetChance">—</div></div>
+        <div class="metric"><div class="k">EV rank</div><div class="v" id="simDetRank">—</div></div>
+        <div class="metric"><div class="k">Seed used</div><div class="v" id="simSeedUsed">—</div></div>
+      </div>
+      <details id="simulationDetails">
+        <summary>Detailed simulation table</summary>
+        <div class="table-wrap" style="margin-top:8px">
+          <table id="monteRerankTable">
+            <thead><tr><th>Sim Rank</th><th>EV Rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Sim all rewards/tick-hour</th><th>Sim avg floor</th><th>Target hit %</th><th>P10 floor</th><th>P50 floor</th><th>P90 floor</th><th>EV primary score</th><th>EV expected floor</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section id="target" class="panel" style="display:none">
+    <div class="card">
+      <span class="pill-note">Goal: reach a floor</span>
+      <h2>Best floor-push build</h2>
+      <div class="helper">Finds builds that push the farthest, then simulates runs to estimate success chance for the target floor.</div>
+      <div class="actionbar">
+        <button id="runReachability">Find floor-push build</button>
+        <button id="clearReachability" class="clear-chip">Clear floor results</button>
+      </div>
+      <div class="metrics">
+        <div class="metric good"><div class="k">Best build</div><div class="v" id="reachBestBuild">—</div></div>
+        <div class="metric"><div class="k">Target hit chance</div><div class="v" id="reachTargetPct">—</div></div>
+        <div class="metric"><div class="k">Best avg floor</div><div class="v" id="reachAvgFloor">—</div></div>
+        <div class="metric"><div class="k">Highest observed floor</div><div class="v" id="reachMaxObserved">—</div></div>
+        <div class="metric warn"><div class="k">Highest floor at 10%+</div><div class="v" id="reachFloor10">—</div></div>
+      </div>
+      <details>
+        <summary>Floor-push candidates</summary>
+        <div class="table-wrap" style="margin-top:8px">
+          <table id="reachabilityTable">
+            <thead><tr><th>Rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Target hit %</th><th>Avg floor</th><th>Highest observed</th><th>Floor ≥50%</th><th>Floor ≥25%</th><th>Floor ≥10%</th><th>Floor ≥5%</th><th>Floor ≥1%</th><th>P10</th><th>P50</th><th>P90</th><th>EV expected floor</th><th>EV primary score</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section id="nextpoint" class="panel">
+    <div class="card">
+      <span class="pill-note">Goal: evaluate next stat point</span>
+      <h2>Manual build and next stat point</h2>
+      <div class="small">Enter a manual stat split in Settings. Order: STR / AGI / PER / INT / Luck.</div>
+      <div class="actionbar">
+        <button id="scoreCurrent">Score manual build</button>
+        <button id="runMonte" class="ghost">Simulation target chance for current build</button>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="k">Manual build</div><div class="v" id="curBuildLabel">—</div></div>
+        <div class="metric"><div class="k">EV value per tick-hour</div><div class="v" id="curRph">—</div></div>
+        <div class="metric"><div class="k">Expected floor</div><div class="v" id="curFloor">—</div></div>
+        <div class="metric"><div class="k">Target Simulation chance</div><div class="v" id="monteChance">—</div></div>
+        <div class="metric"><div class="k">Avg Simulation floor</div><div class="v" id="monteFloor">—</div></div>
+      </div>
+      <div class="table-wrap">
+        <table id="nextPointTable">
+          <thead><tr><th>Candidate</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Value per tick-hour</th><th>Δ reward</th><th>Δ %</th><th>Expected floor</th><th>Δ floor</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="greedy" class="panel">
+    <div class="card">
+      <span class="pill-note">Goal: build a level path</span>
+      <h2>Level 0–100 path</h2>
+      <div class="actionbar"><button id="runGreedy">Build level path</button></div>
+      <div class="helper">Shows one possible point-by-point spending path. Exact level results may differ when breakpoints matter.</div>
+      <div class="table-wrap">
+        <table id="greedyTable">
+          <thead><tr><th>Level</th><th>Added</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Value per tick-hour</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="nodes" class="panel">
+    <div class="card">
+      <h2>Node values</h2>
+      <div class="table-wrap">
+        <table id="nodeTable">
+          <thead><tr><th>Tier</th><th>Type</th><th>Floor min</th><th>Floor max</th><th>HP</th><th>XP0</th><th>Loot0</th><th>Loot XP-equivalent</th><th>Worthless?</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="status" class="status-toast"></div>
+
+<div id="settingsModal" class="settings-modal" aria-hidden="true">
+  <div class="settings-panel">
+    <nav class="settings-nav">
+      <button data-section="settings-general" class="active">Run scope</button>
+      <button class="loot-setting" data-section="settings-loot">Resource value</button>
+      <button data-section="settings-base">Base stats</button>
+      <button data-section="settings-cards">Card bonuses</button>
+      <button data-section="settings-scaling">Stat scaling</button>
+      <button data-section="settings-mc">Simulation</button>
+    </nav>
+    <div class="settings-body">
+      <div class="settings-top">
+        <button class="settings-back" data-cancel-settings type="button" aria-label="Back">←</button>
+        <div class="settings-title"><h2>Settings</h2><div class="small">Change values, then confirm.</div></div>
+      </div>
+
+      <section id="settings-general" class="settings-section active">
+        <div class="form-grid">
+          <div><label>Selected player level</label><input id="selectedLevel" type="number" min="0" max="200" value="40"></div>
+          <div><label>Max floor to simulate</label><input id="maxFloor" type="number" min="1" max="200" value="50"></div>
+          <div>
+            <label>Node spawn model</label>
+            <select id="nodeSpawnModel">
+              <option value="activeCount" selected>Active count: 6–24 nodes</option>
+              <option value="slotChance">Slot chance: 24 independent slots</option>
+            </select>
+          </div>
+        </div>
+        <div class="small" style="margin-top:8px">Active count rolls a floor node count first, then node types from relative weights. Slot chance treats each of 24 slots as independently empty or filled.</div>
+      </section>
+
+      <section id="settings-loot" class="settings-section loot-setting">
+        <div class="small" style="margin-bottom:8px">Check a drop tier when that resource is not useful for the selected goal.</div>
+        <div class="check-grid">
+          <label class="check-row"><input id="worthlessCommon" type="checkbox"> Common loot worthless</label>
+          <label class="check-row"><input id="worthlessRare" type="checkbox"> Rare loot worthless</label>
+          <label class="check-row"><input id="worthlessEpic" type="checkbox"> Epic loot worthless</label>
+          <label class="check-row"><input id="worthlessLegendary" type="checkbox"> Legendary loot worthless</label>
+          <label class="check-row"><input id="worthlessMythic" type="checkbox"> Mythic loot worthless</label>
+          <label class="check-row"><input id="worthlessDivine" type="checkbox"> Divine loot worthless</label>
+        </div>
+      </section>
+
+      <section id="settings-current" class="settings-section" style="display:none">
+        <div class="small" style="margin-bottom:8px">Manual stat split. Order: STR / AGI / PER / INT / Luck.</div>
+        <div class="form-grid">
+          <div><label>STR</label><input id="curStr" type="number" min="0" value="0"></div>
+          <div><label>AGI</label><input id="curAgi" type="number" min="0" value="0"></div>
+          <div><label>PER</label><input id="curPer" type="number" min="0" max="25" value="0"></div>
+          <div><label>INT</label><input id="curInt" type="number" min="0" max="25" value="0"></div>
+          <div><label>Luck</label><input id="curLuck" type="number" min="0" max="25" value="0"></div>
+        </div>
+      </section>
+
+      <section id="settings-base" class="settings-section">
+        <div class="small" style="margin-bottom:8px">Base stats are your current unspent-stat values. Node rewards use public base values; EXP gain and fragment gain are applied during scoring. Node HP includes stage 100/150 scaling.</div>
+        <div class="import-box">
+          <h3>Import stats from screenshot</h3>
+          <div class="small">Upload a stats screenshot. The app will scan the image and fill matching fields. Internet is required the first time OCR loads.</div>
+          <div class="import-actions">
+            <input id="statScreenshotInput" type="file" accept="image/*">
+            <button id="importStatScreenshotBtn" type="button" class="import-btn">Retry import</button>
+          </div>
+          <div id="ocrStatus" class="ocr-status small">No screenshot imported.</div>
+          <div id="ocrRuntimeNote" class="ocr-status small"></div>
+          <details style="margin-top:8px">
+            <summary>OCR text</summary>
+            <pre id="ocrText" class="ocr-output"></pre>
+          </details>
+        </div>
+        <div class="form-grid">
+          <div><label>Base damage</label><input id="baseDamage" type="number" step="0.001" value=""></div>
+          <div><label>Base stamina</label><input id="baseStamina" type="number" step="0.001" value=""></div>
+          <div><label>Base crit chance %</label><input id="baseCritChance" type="number" step="0.001" value=""></div>
+          <div><label>Base crit damage x</label><input id="baseCritDamage" type="number" step="0.001" value=""></div>
+          <div><label>Base super crit chance %</label><input id="baseSuperChance" type="number" step="0.001" value=""></div>
+          <div><label>Base super crit damage x</label><input id="baseSuperDamage" type="number" step="0.001" value=""></div>
+          <div><label>Base XP gain x</label><input id="baseXpGain" type="number" step="0.001" value=""></div>
+          <div><label>Base fragment gain x</label><input id="baseFragGain" type="number" step="0.001" value=""></div>
+          <div><label>Base XP mod %</label><input id="baseXpMod" type="number" step="0.001" value=""></div>
+          <div><label>Base loot mod %</label><input id="baseLootMod" type="number" step="0.001" value=""></div>
+          <div><label>Base speed mod %</label><input id="baseSpeedMod" type="number" step="0.001" value=""></div>
+          <div><label>Base stamina mod %</label><input id="baseStaminaMod" type="number" step="0.001" value=""></div>
+          <div><label>Stamina mod gain</label><input id="staminaModGain" type="number" step="0.001" value=""></div>
+        </div>
+      </section>
+
+      
+      <section id="settings-cards" class="settings-section">
+        <div class="small" style="margin-bottom:8px">Select the archaeology cards you own. A standard card gives -10% node health and +10% EXP/loot for that exact node tier and type. A gilded card gives -20% node health and +20% EXP/loot.</div>
+        <div class="form-grid" id="cardSettingsGrid"></div>
+      </section>
+
+<section id="settings-scaling" class="settings-section">
+        <div class="form-grid">
+          <div><label>STR flat damage</label><input id="strFlatDamage" type="number" step="0.001" value="1"></div>
+          <div><label>STR damage %</label><input id="strDamagePct" type="number" step="0.001" value="1"></div>
+          <div><label>STR crit damage x</label><input id="strCritDamage" type="number" step="0.001" value="0.045"></div>
+          <div><label>AGI stamina</label><input id="agiStamina" type="number" step="0.001" value="5"></div>
+          <div><label>AGI crit chance %</label><input id="agiCritPct" type="number" step="0.001" value="1"></div>
+          <div><label>AGI speed mod %</label><input id="agiSpeedPct" type="number" step="0.001" value="0.2"></div>
+          <div><label>AGI stamina mod %</label><input id="agiStaminaModPct" type="number" step="0.001" value="0.2"></div>
+          <div><label>PER fragment gain x</label><input id="perFragGain" type="number" step="0.001" value="0.04"></div>
+          <div><label>PER loot mod %</label><input id="perLootModPct" type="number" step="0.001" value="0.3"></div>
+          <div><label>INT XP gain x</label><input id="intXpGain" type="number" step="0.001" value="0.05"></div>
+          <div><label>INT XP mod %</label><input id="intXpModPct" type="number" step="0.001" value="0.3"></div>
+          <div><label>Luck crit chance %</label><input id="luckCritPct" type="number" step="0.001" value="2"></div>
+          <div><label>Luck XP mod %</label><input id="luckXpModPct" type="number" step="0.001" value="0.2"></div>
+          <div><label>Luck loot mod %</label><input id="luckLootModPct" type="number" step="0.001" value="0.2"></div>
+          <div><label>Luck all-mod %</label><input id="luckAllModPct" type="number" step="0.001" value="0.2"></div>
+        </div>
+      </section>
+
+      <section id="settings-mc" class="settings-section">
+        <div class="form-grid">
+          <div><label>Top reward builds to rerank</label><input id="mcTopCount" type="number" min="1" max="100" value="25"></div>
+          <div><label>Runs per reward build</label><input id="mcRunsPerBuild" type="number" min="100" max="20000" value="1000"></div>
+          <div><label>Top floor-push builds to simulate</label><input id="reachTopCount" type="number" min="1" max="200" value="75"></div>
+          <div><label>Runs per floor-push build</label><input id="reachRunsPerBuild" type="number" min="100" max="20000" value="1000"></div>
+          <div><label>Simulation seed mode</label><select id="simSeedMode"><option value="random" selected>Random each run</option><option value="fixed">Fixed seed</option></select></div>
+          <div><label>Fixed simulation seed</label><input id="simSeedValue" type="text" value="12345"></div>
+        </div>
+      </section>
+
+      <div class="settings-footer">
+        <button class="settings-confirm" data-confirm-settings type="button">Confirm changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+
+window.addEventListener("error", e=>{
+  const status = document.getElementById("ocrStatus") || document.getElementById("status");
+  if(status && e && e.message && !/ResizeObserver loop/i.test(e.message)){
+    status.textContent = "Page script error: " + e.message;
+    status.classList?.add("show");
+  }
+});
+window.addEventListener("unhandledrejection", e=>{
+  const status = document.getElementById("ocrStatus") || document.getElementById("status");
+  const msg = e?.reason?.message || String(e?.reason || "");
+  if(status && msg){
+    status.textContent = "Page script error: " + msg;
+    status.classList?.add("show");
+  }
+});
+
+
+/* ---------- Seeded source-like data ----------
+   HP uses the observed 0.9x display scale from screenshot values:
+   source T1 common 250 -> visible 225.
+   XP uses observed visible scaling from screenshots:
+   source T1 common 0.15 -> visible 0.259, roughly 1.7267x.
+   Loot uses visible T1 fragment 0.012.
+*/
+const rarityOrder = ["dirt","common","rare","epic","legendary","mythic","divine"];
+const baseBlocks = [
+  {tier:1,type:"dirt",health:100,xp:0.05,frag:0, floorMin:1, floorMax:11, health100:200, health150:400},
+  {tier:1,type:"common",health:250,xp:0.15,frag:0.01, floorMin:1, floorMax:17, health100:500, health150:1000},
+  {tier:1,type:"rare",health:550,xp:0.35,frag:0.01, floorMin:3, floorMax:25, health100:1100, health150:2200},
+  {tier:1,type:"epic",health:1150,xp:1.0,frag:0.01, floorMin:6, floorMax:29, health100:2300, health150:4600},
+  {tier:1,type:"legendary",health:1950,xp:3.5,frag:0.01, floorMin:12, floorMax:31, health100:3900, health150:7800},
+  {tier:1,type:"mythic",health:3500,xp:7.5,frag:0.01, floorMin:20, floorMax:34, health100:7000, health150:14000},
+  {tier:2,type:"dirt",health:300,xp:0.15,frag:0, floorMin:12, floorMax:23, health100:600, health150:1200},
+  {tier:2,type:"common",health:750,xp:0.45,frag:0.02, floorMin:18, floorMax:29, health100:1500, health150:3000},
+  {tier:2,type:"rare",health:1650,xp:1.05,frag:0.02, floorMin:26, floorMax:35, health100:3300, health150:6600},
+  {tier:2,type:"epic",health:3450,xp:3.0,frag:0.02, floorMin:30, floorMax:41, health100:6900, health150:13800},
+  {tier:2,type:"legendary",health:5850,xp:10.5,frag:0.02, floorMin:32, floorMax:44, health100:11700, health150:23400},
+  {tier:2,type:"mythic",health:10500,xp:22.5,frag:0.02, floorMin:35, floorMax:49, health100:21000, health150:42000},
+  {tier:3,type:"dirt",health:900,xp:0.45,frag:0, floorMin:24, floorMax:80, health100:1800, health150:3600},
+  {tier:3,type:"common",health:2250,xp:1.35,frag:0.04, floorMin:30, floorMax:95, health100:4500, health150:9000},
+  {tier:3,type:"rare",health:4950,xp:3.15,frag:0.04, floorMin:36, floorMax:110, health100:9900, health150:19800},
+  {tier:3,type:"epic",health:10350,xp:9.0,frag:0.04, floorMin:42, floorMax:125, health100:20700, health150:41400},
+  {tier:3,type:"legendary",health:17550,xp:31.5,frag:0.04, floorMin:45, floorMax:135, health100:35100, health150:70200},
+  {tier:3,type:"mythic",health:31500,xp:67.5,frag:0.04, floorMin:50, floorMax:140, health100:63000, health150:126000},
+  {tier:4,type:"dirt",health:2700,xp:1.35,frag:0, floorMin:81, floorMax:999, health100:5400, health150:10800},
+  {tier:4,type:"common",health:6750,xp:4.05,frag:0.08, floorMin:96, floorMax:999, health100:13500, health150:27000},
+  {tier:4,type:"rare",health:14850,xp:9.45,frag:0.08, floorMin:111, floorMax:999, health100:29700, health150:59400},
+  {tier:4,type:"epic",health:31050,xp:27.0,frag:0.08, floorMin:126, floorMax:999, health100:62100, health150:124200},
+  {tier:4,type:"legendary",health:52650,xp:94.5,frag:0.08, floorMin:136, floorMax:999, health100:105300, health150:210600},
+  {tier:4,type:"mythic",health:94500,xp:202.5,frag:0.08, floorMin:141, floorMax:999, health100:189000, health150:378000},
+  {tier:1,type:"divine",health:25000,xp:20,frag:0.01, floorMin:50, floorMax:74, health100:50000, health150:100000},
+  {tier:2,type:"divine",health:75000,xp:60,frag:0.02, floorMin:75, floorMax:99, health100:150000, health150:300000},
+  {tier:3,type:"divine",health:225000,xp:180,frag:0.04, floorMin:100, floorMax:149, health100:450000, health150:900000},
+  {tier:4,type:"divine",health:675000,xp:540,frag:0.08, floorMin:150, floorMax:999, health100:1350000, health150:2700000}
+];
+
+const spawnRanges = [
+  {min:1,max:2,rates:{dirt:28.57,common:14.29,rare:0,epic:0,legendary:0,mythic:0,divine:0}},
+  {min:3,max:4,rates:{dirt:25.40,common:12.70,rare:11.11,epic:0,legendary:0,mythic:0,divine:0}},
+  {min:5,max:5,rates:{dirt:25.52,common:10.94,rare:12.50,epic:0,legendary:0,mythic:0,divine:0}},
+  {min:6,max:9,rates:{dirt:22.97,common:9.84,rare:11.25,epic:10.00,legendary:0,mythic:0,divine:0}},
+  {min:10,max:11,rates:{dirt:23.41,common:8.78,rare:9.88,epic:11.11,legendary:0,mythic:0,divine:0}},
+  {min:12,max:14,rates:{dirt:21.74,common:8.15,rare:9.17,epic:10.32,legendary:7.14,mythic:0,divine:0}},
+  {min:15,max:19,rates:{dirt:21.27,common:7.98,rare:8.97,epic:11.54,legendary:7.69,mythic:0,divine:0}},
+  {min:20,max:24,rates:{dirt:19.50,common:7.31,rare:8.23,epic:12.34,legendary:8.64,mythic:5.00,divine:0}},
+  {min:25,max:29,rates:{dirt:18.47,common:7.92,rare:9.05,epic:12.06,legendary:10.56,mythic:5.00,divine:0}},
+  {min:30,max:49,rates:{dirt:18.10,common:9.05,rare:7.92,epic:11.88,legendary:11.88,mythic:5.00,divine:0}},
+  {min:50,max:75,rates:{dirt:16.87,common:8.43,rare:9.84,epic:13.77,legendary:11.81,mythic:5.56,divine:0}},
+  {min:76,max:999,rates:{dirt:16.81,common:10.08,rare:10.08,epic:11.76,legendary:11.76,mythic:5.88,divine:0}}
+];
+const bossSingle = {11:"dirt",17:"common",23:"dirt",25:"rare",29:"epic",31:"legendary",35:"rare",41:"epic",44:"legendary",95:"common",98:"mythic",149:"divine"};
+const bossMixed = {
+  34:{dirt:0,common:(20/24)*100,rare:0,epic:0,legendary:(4/24)*100,mythic:0,divine:0},
+  49:{dirt:(6/24)*100,common:(6/24)*100,rare:(6/24)*100,epic:0,legendary:0,mythic:(6/24)*100,divine:0},
+  74:{dirt:0,common:(22/24)*100,rare:0,epic:0,legendary:0,mythic:0,divine:(2/24)*100},
+  99:{dirt:(4/24)*100,common:(4/24)*100,rare:(4/24)*100,epic:(4/24)*100,legendary:(4/24)*100,mythic:(4/24)*100,divine:0}
+};
+
+const NORMAL_MIN_ACTIVE_NODES = 6;
+const NORMAL_MAX_ACTIVE_NODES = 24;
+
+function isSpecialFloor(floor){
+  return Boolean(bossSingle[floor] || bossMixed[floor]);
+}
+
+function totalRateForFloorRates(rates){
+  return Object.values(rates).reduce((a,b)=>a+(b||0),0);
+}
+
+function spawnModel(inp){
+  return inp?.nodeSpawnModel || "activeCount";
+}
+
+function expectedActiveNodesForFloor(floor, inp){
+  const rates = ratesForFloor(floor);
+  if(spawnModel(inp)==="slotChance"){
+    return 24 * Math.min(100, totalRateForFloorRates(rates)) / 100;
+  }
+  if(isSpecialFloor(floor)) return 24;
+  return (NORMAL_MIN_ACTIVE_NODES + NORMAL_MAX_ACTIVE_NODES) / 2;
+}
+
+function typeProbabilityForFloor(type, floor, rates, inp){
+  const rate = rates[type] || 0;
+  if(rate <= 0) return 0;
+  if(spawnModel(inp)==="slotChance" || isSpecialFloor(floor)) return rate / 100;
+  const total = totalRateForFloorRates(rates);
+  return total > 0 ? rate / total : 0;
+}
+
+function expectedTypeCountForFloor(type, floor, rates, inp){
+  if(spawnModel(inp)==="slotChance"){
+    return 24 * ((rates[type] || 0) / 100);
+  }
+  return expectedActiveNodesForFloor(floor, inp) * typeProbabilityForFloor(type, floor, rates, inp);
+}
+
+function rollNodeAttemptsForFloor(floor, inp, rng=Math.random){
+  if(spawnModel(inp)==="slotChance") return 24;
+  if(isSpecialFloor(floor)) return 24;
+  return NORMAL_MIN_ACTIVE_NODES + Math.floor(rng() * (NORMAL_MAX_ACTIVE_NODES - NORMAL_MIN_ACTIVE_NODES + 1));
+}
+
+const HP_SCALE = 1;
+const XP_DISPLAY_SCALE = 1;
+const FRAG_DISPLAY_SCALE = 1;
+
+let blockCache = null;
+let lastExactTopBuilds = [];
+let lastExactSignature = null;
+let isRunningExact = false;
+
+function v(id){ return document.getElementById(id).value; }
+function n(id){ return Number(document.getElementById(id).value); }
+function pct(id){ return n(id)/100; }
+function checked(id){ return document.getElementById(id).checked; }
+function objectiveLabel(obj){
+  if(obj==="loot") return "Loot";
+  if(obj==="exp") return "EXP";
+  return "Total";
+}
+function objectiveHelp(obj){
+  if(obj==="loot") return "Max loot ignores EXP and optimizes useful drops only.";
+  if(obj==="exp") return "Max EXP ignores drops and optimizes EXP only.";
+  return "Max rewards combines EXP and useful drops into one value score.";
+}
+function rewardFocusLabel(key){
+  const labels = {
+    allRewards:"All rewards", xp:"EXP", allLoot:"All loot", common:"Common loot", rare:"Rare loot",
+    epic:"Epic loot", legendary:"Legendary loot", mythic:"Mythic loot", divine:"Divine loot", target:"Target floor", none:"None"
+  };
+  return labels[key] || key;
+}
+function primaryFocusKey(inp){
+  return inp.goal?.primaryType === "target" ? "target" : (inp.goal?.primaryReward || "allRewards");
+}
+function secondaryFocusKey(inp){
+  const key = inp.goal?.secondary || "none";
+  return key === primaryFocusKey(inp) ? "none" : key;
+}
+function goalUsesLoot(key){
+  return ["allRewards","allLoot","common","rare","epic","legendary","mythic","divine"].includes(key);
+}
+function goalUsesTarget(key){
+  return key === "target";
+}
+function syncSecondaryGoalOptions(){
+  const primaryEl = document.getElementById("primaryGoal");
+  const secondaryEl = document.getElementById("secondaryGoal");
+  if(!primaryEl || !secondaryEl) return;
+
+  const primary = primaryEl.value;
+  Array.from(secondaryEl.options).forEach(opt => {
+    const isDuplicate = opt.value !== "none" && opt.value === primary;
+    opt.disabled = isDuplicate;
+    opt.setAttribute("aria-disabled", isDuplicate ? "true" : "false");
+  });
+
+  if(secondaryEl.value === primary){
+    secondaryEl.value = "none";
+  }
+}
+
+function validateTargetFloor(){
+  const input = document.getElementById("targetFloor");
+  if(!input) return 1;
+
+  const raw = String(input.value || "").trim();
+
+  // Allow the field to be temporarily empty while the user is editing it.
+  // This prevents the browser from immediately restoring "1" when the user
+  // backspaces before typing a single-digit floor.
+  if(raw === ""){
+    input.setCustomValidity("");
+    if(document.activeElement === input) return 1;
+    input.value = "1";
+    return 1;
+  }
+
+  let value = Math.floor(Number(raw));
+  if(!Number.isFinite(value)) value = 1;
+  value = Math.max(1, Math.min(200, value));
+  input.value = String(value);
+  input.setCustomValidity("");
+  return value;
+}
+
+function validatePrimaryTolerance(){
+  const input = document.getElementById("primaryToleranceValue");
+  if(!input) return 0;
+  let cleaned = String(input.value || "").replace(/[^0-9]/g, "").slice(0,3);
+  let value = Number(cleaned);
+  if(!Number.isFinite(value)) value = 0;
+  value = Math.max(0, Math.min(100, value));
+  input.value = String(value);
+  input.setCustomValidity("");
+  return value;
+}
+
+function primaryProtectionTolerance(){
+  const mode = document.querySelector('input[name="primaryProtectionMode"]:checked')?.value || "strict";
+  if(mode !== "tolerance") return 0;
+  return validatePrimaryTolerance();
+}
+
+function syncPrimaryProtectionUI(){
+  const isTolerance = (document.querySelector('input[name="primaryProtectionMode"]:checked')?.value || "strict") === "tolerance";
+  const input = document.getElementById("primaryToleranceValue");
+  if(input) input.disabled = !isTolerance;
+}
+
+function updateGoalUI(){
+  syncSecondaryGoalOptions();
+  syncPrimaryProtectionUI();
+  if((v("primaryGoal") || "allRewards") === "target" || (v("secondaryGoal") || "none") === "target") validateTargetFloor();
+  const primary = v("primaryGoal") || "allRewards";
+  const secondary = v("secondaryGoal") || "none";
+  const mode = document.getElementById("mode");
+  const objEl = document.getElementById("objective");
+  if(mode) mode.value = primary === "target" ? "target" : "reward";
+  if(objEl) objEl.value = primary;
+  document.body.dataset.workflow = "results";
+  document.body.dataset.objective = primary === "xp" && !goalUsesLoot(secondary) ? "exp" : "custom";
+  document.body.dataset.targetUsed = (goalUsesTarget(primary) || goalUsesTarget(secondary)) ? "true" : "false";
+  document.body.dataset.showLootSettings = (goalUsesLoot(primary) || goalUsesLoot(secondary)) ? "true" : "false";
+
+  const title = document.getElementById("optimizerTitle");
+  if(title) title.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
+  const help = document.getElementById("optimizerHelp");
+  if(help) help.textContent = secondaryFocusKey(getInputs())==="none"
+    ? "Finds the best build for the selected primary goal."
+    : `Finds the best build for ${rewardFocusLabel(primaryFocusKey(getInputs()))}; ${rewardFocusLabel(secondaryFocusKey(getInputs()))} is used among near-best primary results.`;
+  const label = document.getElementById("bestValueLabel");
+  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(getInputs()))}/tick-hour`;
+  const modeLabel = document.getElementById("bestModeLabel");
+  if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(getInputs()));
+  const goalHelp = document.getElementById("goalHelp");
+  if(goalHelp){
+    goalHelp.classList.remove("goal-warning");
+    const tol = primaryProtectionTolerance();
+    const protectionText = tol > 0 ? `within ${tol}% of the primary result` : "only after the primary result is protected";
+    const targetText = (primary === "target" || secondary === "target") ? ` Target floor: ${validateTargetFloor()}.` : "";
+    goalHelp.textContent = secondary === "none"
+      ? `Primary goal: ${rewardFocusLabel(primary)}.${targetText}`
+      : `Primary goal: ${rewardFocusLabel(primary)}. Secondary goal: ${rewardFocusLabel(secondary)} is used ${protectionText}.${targetText}`;
+  }
+}
+function targetMetric(sc, inp){
+  const target = Math.max(1, inp.targetFloor || 1);
+  const floor = sc.floorReached || 0;
+  if(floor >= target) return 1 + Math.min(1, floor - target) * 0.001;
+  return floor / target;
+}
+function metricValue(sc, key, inp){
+  const m = sc.metrics || {};
+  if(key==="target") return targetMetric(sc, inp);
+  if(key==="allRewards") return m.allRewards || 0;
+  if(key==="xp") return m.xp || 0;
+  if(key==="allLoot") return m.allLoot || 0;
+  return m[key] || 0;
+}
+function rankCandidates(candidates, inp){
+  // Apply tolerance against the global best primary score.
+  // Pairwise tolerance sorting is unstable and can make the displayed best
+  // build differ from the first row in the candidate table.
+  const pk = primaryFocusKey(inp);
+  const sk = secondaryFocusKey(inp);
+  const tol = Math.max(0, (inp.goal?.tolerancePct || 0) / 100);
+  const bestPrimary = candidates.reduce((m,c)=>Math.max(m, metricValue(c, pk, inp)), -Infinity);
+  const threshold = bestPrimary - Math.abs(bestPrimary) * tol;
+
+  return candidates.sort((a,b)=>{
+    const pa = metricValue(a, pk, inp);
+    const pb = metricValue(b, pk, inp);
+    const aInBand = pa >= threshold - 1e-9;
+    const bInBand = pb >= threshold - 1e-9;
+
+    if(aInBand !== bInBand) return aInBand ? -1 : 1;
+
+    if(aInBand && bInBand && sk !== "none"){
+      const sa = metricValue(a, sk, inp);
+      const sb = metricValue(b, sk, inp);
+      if(Math.abs(sb - sa) > 1e-9) return sb - sa;
+      if(Math.abs(pb - pa) > 1e-9) return pb - pa;
+    }else{
+      if(Math.abs(pb - pa) > 1e-9) return pb - pa;
+    }
+
+    const allA = metricValue(a, "allRewards", inp);
+    const allB = metricValue(b, "allRewards", inp);
+    if(Math.abs(allB - allA) > 1e-9) return allB - allA;
+
+    if(Math.abs((b.floorReached || 0) - (a.floorReached || 0)) > 1e-9){
+      return (b.floorReached || 0) - (a.floorReached || 0);
+    }
+
+    const as = a.stats || {}, bs = b.stats || {};
+    return (bs.S||0)-(as.S||0) || (bs.A||0)-(as.A||0) || (bs.P||0)-(as.P||0) || (bs.I||0)-(as.I||0) || (bs.L||0)-(as.L||0);
+  });
+}
+
+function compareBuilds(a,b,inp){
+  // Fallback comparator for small pairwise checks.
+  return rankCandidates([a,b], inp)[0] === a ? -1 : 1;
+}
+
+const ARCHAEOLOGY_CARD_KEYS = [
+  {key:"t1_dirt", label:"Tier 1 Dirt"},
+  {key:"t1_common", label:"Tier 1 Common"},
+  {key:"t1_rare", label:"Tier 1 Rare"},
+  {key:"t1_epic", label:"Tier 1 Epic"},
+  {key:"t1_legendary", label:"Tier 1 Legendary"},
+  {key:"t1_mythic", label:"Tier 1 Mythic"},
+  {key:"t1_divine", label:"Tier 1 Divine"},
+  {key:"t2_dirt", label:"Tier 2 Dirt"},
+  {key:"t2_common", label:"Tier 2 Common"},
+  {key:"t2_rare", label:"Tier 2 Rare"},
+  {key:"t2_epic", label:"Tier 2 Epic"},
+  {key:"t2_legendary", label:"Tier 2 Legendary"},
+  {key:"t2_mythic", label:"Tier 2 Mythic"},
+  {key:"t2_divine", label:"Tier 2 Divine"},
+  {key:"t3_dirt", label:"Tier 3 Dirt"},
+  {key:"t3_common", label:"Tier 3 Common"},
+  {key:"t3_rare", label:"Tier 3 Rare"},
+  {key:"t3_epic", label:"Tier 3 Epic"},
+  {key:"t3_legendary", label:"Tier 3 Legendary"},
+  {key:"t3_mythic", label:"Tier 3 Mythic"},
+  {key:"t3_divine", label:"Tier 3 Divine"},
+  {key:"t4_dirt", label:"Tier 4 Dirt"},
+  {key:"t4_common", label:"Tier 4 Common"},
+  {key:"t4_rare", label:"Tier 4 Rare"},
+  {key:"t4_epic", label:"Tier 4 Epic"},
+  {key:"t4_legendary", label:"Tier 4 Legendary"},
+  {key:"t4_mythic", label:"Tier 4 Mythic"},
+  {key:"t4_divine", label:"Tier 4 Divine"}
+];
+function cardSettingId(key){ return "card_" + key; }
+function cardBonusForState(state){
+  if(state==="owned") return {hpMult:0.9, rewardMult:1.1};
+  if(state==="gilded") return {hpMult:0.8, rewardMult:1.2};
+  return {hpMult:1, rewardMult:1};
+}
+function syncCardField(key){
+  const hidden = document.getElementById(cardSettingId(key));
+  const owned = document.getElementById(`card_enabled_${key}`);
+  const radios = document.getElementById(`card_options_${key}`);
+  const checked = document.querySelector(`input[name="card_state_${key}"]:checked`);
+  if(!hidden || !owned || !radios) return;
+  if(!owned.checked){
+    hidden.value = "none";
+    radios.classList.remove("open");
+  }else{
+    hidden.value = checked ? checked.value : "owned";
+    radios.classList.add("open");
+  }
+}
+
+function populateCardSettings(){
+  const grid = document.getElementById("cardSettingsGrid");
+  if(!grid || grid.dataset.ready==="1") return;
+  grid.innerHTML = ARCHAEOLOGY_CARD_KEYS.map(c => `
+    <div class="card-field">
+      <label class="card-toggle-head">
+        <input type="checkbox" id="card_enabled_${c.key}">
+        <span>${c.label} card</span>
+      </label>
+      <input type="hidden" id="${cardSettingId(c.key)}" value="none">
+      <div class="card-tier-options" id="card_options_${c.key}">
+        <label><input type="radio" name="card_state_${c.key}" value="owned" checked>Normal</label>
+        <label><input type="radio" name="card_state_${c.key}" value="gilded">Gilded</label>
+      </div>
+    </div>
+  `).join("");
+  ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
+    const cb = document.getElementById(`card_enabled_${c.key}`);
+    const radios = Array.from(document.querySelectorAll(`input[name="card_state_${c.key}"]`));
+    cb?.addEventListener("change", ()=>{
+      syncCardField(c.key);
+      markOptimizerStale();
+      renderNodes(); scoreCurrent(); updateSettingsSummary();
+    });
+    radios.forEach(r=>r.addEventListener("change", ()=>{
+      syncCardField(c.key);
+      markOptimizerStale();
+      renderNodes(); scoreCurrent(); updateSettingsSummary();
+    }));
+    syncCardField(c.key);
+  });
+  grid.dataset.ready = "1";
+}
+function syncAllCardFields(){
+  ARCHAEOLOGY_CARD_KEYS.forEach(c=>syncCardField(c.key));
+}
+function fmt(x,d=2){ if(!Number.isFinite(x)) return "—"; return Number(x).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d}); }
+function fmt0(x){ if(!Number.isFinite(x)) return "—"; return Math.round(x).toLocaleString(); }
+function clamp(x,min,max){ return Math.max(min,Math.min(max,x)); }
+function hashSeedString(str){
+  // xmur3-style string hash for stable fixed-seed simulations.
+  let h = 1779033703 ^ String(str).length;
+  for(let i=0;i<String(str).length;i++){
+    h = Math.imul(h ^ String(str).charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function(){
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= h >>> 16) >>> 0;
+  };
+}
+
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function createSimulationRng(inp){
+  const mode = inp?.simSeedMode || "random";
+  const seed = mode === "fixed"
+    ? String(inp?.simSeedValue || "12345")
+    : `${Date.now()}-${Math.floor(performance.now()*1000)}-${Math.floor(Math.random()*1e9)}`;
+  const hashed = hashSeedString(seed)();
+  return {seed, random:mulberry32(hashed)};
+}
+
+
+function deterministicSignature(inp){
+  const stable = {
+    selectedLevel: inp.selectedLevel,
+    targetFloor: inp.targetFloor,
+    maxFloor: inp.maxFloor,
+    mcTopCount: inp.mcTopCount,
+    worthless: inp.worthless,
+    base: inp.base,
+    inc: inp.inc,
+    goal: inp.goal,
+    cardStates: inp.cardStates
+  };
+  return JSON.stringify(stable);
+}
+
+function resetBestResults(){
+  const ids = ["bestBuild","bestRph","bestFloor","candidateCount"];
+  ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent="—"; });
+  const tbody=document.querySelector("#topBuildsTable tbody");
+  if(tbody) tbody.innerHTML="";
+}
+
+function markOptimizerStale(){
+  if(isRunningExact) return;
+  lastExactTopBuilds = [];
+  lastExactSignature = null;
+  resetBestResults();
+  clearMonteRerank(true);
+}
+
+function getInputs(){
+  return {
+    mode:v("mode"),
+    objective:v("objective") || "total",
+    selectedLevel:Math.max(0, Math.floor(n("selectedLevel"))),
+    targetFloor:validateTargetFloor(),
+    maxFloor:Math.max(1, Math.floor(n("maxFloor"))),
+    nodeSpawnModel:v("nodeSpawnModel") || "activeCount",
+    speedModel:"none", // speed/ticks-per-second intentionally excluded from tick-efficiency optimization
+    mcTopCount:Math.max(1, Math.min(100, Math.floor(n("mcTopCount") || 25))),
+    mcRunsPerBuild:Math.max(100, Math.min(20000, Math.floor(n("mcRunsPerBuild") || 1000))),
+    reachTopCount:Math.max(1, Math.min(200, Math.floor(n("reachTopCount") || 75))),
+    reachRunsPerBuild:Math.max(100, Math.min(20000, Math.floor(n("reachRunsPerBuild") || 1000))),
+    simSeedMode:v("simSeedMode") || "random",
+    simSeedValue:String(v("simSeedValue") || "12345"),
+    worthless:{
+      common:checked("worthlessCommon"),
+      rare:checked("worthlessRare"),
+      epic:checked("worthlessEpic"),
+      legendary:checked("worthlessLegendary"),
+      mythic:checked("worthlessMythic"),
+      divine:checked("worthlessDivine")
+    },
+    base:{
+      damage:n("baseDamage"),
+      stamina:n("baseStamina"),
+      critChance:pct("baseCritChance"),
+      critDamage:n("baseCritDamage"),
+      superChance:pct("baseSuperChance"),
+      superDamage:n("baseSuperDamage"),
+      xpGain:n("baseXpGain"),
+      fragGain:n("baseFragGain"),
+      xpMod:pct("baseXpMod"),
+      lootMod:pct("baseLootMod"),
+      speedMod:pct("baseSpeedMod"),
+      staminaMod:pct("baseStaminaMod")
+    },
+    inc:{
+      strFlatDamage:n("strFlatDamage"),
+      strDamagePct:pct("strDamagePct"),
+      strCritDamage:n("strCritDamage"),
+      agiStamina:n("agiStamina"),
+      agiCritPct:pct("agiCritPct"),
+      agiSpeedPct:pct("agiSpeedPct"),
+      agiStaminaModPct:pct("agiStaminaModPct"),
+      intXpGain:n("intXpGain"),
+      intXpModPct:pct("intXpModPct"),
+      perFragGain:n("perFragGain"),
+      perLootModPct:pct("perLootModPct"),
+      luckCritPct:pct("luckCritPct"),
+      luckXpModPct:pct("luckXpModPct"),
+      luckLootModPct:pct("luckLootModPct"),
+      luckAllModPct:pct("luckAllModPct"),
+      staminaModGain:n("staminaModGain")
+    },
+    goal:{
+      primaryType:(v("primaryGoal") || "allRewards") === "target" ? "target" : "rewards",
+      primaryReward:(v("primaryGoal") || "allRewards") === "target" ? "allRewards" : (v("primaryGoal") || "allRewards"),
+      secondary:v("secondaryGoal") || "none",
+      tolerancePct:primaryProtectionTolerance()
+    },
+    cardStates:Object.fromEntries(ARCHAEOLOGY_CARD_KEYS.map(c => [c.key, (document.getElementById(cardSettingId(c.key))?.value || "none")]))
+  };
+}
+
+function getDerived(stats, inp){
+  const S=stats.S, A=stats.A, I=stats.I, P=stats.P, L=stats.L;
+  const b=inp.base, inc=inp.inc;
+  const damage = (b.damage + S*inc.strFlatDamage) * (1 + S*inc.strDamagePct);
+  const critChance = clamp(b.critChance + A*inc.agiCritPct + L*inc.luckCritPct,0,0.995);
+  const critDamage = b.critDamage + S*inc.strCritDamage;
+  const superAvg = 1 + b.superChance * (b.superDamage - 1);
+  const normalHit = damage * superAvg;
+  const critHit = damage * critDamage * superAvg;
+  const xpMult = (b.xpGain + I*inc.intXpGain) * (1 + 2*(b.xpMod + I*inc.intXpModPct + L*inc.luckXpModPct));
+  const xpBaseMult = b.xpGain * (1 + 2*b.xpMod);
+  const xpFactor = xpMult / xpBaseMult;
+  const lootMult = (b.fragGain + P*inc.perFragGain) * (1 + 2.8*(b.lootMod + P*inc.perLootModPct + L*inc.luckLootModPct));
+  const lootBaseMult = b.fragGain * (1 + 2.8*b.lootMod);
+  const lootFactor = lootMult / lootBaseMult;
+  const speedChance = clamp(b.speedMod + A*inc.agiSpeedPct + L*inc.luckAllModPct,0,0.95);
+  const staminaModChance = clamp(b.staminaMod + A*inc.agiStaminaModPct + L*inc.luckAllModPct,0,0.95);
+  const stamina = b.stamina + A*inc.agiStamina;
+  return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina};
+}
+
+function visibleBlocks(inp){
+  const blocks = baseBlocks.map(b => {
+    const cardState = inp.cardStates?.[`t${b.tier}_${b.type}`] || "none";
+    const cardBonus = cardBonusForState(cardState);
+    const xp0 = b.xp*XP_DISPLAY_SCALE*cardBonus.rewardMult;
+    const loot0 = b.frag*FRAG_DISPLAY_SCALE*cardBonus.rewardMult;
+    return {
+      tier:b.tier,
+      type:b.type,
+      floorMin:b.floorMin,
+      floorMax:b.floorMax,
+      cardState,
+      hp:b.health*HP_SCALE*cardBonus.hpMult,
+      hp100:(b.health100 ?? b.health)*HP_SCALE*cardBonus.hpMult,
+      hp150:(b.health150 ?? b.health100 ?? b.health)*HP_SCALE*cardBonus.hpMult,
+      xp0,
+      loot0
+    };
+  });
+  // compute loot XP-equivalent from highest lower worthless baseline
+  for(const b of blocks){
+    if(b.type==="dirt" || b.loot0<=0 || inp.worthless[b.type]){
+      b.lootXpEq = 0;
+      b.isWorthless = true;
+      continue;
+    }
+    const idx = rarityOrder.indexOf(b.type);
+    let baselineType = "dirt";
+    for(let j=1;j<idx;j++){
+      const t = rarityOrder[j];
+      if(inp.worthless[t]) baselineType = t;
+    }
+    const baseline = blocks
+      .filter(x => x.tier===b.tier && x.type===baselineType)
+      .sort((a,bb)=>bb.floorMin-a.floorMin)[0];
+    const baselineXp = baseline ? baseline.xp0 : 0;
+    b.lootXpEq = Math.max(0, b.xp0 - baselineXp);
+    b.isWorthless = false;
+  }
+  return blocks;
+}
+
+function blockForFloor(type, floor, blocks){
+  let best=null;
+  for(const b of blocks){
+    if(b.type===type && b.floorMin<=floor && floor<=b.floorMax){
+      if(!best || b.tier>best.tier) best=b;
+    }
+  }
+  if(!best) return null;
+  const resolvedHp = floor >= 150 ? best.hp150 : (floor >= 100 ? best.hp100 : best.hp);
+  return {...best, hp: resolvedHp};
+}
+
+function ratesForFloor(floor){
+  if(bossMixed[floor]) return {...bossMixed[floor]};
+  if(bossSingle[floor]){
+    const out={dirt:0,common:0,rare:0,epic:0,legendary:0,mythic:0,divine:0};
+    out[bossSingle[floor]]=100;
+    return out;
+  }
+  for(const r of spawnRanges){
+    if(r.min<=floor && floor<=r.max) return {...r.rates};
+  }
+  return {...spawnRanges[spawnRanges.length-1].rates};
+}
+
+/* Expected hits with crit and super-crit breakpoints.
+   This mirrors the randomized simulator's damage outcomes:
+   normal, super, crit, and crit+super. For small hit counts it solves the
+   expected clear time exactly by recursive expectation. For very large hit
+   counts it falls back to average damage to keep exhaustive searches fast. */
+function expectedHitsFull(hp, der, inp){
+  if(hp <= 0) return 0;
+
+  if(!der._hitCache) der._hitCache = new Map();
+  const cacheKey = Math.ceil(hp * 1000);
+  if(der._hitCache.has(cacheKey)) return der._hitCache.get(cacheKey);
+
+  const pCrit = der.critChance;
+  const pSuper = inp.base.superChance;
+  const outcomes = [
+    {p:(1-pCrit)*(1-pSuper), d:der.damage},
+    {p:(1-pCrit)*pSuper, d:der.damage*inp.base.superDamage},
+    {p:pCrit*(1-pSuper), d:der.damage*der.critDamage},
+    {p:pCrit*pSuper, d:der.damage*der.critDamage*inp.base.superDamage}
+  ].filter(o => o.p > 0 && o.d > 0);
+
+  const minHit = Math.min(...outcomes.map(o => o.d));
+  const maxHits = Math.ceil(hp / Math.max(1e-9, minHit));
+
+  if(maxHits > 80){
+    const avgHit = outcomes.reduce((sum,o) => sum + o.p * o.d, 0);
+    const approx = hp / Math.max(1e-9, avgHit);
+    der._hitCache.set(cacheKey, approx);
+    return approx;
+  }
+
+  const memo = new Map();
+  function E(remainingHp){
+    if(remainingHp <= 0) return 0;
+    const key = Math.ceil(remainingHp * 1000);
+    if(memo.has(key)) return memo.get(key);
+    let value = 1;
+    for(const o of outcomes){
+      value += o.p * E(remainingHp - o.d);
+    }
+    memo.set(key, value);
+    return value;
+  }
+
+  const exact = E(hp);
+  der._hitCache.set(cacheKey, exact);
+  return exact;
+}
+
+function nodeCosts(hits, der, inp){
+  // Tick-efficiency scope: speed/ticks-per-second effects are excluded.
+  // A hit always costs one base tick of time. Stamina refunds can extend a run,
+  // but they do not reduce the time already spent attacking that node.
+  const tickCost = Math.max(0.05, hits);
+  const staminaCost = Math.max(0.05, hits - der.staminaModChance * inp.inc.staminaModGain);
+  return {tickCost, staminaCost};
+}
+
+function blankChannels(){
+  return {xp:0, common:0, rare:0, epic:0, legendary:0, mythic:0, divine:0};
+}
+function addChannels(target, source, multiplier=1){
+  for(const k of Object.keys(target)) target[k] += (source[k] || 0) * multiplier;
+}
+function finalizeMetrics(channels, used){
+  const scale = 3600 / Math.max(1, used);
+  const metrics = {};
+  for(const k of Object.keys(channels)) metrics[k] = channels[k] * scale;
+  metrics.allLoot = metrics.common + metrics.rare + metrics.epic + metrics.legendary + metrics.mythic + metrics.divine;
+  metrics.allRewards = metrics.xp + metrics.allLoot;
+  return metrics;
+}
+
+function floorCostValue(floor, der, inp, blocks){
+  const rates = ratesForFloor(floor);
+  let staminaCost=0, tickCost=0, nodes=0;
+  const channels=blankChannels();
+  for(const type of rarityOrder){
+    const rate = rates[type] || 0;
+    if(rate<=0) continue;
+    const expectedCount = expectedTypeCountForFloor(type, floor, rates, inp);
+    const b = blockForFloor(type, floor, blocks);
+    if(!b) continue;
+    const hits = expectedHitsFull(b.hp, der, inp);
+    const costs = nodeCosts(hits, der, inp);
+    const xpValue = b.xp0 * der.xpMult;
+    const lootValue = b.lootXpEq * der.lootMult;
+    staminaCost += expectedCount * costs.staminaCost;
+    tickCost += expectedCount * costs.tickCost;
+    channels.xp += expectedCount * xpValue;
+    if(channels[type] !== undefined) channels[type] += expectedCount * lootValue;
+    nodes += expectedCount;
+  }
+  const value = channels.xp + channels.common + channels.rare + channels.epic + channels.legendary + channels.mythic + channels.divine;
+  return {cost:staminaCost, staminaCost, tickCost, value, nodes, channels};
+}
+
+function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
+  // Expected final-floor model for the active-node-count model.
+  // Normal floors use the average active node count from 6..24 (=15), and
+  // each active node is distributed by the relative type weights.
+  const rates = ratesForFloor(floor);
+  const expectedActive = spawnModel(inp)==="slotChance" ? 24 : expectedActiveNodesForFloor(floor, inp);
+  let remaining = Math.max(0, remainingStamina);
+  let value = 0, tickCost = 0, nodes = 0, clearedNodes = 0;
+  const channels = blankChannels();
+  const emptyProb = spawnModel(inp)==="slotChance" ? Math.max(0, 1 - Math.min(100, totalRateForFloorRates(rates))/100) : 0;
+
+  for(let node=0; node<expectedActive && remaining>0; node++){
+    clearedNodes += emptyProb;
+    let nodeGross = 0, nodeNet = 0, nodeTick = 0, nodeValue = 0;
+    const nodeChannels = blankChannels();
+
+    for(const type of rarityOrder){
+      const p = typeProbabilityForFloor(type, floor, rates, inp);
+      if(p<=0) continue;
+      const b = blockForFloor(type, floor, blocks);
+      if(!b) continue;
+      const hits = expectedHitsFull(b.hp, der, inp);
+      const costs = nodeCosts(hits, der, inp);
+      const xpValue = b.xp0 * der.xpMult;
+      const lootValue = b.lootXpEq * der.lootMult;
+      nodeGross += p * hits;
+      nodeNet += p * costs.staminaCost;
+      nodeTick += p * costs.tickCost;
+      nodeValue += p * (xpValue + lootValue);
+      nodeChannels.xp += p * xpValue;
+      if(nodeChannels[type] !== undefined) nodeChannels[type] += p * lootValue;
+    }
+
+    if(nodeGross <= 0) continue;
+
+    if(remaining >= nodeGross){
+      remaining -= nodeNet;
+      tickCost += nodeTick;
+      value += nodeValue;
+      nodes += 1;
+      clearedNodes += 1;
+      addChannels(channels, nodeChannels);
+    }else{
+      // The run spends its remaining stamina/ticks on an unfinished active node.
+      // No node reward is awarded for that final partial clear.
+      tickCost += remaining;
+      remaining = 0;
+      break;
+    }
+  }
+
+  return {
+    value,
+    tickCost,
+    staminaCost: Math.max(0, remainingStamina - remaining),
+    nodes,
+    channels,
+    floorFrac: expectedActive > 0 ? clamp(clearedNodes/expectedActive, 0, 1) : 0
+  };
+}
+
+function scoreBuild(stats, inp, blocks){
+  const der = getDerived(stats, inp);
+  let remaining = der.stamina;
+  let totalValue=0, used=0, floorReached=1;
+  let totalNodes=0;
+  const channels=blankChannels();
+  for(let floor=1; floor<=inp.maxFloor; floor++){
+    const fv = floorCostValue(floor, der, inp, blocks);
+    if(fv.staminaCost <= 0) {
+      floorReached = floor + 1;
+      continue;
+    }
+    if(remaining >= fv.staminaCost){
+      remaining -= fv.staminaCost;
+      totalValue += fv.value;
+      addChannels(channels, fv.channels);
+      used += fv.tickCost;
+      totalNodes += fv.nodes;
+      floorReached = floor + 1;
+    } else {
+      const pv = partialFloorCostValue(floor, der, inp, blocks, remaining);
+      totalValue += pv.value;
+      addChannels(channels, pv.channels);
+      used += pv.tickCost;
+      totalNodes += pv.nodes;
+      floorReached = floor + pv.floorFrac;
+      remaining = 0;
+      break;
+    }
+  }
+  if(used <= 0) used = Math.max(1, der.stamina - remaining);
+  const metrics = finalizeMetrics(channels, used);
+  const targetDiff = Math.abs(floorReached - inp.targetFloor);
+  const out = {stats:{...stats}, der, rewardHr:metrics.allRewards, floorReached, targetDiff, totalValue, used, totalNodes, channels, metrics};
+  out.primaryMetric = metricValue(out, primaryFocusKey(inp), inp);
+  out.secondaryMetric = metricValue(out, secondaryFocusKey(inp), inp);
+  out.rewardHr = out.primaryMetric;
+  return out;
+}
+
+function isBetter(a,b,inp){
+  if(!b) return true;
+  return compareBuilds(a,b,inp) < 0;
+}
+
+function topInsert(arr, item, inp, max=10){
+  arr.push(item);
+  arr.sort((a,b)=>compareBuilds(a,b,inp));
+  if(arr.length>max) arr.pop();
+}
+
+async function runExact(){
+  isRunningExact = true;
+  const inp = getInputs();
+  const exactSignature = deterministicSignature(inp);
+  const level = inp.selectedLevel;
+  const blocks = visibleBlocks(inp);
+  const status = document.getElementById("status");
+  const btn = document.getElementById("runExact");
+  btn.disabled = true;
+  status.textContent = "Searching builds...";
+  await new Promise(r=>setTimeout(r,20));
+
+  clearMonteRerank();
+  let count=0;
+  const allCandidates=[];
+  const topLimit = Math.max(10, inp.mcTopCount);
+  const maxI = Math.min(25, level);
+  const start = performance.now();
+  for(let I=0; I<=maxI; I++){
+    const maxP = Math.min(25, level-I);
+    for(let P=0; P<=maxP; P++){
+      const maxL = Math.min(25, level-I-P);
+      for(let L=0; L<=maxL; L++){
+        const rem = level-I-P-L;
+        for(let S=0; S<=rem; S++){
+          const A = rem-S;
+          const sc = scoreBuild({S,A,I,P,L}, inp, blocks);
+          count++;
+          allCandidates.push(sc);
+        }
+      }
+    }
+    if(I % 2 === 0){
+      status.textContent = `Searching builds... I=${I}/${maxI}, candidates ${count.toLocaleString()}`;
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }
+  const ranked = rankCandidates(allCandidates, inp);
+  const best = ranked[0];
+  const top = ranked.slice(0, topLimit);
+  lastExactTopBuilds = top.map((x, idx) => ({...x, detRank: idx + 1}));
+  lastExactSignature = exactSignature;
+  renderBest(best, top.slice(0, 10), count);
+  status.textContent = `Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s.`;
+  btn.disabled = false;
+  isRunningExact = false;
+}
+
+function renderBest(best, top, count){
+  if(!best) return;
+  const s=best.stats, d=best.der;
+  document.getElementById("bestBuild").textContent = `${s.S}/${s.A}/${s.P}/${s.I}/${s.L}`;
+  document.getElementById("bestRph").textContent = fmt(best.rewardHr,1);
+  document.getElementById("bestFloor").textContent = fmt(best.floorReached,2);
+  const inp = getInputs();
+  const modeLabel = document.getElementById("bestModeLabel");
+  if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(inp));
+  const title = document.getElementById("optimizerTitle");
+  if(title) title.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
+  const help = document.getElementById("optimizerHelp");
+  if(help) help.textContent = secondaryFocusKey(inp)==="none" ? "Uses expected-value scoring. Simulate after running this to compare randomized runs." : `Protects ${rewardFocusLabel(primaryFocusKey(inp))}, then prefers ${rewardFocusLabel(secondaryFocusKey(inp))} inside the tolerance band.`;
+  const valueLabel = document.getElementById("bestValueLabel");
+  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))}/tick-hour`;
+  document.getElementById("candidateCount").textContent = count.toLocaleString();
+  const bandEl = document.getElementById("primaryBandFloor");
+  if(bandEl && top.length){
+    const pk = primaryFocusKey(inp);
+    const tol = Math.max(0, (inp.goal?.tolerancePct || 0) / 100);
+    const bestPrimary = Math.max(...top.map(x=>metricValue(x, pk, inp)));
+    bandEl.textContent = fmt(bestPrimary - Math.abs(bestPrimary)*tol, 1);
+  }
+
+  const tbody = document.querySelector("#topBuildsTable tbody");
+  tbody.innerHTML = "";
+  top.forEach((x,i)=>{
+    const tr=document.createElement("tr");
+    if(i===0) tr.className="best";
+    const st=x.stats, der=x.der;
+    const cells=[i+1,st.S,st.A,st.P,st.I,st.L,fmt(x.rewardHr,1),fmt(x.floorReached,2),fmt(der.stamina,0),fmt(der.damage,1),fmt(der.critChance*100,1)];
+    for(const c of cells){
+      const td=document.createElement("td"); td.textContent=c; tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+function scoreCurrent(){
+  const inp=getInputs(), blocks=visibleBlocks(inp);
+  const stats={
+    S:Math.max(0,Math.floor(n("curStr"))),
+    A:Math.max(0,Math.floor(n("curAgi"))),
+    I:clamp(Math.floor(n("curInt")),0,25),
+    P:clamp(Math.floor(n("curPer")),0,25),
+    L:clamp(Math.floor(n("curLuck")),0,25)
+  };
+  const base=scoreBuild(stats,inp,blocks);
+  document.getElementById("curBuildLabel").textContent=`${stats.S}/${stats.A}/${stats.P}/${stats.I}/${stats.L}`;
+  document.getElementById("curRph").textContent=fmt(base.rewardHr,1);
+  document.getElementById("curFloor").textContent=fmt(base.floorReached,2);
+
+  const candidates=[
+    ["Current", stats],
+    ["+1 STR", {...stats,S:stats.S+1}],
+    ["+1 AGI", {...stats,A:stats.A+1}],
+    ["+1 PER", {...stats,P:Math.min(25,stats.P+1)}],
+    ["+1 INT", {...stats,I:Math.min(25,stats.I+1)}],
+    ["+1 Luck", {...stats,L:Math.min(25,stats.L+1)}]
+  ];
+  const tbody=document.querySelector("#nextPointTable tbody");
+  tbody.innerHTML="";
+  let rows=candidates.map(([name,st])=>({name,sc:scoreBuild(st,inp,blocks)}));
+  const bestDelta = Math.max(...rows.slice(1).map(r=>r.sc.rewardHr-base.rewardHr));
+  rows.forEach((r,idx)=>{
+    const tr=document.createElement("tr");
+    if(idx>0 && Math.abs((r.sc.rewardHr-base.rewardHr)-bestDelta)<1e-7) tr.className="best";
+    const st=r.sc.stats;
+    const delta=r.sc.rewardHr-base.rewardHr;
+    const pctDelta=base.rewardHr?delta/base.rewardHr*100:0;
+    const floorDelta=r.sc.floorReached-base.floorReached;
+    const cells=[r.name,st.S,st.A,st.P,st.I,st.L,fmt(r.sc.rewardHr,1),fmt(delta,2),fmt(pctDelta,2)+"%",fmt(r.sc.floorReached,2),fmt(floorDelta,3)];
+    for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
+    tbody.appendChild(tr);
+  });
+}
+
+async function runGreedy(){
+  const inp=getInputs(), blocks=visibleBlocks(inp);
+  const tbody=document.querySelector("#greedyTable tbody");
+  tbody.innerHTML="";
+  const status=document.getElementById("status");
+  const btn=document.getElementById("runGreedy");
+  btn.disabled=true;
+  let stats={S:0,A:0,I:0,P:0,L:0};
+  const maxLevel=100;
+  for(let level=0; level<=maxLevel; level++){
+    const sc=scoreBuild(stats,inp,blocks);
+    const der=sc.der;
+    const tr=document.createElement("tr");
+    const cells=[level, level===0?"—":stats.added, stats.S,stats.A,stats.P,stats.I,stats.L,fmt(sc.rewardHr,1),fmt(sc.floorReached,2),fmt(der.stamina,0),fmt(der.damage,1),fmt(der.critChance*100,1)];
+    for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
+    tbody.appendChild(tr);
+
+    if(level < maxLevel){
+      const options=[
+        ["STR",{...stats,S:stats.S+1}],
+        ["AGI",{...stats,A:stats.A+1}],
+        ["PER",{...stats,P:stats.P<25?stats.P+1:stats.P}],
+        ["INT",{...stats,I:stats.I<25?stats.I+1:stats.I}],
+        ["Luck",{...stats,L:stats.L<25?stats.L+1:stats.L}]
+      ].filter(o => JSON.stringify(o[1]) !== JSON.stringify(stats));
+      let best=null, bestName="";
+      for(const [name,st] of options){
+        const opt=scoreBuild(st,inp,blocks);
+        if(isBetter(opt,best,inp)){ best=opt; bestName=name; }
+      }
+      stats={...best.stats, added:bestName};
+    }
+    if(level%10===0){
+      status.textContent=`Building greedy path... level ${level}/100`;
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }
+  status.textContent="Greedy path complete.";
+  btn.disabled=false;
+}
+
+function renderNodes(){
+  const inp=getInputs();
+  const blocks=visibleBlocks(inp);
+  const tbody=document.querySelector("#nodeTable tbody");
+  tbody.innerHTML="";
+  for(const b of blocks){
+    const tr=document.createElement("tr");
+    const cells=[b.tier,b.type,b.floorMin,b.floorMax===999?"∞":b.floorMax,fmt(b.hp,0),fmt(b.xp0,3),fmt(b.loot0,3),fmt(b.lootXpEq,3),b.isWorthless?"Yes":"No"];
+    for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
+    tbody.appendChild(tr);
+  }
+}
+
+/* Simulation uses exact randomized node slots and crits. It is intentionally separate from optimizer. */
+function randBlockTypeForFloor(floor, inp, rng=Math.random){
+  const rates=ratesForFloor(floor);
+  const total=totalRateForFloorRates(rates);
+  if(total <= 0) return null;
+
+  if(spawnModel(inp)==="slotChance"){
+    if(rng()*100 >= total) return null;
+  }
+
+  let r=rng()*total;
+  for(const type of rarityOrder){
+    r -= (rates[type] || 0);
+    if(r<=0) return type;
+  }
+  return null;
+}
+
+function simulateOneRun(stats, inp, blocks, rng=Math.random){
+  const der=getDerived(stats,inp);
+  let stamina=der.stamina;
+  let ticksSpent=0;
+  let totalValue=0;
+  const channels=blankChannels();
+  let floorReached=1;
+
+  for(let floor=1; floor<=inp.maxFloor && stamina>0; floor++){
+    const activeNodeCount = rollNodeAttemptsForFloor(floor, inp, rng);
+    let clearedNodes=0;
+    for(let node=0; node<activeNodeCount && stamina>0; node++){
+      const type=randBlockTypeForFloor(floor, inp, rng);
+      if(!type){
+        if(spawnModel(inp)==="slotChance") clearedNodes++;
+        continue;
+      }
+      const b=blockForFloor(type,floor,blocks);
+      if(!b){
+        continue;
+      }
+
+      let hp=b.hp;
+      while(hp>0 && stamina>0){
+        const crit=rng()<der.critChance;
+        const superCrit=rng()<inp.base.superChance;
+        const dmg=der.damage * (crit?der.critDamage:1) * (superCrit?inp.base.superDamage:1);
+        hp-=dmg;
+        stamina-=1;
+        ticksSpent+=1;
+      }
+
+      if(hp<=0){
+        const xpMod = rng() < (inp.base.xpMod + stats.I*inp.inc.intXpModPct + stats.L*inp.inc.luckXpModPct) ? 3 : 1;
+        const lootMod = rng() < (inp.base.lootMod + stats.P*inp.inc.perLootModPct + stats.L*inp.inc.luckLootModPct) ? 3.8 : 1;
+        const xpGain = inp.base.xpGain + stats.I*inp.inc.intXpGain;
+        const fragGain = inp.base.fragGain + stats.P*inp.inc.perFragGain;
+        const xpValue = b.xp0 * xpGain * xpMod;
+        const lootValue = b.lootXpEq * fragGain * lootMod;
+        channels.xp += xpValue;
+        if(channels[type] !== undefined) channels[type] += lootValue;
+        totalValue += xpValue + lootValue;
+
+        if(rng()<der.staminaModChance) stamina += inp.inc.staminaModGain;
+        clearedNodes++;
+      }
+    }
+    if(stamina>0){
+      floorReached=floor+1;
+    } else {
+      floorReached=floor + (activeNodeCount > 0 ? clearedNodes/activeNodeCount : 0);
+    }
+  }
+
+  const usedTicks = Math.max(1,ticksSpent);
+  const metrics = finalizeMetrics(channels, usedTicks);
+  const out = {
+    floorReached,
+    totalValue,
+    ticksSpent:usedTicks,
+    channels,
+    metrics,
+    rewardHr:metrics.allRewards
+  };
+  out.primaryMetric = metricValue(out, primaryFocusKey(inp), inp);
+  out.secondaryMetric = metricValue(out, secondaryFocusKey(inp), inp);
+  return out;
+}
+
+async function runMonte(){
+  const inp=getInputs(), blocks=visibleBlocks(inp);
+  const stats={
+    S:Math.max(0,Math.floor(n("curStr"))),
+    A:Math.max(0,Math.floor(n("curAgi"))),
+    I:clamp(Math.floor(n("curInt")),0,25),
+    P:clamp(Math.floor(n("curPer")),0,25),
+    L:clamp(Math.floor(n("curLuck")),0,25)
+  };
+  const runs=3000;
+  const simRng=createSimulationRng(inp);
+  const rng=simRng.random;
+  let hit=0, sumFloor=0;
+  const status=document.getElementById("status");
+  const btn=document.getElementById("runMonte");
+  btn.disabled=true;
+  for(let i=0;i<runs;i++){
+    const r=simulateOneRun(stats,inp,blocks,rng);
+    if(r.floorReached>=inp.targetFloor) hit++;
+    sumFloor+=r.floorReached;
+    if(i%250===0){
+      status.textContent=`Simulation ${i}/${runs}...`;
+      await new Promise(res=>setTimeout(res,0));
+    }
+  }
+  document.getElementById("monteChance").textContent=fmt(hit/runs*100,1)+"%";
+  document.getElementById("monteFloor").textContent=fmt(sumFloor/runs,2);
+  status.textContent=`Simulation complete: ${runs.toLocaleString()} runs.`;
+  const seedEl=document.getElementById("simSeedUsed"); if(seedEl) seedEl.textContent=simRng.seed;
+  btn.disabled=false;
+}
+
+
+async function runMonteRerank(){
+  const inp=getInputs(), blocks=visibleBlocks(inp);
+  const status=document.getElementById("status");
+  const btn=document.getElementById("runMonteRerank");
+  const tbody=document.querySelector("#monteRerankTable tbody");
+
+  if(!lastExactTopBuilds || lastExactTopBuilds.length===0){
+    status.textContent="Find the best build first.";
+    return;
+  }
+  if(deterministicSignature(inp) !== lastExactSignature){
+    status.textContent="Settings changed. Run Find best build again before simulating.";
+    return;
+  }
+
+  btn.disabled=true;
+  tbody.innerHTML="";
+  const builds=lastExactTopBuilds.slice(0, inp.mcTopCount);
+  const runs=inp.mcRunsPerBuild;
+  const results=[];
+  const simRng=createSimulationRng(inp);
+  const rng=simRng.random;
+  const start=performance.now();
+
+  for(let b=0; b<builds.length; b++){
+    const det=builds[b];
+    const stats=det.stats;
+    let sumValue=0, sumTicks=0, sumFloor=0, hitTarget=0;
+    const floors=[];
+    const simChannels=blankChannels();
+
+    for(let r=0; r<runs; r++){
+      const sim=simulateOneRun(stats, inp, blocks, rng);
+      sumValue += sim.totalValue;
+      sumTicks += sim.ticksSpent;
+      sumFloor += sim.floorReached;
+      addChannels(simChannels, sim.channels);
+      floors.push(sim.floorReached);
+      if(sim.floorReached >= inp.targetFloor) hitTarget++;
+    }
+
+    floors.sort((a,b)=>a-b);
+    const pct = p => floors[Math.max(0, Math.min(floors.length-1, Math.floor((floors.length-1)*p)))];
+    const mcAvgFloor = sumFloor/runs;
+    const mcMetrics = finalizeMetrics(simChannels, Math.max(1,sumTicks));
+    const mcAggregate = {metrics:mcMetrics, floorReached:mcAvgFloor};
+    const row={
+      detRank:det.detRank || (b+1),
+      stats:{...stats},
+      metrics:mcMetrics,
+      floorReached:mcAvgFloor,
+      rewardHr:metricValue(mcAggregate, primaryFocusKey(inp), inp),
+      mcRewardHr:mcMetrics.allRewards,
+      primaryMetric:metricValue(mcAggregate, primaryFocusKey(inp), inp),
+      secondaryMetric:metricValue(mcAggregate, secondaryFocusKey(inp), inp),
+      mcAvgFloor,
+      targetPct:hitTarget/runs*100,
+      p10:pct(0.10),
+      p50:pct(0.50),
+      p90:pct(0.90),
+      detRewardHr:det.rewardHr,
+      detFloor:det.floorReached
+    };
+    results.push(row);
+
+    status.textContent=`Simulation ${b+1}/${builds.length}; ${runs.toLocaleString()} runs/build.`;
+    await new Promise(res=>setTimeout(res,0));
+  }
+
+  rankCandidates(results, inp);
+
+  const bestSim = results[0];
+  if(bestSim){
+    const s = bestSim.stats;
+    document.getElementById("simBestBuild").textContent = `${s.S}/${s.A}/${s.P}/${s.I}/${s.L}`;
+    document.getElementById("simPrimaryLabel").textContent = primaryFocusKey(inp)==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(inp))}/tick-hour`;
+    document.getElementById("simPrimaryScore").textContent = primaryFocusKey(inp)==="target" ? fmt(bestSim.targetPct,1)+"%" : fmt(bestSim.primaryMetric,1);
+    document.getElementById("simAvgFloor").textContent = fmt(bestSim.mcAvgFloor,2);
+    document.getElementById("simTargetChance").textContent = fmt(bestSim.targetPct,1)+"%";
+    document.getElementById("simDetRank").textContent = String(bestSim.detRank);
+    const seedEl=document.getElementById("simSeedUsed"); if(seedEl) seedEl.textContent=simRng.seed;
+  }
+
+  results.forEach((r,i)=>{
+    const tr=document.createElement("tr");
+    if(i===0) tr.className="best";
+    const s=r.stats;
+    const cells=[
+      i+1,r.detRank,s.S,s.A,s.P,s.I,s.L,
+      fmt(r.mcRewardHr,1),fmt(r.mcAvgFloor,2),fmt(r.targetPct,1)+"%",
+      fmt(r.p10,2),fmt(r.p50,2),fmt(r.p90,2),
+      fmt(r.detRewardHr,1),fmt(r.detFloor,2)
+    ];
+    for(const c of cells){
+      const td=document.createElement("td");
+      td.textContent=c;
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+
+  document.body.dataset.simulationReady = "true";
+  status.textContent=`Simulation complete in ${((performance.now()-start)/1000).toFixed(2)}s.`;
+  const simCard=document.getElementById("simulationCard");
+  if(simCard){
+    setTimeout(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}), 80);
+    setTimeout(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}), 220);
+  }
+  btn.disabled=false;
+}
+
+function clearMonteRerank(silent=false){
+  const tbody=document.querySelector("#monteRerankTable tbody");
+  if(tbody) tbody.innerHTML="";
+  ["simBestBuild","simPrimaryScore","simAvgFloor","simTargetChance","simDetRank","simSeedUsed"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent="—";
+  });
+  const label=document.getElementById("simPrimaryLabel");
+  if(label) label.textContent="Sim primary score";
+  document.body.dataset.simulationReady = "false";
+  if(!silent) document.getElementById("status").textContent="Simulation results cleared.";
+}
+
+
+
+function topInsertByFloor(arr, item, max=75){
+  arr.push(item);
+  arr.sort((a,b)=>{
+    if(Math.abs(b.floorReached-a.floorReached)>1e-9) return b.floorReached-a.floorReached;
+    return b.rewardHr-a.rewardHr;
+  });
+  if(arr.length>max) arr.pop();
+}
+
+function floorAtChance(sortedFloorsAsc, chancePct){
+  // Highest floor reached in at least chancePct of runs.
+  // If 10% chance requested, use the 90th-percentile-from-bottom threshold.
+  if(!sortedFloorsAsc.length) return 0;
+  const p = Math.max(0, Math.min(1, 1 - chancePct/100));
+  const idx = Math.max(0, Math.min(sortedFloorsAsc.length-1, Math.floor((sortedFloorsAsc.length-1)*p)));
+  return sortedFloorsAsc[idx];
+}
+
+async function runReachability(){
+  const inp=getInputs(), blocks=visibleBlocks(inp);
+  const status=document.getElementById("status");
+  const btn=document.getElementById("runReachability");
+  const tbody=document.querySelector("#reachabilityTable tbody");
+  const level=inp.selectedLevel;
+  btn.disabled=true;
+  tbody.innerHTML="";
+  document.getElementById("reachBestBuild").textContent="—";
+  document.getElementById("reachTargetPct").textContent="—";
+  document.getElementById("reachAvgFloor").textContent="—";
+  document.getElementById("reachMaxObserved").textContent="—";
+  document.getElementById("reachFloor10").textContent="—";
+
+  const top=[];
+  let count=0;
+  const start=performance.now();
+  const maxI=Math.min(25, level);
+
+  for(let I=0; I<=maxI; I++){
+    const maxP=Math.min(25, level-I);
+    for(let P=0; P<=maxP; P++){
+      const maxL=Math.min(25, level-I-P);
+      for(let L=0; L<=maxL; L++){
+        const rem=level-I-P-L;
+        for(let S=0; S<=rem; S++){
+          const A=rem-S;
+          const sc=scoreBuild({S,A,I,P,L}, inp, blocks);
+          count++;
+          topInsertByFloor(top, sc, inp.reachTopCount);
+        }
+      }
+    }
+    if(I % 2 === 0){
+      status.textContent=`Searching floor-push builds... I=${I}/${maxI}, candidates ${count.toLocaleString()}`;
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }
+
+  const runs=inp.reachRunsPerBuild;
+  const simRng=createSimulationRng(inp);
+  const rng=simRng.random;
+  const results=[];
+  let globalMaxFloor=0;
+
+  for(let b=0; b<top.length; b++){
+    const det=top[b];
+    const stats=det.stats;
+    let sumValue=0, sumTicks=0, sumFloor=0, hitTarget=0, maxFloorSeen=0;
+    const floors=[];
+
+    for(let r=0; r<runs; r++){
+      const sim=simulateOneRun(stats, inp, blocks, rng);
+      sumValue += sim.totalValue;
+      sumTicks += sim.ticksSpent;
+      sumFloor += sim.floorReached;
+      floors.push(sim.floorReached);
+      if(sim.floorReached >= inp.targetFloor) hitTarget++;
+      if(sim.floorReached > maxFloorSeen) maxFloorSeen=sim.floorReached;
+      if(sim.floorReached > globalMaxFloor) globalMaxFloor=sim.floorReached;
+    }
+
+    floors.sort((a,b)=>a-b);
+    const pct = p => floors[Math.max(0, Math.min(floors.length-1, Math.floor((floors.length-1)*p)))];
+    const row={
+      stats:{...stats},
+      targetPct:hitTarget/runs*100,
+      avgFloor:sumFloor/runs,
+      maxObserved:maxFloorSeen,
+      floor50:floorAtChance(floors,50),
+      floor25:floorAtChance(floors,25),
+      floor10:floorAtChance(floors,10),
+      floor5:floorAtChance(floors,5),
+      floor1:floorAtChance(floors,1),
+      p10:pct(0.10),
+      p50:pct(0.50),
+      p90:pct(0.90),
+      mcRewardHr:3600*sumValue/Math.max(1,sumTicks),
+      detRewardHr:det.rewardHr,
+      detFloor:det.floorReached
+    };
+    results.push(row);
+
+    status.textContent=`Reachability Sim ${b+1}/${top.length}; ${runs.toLocaleString()} runs/build.`;
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  // Sort primarily by target success chance, then average floor, then reward.
+  results.sort((a,b)=>{
+    if(Math.abs(b.targetPct-a.targetPct)>1e-9) return b.targetPct-a.targetPct;
+    if(Math.abs(b.avgFloor-a.avgFloor)>1e-9) return b.avgFloor-a.avgFloor;
+    return b.mcRewardHr-a.mcRewardHr;
+  });
+
+  if(results.length){
+    const best=results[0], s=best.stats;
+    document.getElementById("reachBestBuild").textContent=`${s.S}/${s.A}/${s.P}/${s.I}/${s.L}`;
+    document.getElementById("reachTargetPct").textContent=fmt(best.targetPct,1)+"%";
+    document.getElementById("reachAvgFloor").textContent=fmt(best.avgFloor,2);
+    document.getElementById("reachMaxObserved").textContent=fmt(globalMaxFloor,2);
+    document.getElementById("reachFloor10").textContent=fmt(Math.max(...results.map(x=>x.floor10)),2);
+  }
+
+  results.forEach((r,i)=>{
+    const tr=document.createElement("tr");
+    if(i===0) tr.className="best";
+    const s=r.stats;
+    const cells=[
+      i+1,s.S,s.A,s.P,s.I,s.L,
+      fmt(r.targetPct,1)+"%",fmt(r.avgFloor,2),fmt(r.maxObserved,2),
+      fmt(r.floor50,2),fmt(r.floor25,2),fmt(r.floor10,2),fmt(r.floor5,2),fmt(r.floor1,2),
+      fmt(r.p10,2),fmt(r.p50,2),fmt(r.p90,2),
+      fmt(r.detFloor,2),fmt(r.detRewardHr,1)
+    ];
+    for(const c of cells){
+      const td=document.createElement("td");
+      td.textContent=c;
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+
+  status.textContent=`Floor-push search complete in ${((performance.now()-start)/1000).toFixed(2)}s. Candidate builds checked: ${count.toLocaleString()}.`;
+  const clearBtn=document.getElementById("clearReachability"); if(clearBtn) clearBtn.style.display="inline-flex";
+  btn.disabled=false;
+}
+
+function clearReachability(){
+  const tbody=document.querySelector("#reachabilityTable tbody");
+  if(tbody) tbody.innerHTML="";
+  document.getElementById("reachBestBuild").textContent="—";
+  document.getElementById("reachTargetPct").textContent="—";
+  document.getElementById("reachAvgFloor").textContent="—";
+  document.getElementById("reachMaxObserved").textContent="—";
+  document.getElementById("reachFloor10").textContent="—";
+  const clearBtn=document.getElementById("clearReachability"); if(clearBtn) clearBtn.style.display="none";
+  document.getElementById("status").textContent="Floor results cleared.";
+}
+
+
+
+
+
+let statusHideTimer = null;
+
+function showStatus(message, duration=2200){
+  const status = document.getElementById("status");
+  if(!status) return;
+  status.textContent = message || "";
+  if(!message){
+    status.classList.remove("show");
+    return;
+  }
+  status.classList.add("show");
+  clearTimeout(statusHideTimer);
+  statusHideTimer = setTimeout(()=>status.classList.remove("show"), duration);
+}
+
+function wireStatusToast(){
+  const status = document.getElementById("status");
+  if(!status) return;
+  const observer = new MutationObserver(()=>{
+    const msg = status.textContent.trim();
+    if(msg) showStatus(msg);
+  });
+  observer.observe(status, {childList:true, characterData:true, subtree:true});
+}
+
+function scrollToSimulationDetails(){
+  const details = document.getElementById("simulationDetails");
+  if(!details) return;
+  const y = details.getBoundingClientRect().top + window.scrollY - 12;
+  window.scrollTo({top:Math.max(0,y), behavior:"smooth"});
+}
+
+function wireDetailsScroll(){
+  const details = document.getElementById("simulationDetails");
+  if(!details) return;
+
+  const summary = details.querySelector("summary");
+  if(summary){
+    summary.addEventListener("click", ()=>{
+      if(!details.open){
+        setTimeout(scrollToSimulationDetails, 80);
+        setTimeout(scrollToSimulationDetails, 220);
+      }
+    });
+  }
+
+  details.addEventListener("toggle", ()=>{
+    if(details.open){
+      requestAnimationFrame(()=>requestAnimationFrame(scrollToSimulationDetails));
+      setTimeout(scrollToSimulationDetails, 250);
+    }
+  });
+}
+
+let settingsSnapshot = null;
+
+function getSettingsInputElements(){
+  return Array.from(document.querySelectorAll("#settingsModal input, #settingsModal select, input.hidden-control"));
+}
+
+function captureSettingsSnapshot(){
+  const snap = {};
+  getSettingsInputElements().forEach(el=>{
+    if(!el.id) return;
+    snap[el.id] = el.type === "checkbox" ? el.checked : el.value;
+  });
+  return snap;
+}
+
+function restoreSettingsSnapshot(){
+  if(!settingsSnapshot) return;
+  getSettingsInputElements().forEach(el=>{
+    if(!el.id || !(el.id in settingsSnapshot)) return;
+    if(el.type === "checkbox") el.checked = settingsSnapshot[el.id];
+    else el.value = settingsSnapshot[el.id];
+  });
+  syncAllCardFields();
+  renderNodes();
+  scoreCurrent();
+  updateSettingsSummary();
+}
+
+function confirmSettings(){
+  settingsSnapshot = null;
+  closeSettings();
+}
+
+function cancelSettings(){
+  restoreSettingsSnapshot();
+  settingsSnapshot = null;
+  closeSettings();
+}
+
+function statString(s,a,p,i,l){
+  return `${s}/${a}/${p}/${i}/${l}`;
+}
+function openSettings(sectionId){
+  if((v("objective") || "total") === "exp" && sectionId === "settings-loot") sectionId = "settings-general";
+  const modal=document.getElementById("settingsModal");
+  if(!modal) return;
+  if(!modal.classList.contains("open")) settingsSnapshot = captureSettingsSnapshot();
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden","false");
+  document.querySelectorAll(".settings-nav button").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll(".settings-section").forEach(s=>s.classList.remove("active"));
+  const target=document.getElementById(sectionId || "settings-general") || document.getElementById("settings-general");
+  target.classList.add("active");
+  const nav=document.querySelector(`.settings-nav button[data-section="${target.id}"]`);
+  if(nav) nav.classList.add("active");
+  const body=document.querySelector(".settings-body");
+  if(body) body.scrollTop = 0;
+  setTimeout(()=>target.scrollIntoView({block:"start", behavior:"auto"}), 0);
+}
+function closeSettings(){
+  const modal=document.getElementById("settingsModal");
+  if(!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden","true");
+  updateSettingsSummary();
+}
+function countWorthless(){
+  return ["Common","Rare","Epic","Legendary","Mythic","Divine"].filter(t=>document.getElementById("worthless"+t)?.checked).length;
+}
+function updateSettingsSummary(){
+  const setText=(id,text)=>{ const el=document.getElementById(id); if(el) el.textContent=text; };
+  setText("summaryLevel", `Level ${v("selectedLevel")} · Max floor ${v("maxFloor")}`);
+  setText("summarySpawnModel", (v("nodeSpawnModel") || "activeCount") === "slotChance" ? "24 slot chance" : "6–24 active count");
+  setText("summaryTarget", `Target floor ${v("targetFloor")}`);
+  const objective = v("objective") || "total";
+  const w=countWorthless();
+  setText("summaryLoot", w ? `${w} ignored tier${w===1?"":"s"}` : "All drops useful");
+  const primary = rewardFocusLabel(v("primaryGoal") || "allRewards");
+  const secondary = v("secondaryGoal") || "none";
+  const tol = primaryProtectionTolerance();
+  setText("summaryBuild", statString(n("curStr"), n("curAgi"), n("curPer"), n("curInt"), n("curLuck")));
+  setText("summaryBase", `Dmg ${v("baseDamage")} · Stam ${v("baseStamina")} · Crit ${v("baseCritChance")}%`);
+  const activeCards = ARCHAEOLOGY_CARD_KEYS.map(c => document.getElementById(cardSettingId(c.key))?.value || "none").filter(v => v !== "none");
+  const gildedCards = activeCards.filter(v => v === "gilded").length;
+  setText("summaryCards", activeCards.length ? `${activeCards.length} selected${gildedCards ? ` · ${gildedCards} gilded` : ""}` : "No cards selected");
+  const seedMode = (v("simSeedMode") || "random") === "fixed" ? `fixed seed ${v("simSeedValue") || "12345"}` : "random seed";
+  setText("summaryMC", `${v("mcTopCount")} reward builds · ${seedMode}`);
+}
+
+
+/* screenshot OCR import */
+function setFieldValue(id, value){
+  const el = document.getElementById(id);
+  if(!el || value === undefined || value === null || value === "") return false;
+  el.value = String(value);
+  el.dispatchEvent(new Event("input", {bubbles:true}));
+  el.dispatchEvent(new Event("change", {bubbles:true}));
+  return true;
+}
+
+function loadImageFromFile(file){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    img.onload = ()=>resolve(img);
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function canvasFromImage(img, maxDim=1800){
+  const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const ctx = canvas.getContext("2d", {willReadFrequently:true});
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+function isPanelPixel(r,g,b){
+  return r>=70 && r<=170 && g>=45 && g<=130 && b>=45 && b<=130 && r>=g-10 && r>=b-10;
+}
+
+function detectStatsPanelRect(canvas){
+  const w = canvas.width, h = canvas.height;
+  const ctx = canvas.getContext("2d", {willReadFrequently:true});
+  const data = ctx.getImageData(0,0,w,h).data;
+  const rowScores = new Array(h).fill(0);
+
+  for(let y=0;y<h;y+=1){
+    let count=0;
+    for(let x=0;x<w;x+=3){
+      const i=(y*w+x)*4;
+      if(isPanelPixel(data[i],data[i+1],data[i+2])) count++;
+    }
+    rowScores[y] = count / Math.ceil(w/3);
+  }
+
+  const bands=[];
+  let start=null;
+  for(let y=0;y<h;y++){
+    if(rowScores[y] > 0.38){
+      if(start===null) start=y;
+    }else if(start!==null){
+      if(y-start > Math.max(80, h*0.08)) bands.push({y1:start,y2:y,score:rowScores.slice(start,y).reduce((a,b)=>a+b,0)/(y-start)});
+      start=null;
+    }
+  }
+  if(start!==null && h-start > Math.max(80, h*0.08)){
+    bands.push({y1:start,y2:h,score:rowScores.slice(start).reduce((a,b)=>a+b,0)/(h-start)});
+  }
+
+  // Prefer a wide, tall upper/middle band. If the crop includes upgrade cards,
+  // OCR parsing still targets the known stats labels.
+  let best = bands
+    .map(b=>({...b, rank:(b.y2-b.y1)*b.score - Math.max(0,b.y1-h*0.75)}))
+    .sort((a,b)=>b.rank-a.rank)[0];
+
+  if(!best){
+    return {x:0,y:0,w,h};
+  }
+
+  let y1 = Math.max(0, best.y1 - Math.round(h*0.015));
+  let y2 = Math.min(h, best.y2 + Math.round(h*0.015));
+
+  const colScores = new Array(w).fill(0);
+  for(let x=0;x<w;x+=1){
+    let count=0, total=0;
+    for(let y=y1;y<y2;y+=3){
+      const i=(y*w+x)*4;
+      if(isPanelPixel(data[i],data[i+1],data[i+2])) count++;
+      total++;
+    }
+    colScores[x] = total ? count/total : 0;
+  }
+
+  let x1=0, x2=w-1;
+  for(let x=0;x<w;x++){ if(colScores[x] > 0.20){ x1=x; break; } }
+  for(let x=w-1;x>=0;x--){ if(colScores[x] > 0.20){ x2=x; break; } }
+
+  const padX = Math.round(w*0.02);
+  return {
+    x:Math.max(0,x1-padX),
+    y:y1,
+    w:Math.min(w, x2-x1+1+padX*2),
+    h:y2-y1
+  };
+}
+
+function cropCanvas(canvas, rect){
+  const out = document.createElement("canvas");
+  out.width = Math.max(1, Math.round(rect.w));
+  out.height = Math.max(1, Math.round(rect.h));
+  const ctx = out.getContext("2d", {willReadFrequently:true});
+  ctx.drawImage(canvas, rect.x, rect.y, rect.w, rect.h, 0, 0, out.width, out.height);
+  return out;
+}
+
+function preprocessForOcr(canvas){
+  const scale = Math.max(1, Math.min(3, 2200 / Math.max(canvas.width, canvas.height)));
+  const out = document.createElement("canvas");
+  out.width = Math.round(canvas.width * scale);
+  out.height = Math.round(canvas.height * scale);
+  const ctx = out.getContext("2d", {willReadFrequently:true});
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(canvas, 0, 0, out.width, out.height);
+
+  const img = ctx.getImageData(0,0,out.width,out.height);
+  const d = img.data;
+  for(let i=0;i<d.length;i+=4){
+    const lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    const isText = lum > 135;
+    d[i] = d[i+1] = d[i+2] = isText ? 0 : 255;
+    d[i+3] = 255;
+  }
+  ctx.putImageData(img,0,0);
+  return out;
+}
+
+function normalizeOcrText(text){
+  return String(text || "")
+    .replace(/[“”]/g,'"')
+    .replace(/[|]/g,"I")
+    .replace(/[：]/g,":")
+    .replace(/[％]/g,"%")
+    .replace(/[×]/g,"x");
+}
+
+function lineNumber(line){
+  const cleaned = String(line)
+    .replace(/[Oo]/g,"0")
+    .replace(/[Il|]/g,"1")
+    .replace(/S(?=\d)/g,"5")
+    .replace(/(?<=\d)S\b/g,"5")
+    .replace(/[^\d.+-]/g," ");
+  const nums = cleaned.match(/[+-]?\d+(?:\.\d+)?/g);
+  if(!nums || !nums.length) return null;
+  return nums[nums.length-1].replace(/^\+/,"");
+}
+
+function parseStatsFromOcr(rawText){
+  const text = normalizeOcrText(rawText);
+  const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
+  const found = {};
+
+  const specs = [
+    {id:"selectedLevel", name:"Archaeology Level", tests:[/Archaeolog\w*\s+Level/i]},
+    {id:"baseStamina", name:"Max Stamina", tests:[/Max\s+Stamina/i]},
+    {id:"baseDamage", name:"Damage", tests:[/^Damage\b/i, /\bDamage\s*:/i]},
+    {id:"baseCritChance", name:"Crit Chance", tests:[/^Crit\s+Chance/i, /\bCrit\s+Chance\s*:/i]},
+    {id:"baseCritDamage", name:"Crit Damage", tests:[/^Crit\s+Damage/i, /\bCrit\s+Damage\s*:/i]},
+    {id:"baseSuperChance", name:"Super Crit Chance", tests:[/^Super\s+Crit\s+Chance/i, /\bSuper\s+Crit\s+Chance\s*:/i]},
+    {id:"baseSuperDamage", name:"Super Crit Damage", tests:[/^Super\s+Crit\s+Damage/i, /\bSuper\s+Crit\s+Damage\s*:/i]},
+    {id:"baseXpGain", name:"EXP Gain", tests:[/^Exp\s+Gain/i, /^EXP\s+Gain/i, /\bExp\s+Gain\s*:/i]},
+    {id:"baseFragGain", name:"Fragment Gain", tests:[/^Fragment\s+Gain/i, /\bFragment\s+Gain\s*:/i]},
+    {id:"baseXpMod", name:"EXP Mod Chance", tests:[/^Exp\s+Mod\s+Chance/i, /^EXP\s+Mod\s+Chance/i, /\bExp\s+Mod\s+Chance\s*:/i]},
+    {id:"baseLootMod", name:"Loot Mod Chance", tests:[/^Loot\s+Mod\s+Chance/i, /\bLoot\s+Mod\s+Chance\s*:/i]},
+    {id:"baseSpeedMod", name:"Speed Mod Chance", tests:[/^Speed\s+Mod\s+Chance/i, /\bSpeed\s+Mod\s+Chance\s*:/i]},
+    {id:"baseStaminaMod", name:"Stamina Mod Chance", tests:[/^Stamina\s+Mod\s+Chance/i, /\bStamina\s+Mod\s+Chance\s*:/i]},
+    {id:"staminaModGain", name:"Stamina Mod Gain", tests:[/^Stamina\s+Mod\s+Gain/i, /\bStamina\s+Mod\s+Gain\s*:/i]}
+  ];
+
+  for(const line of lines){
+    for(const spec of specs){
+      if(found[spec.id] !== undefined) continue;
+      if(spec.tests.some(re=>re.test(line))){
+        const num = lineNumber(line);
+        if(num !== null) found[spec.id] = num;
+      }
+    }
+  }
+
+  // Full-text fallback for common label/value pairs split oddly by OCR.
+  const compact = lines.join(" ");
+  const fallback = [
+    ["selectedLevel", /Archaeolog\w*\s+Level\D+(\d+(?:\.\d+)?)/i],
+    ["baseStamina", /Max\s+Stamina\D+(\d+(?:\.\d+)?)/i],
+    ["baseDamage", /\bDamage\D+(\d+(?:\.\d+)?)/i],
+    ["baseCritChance", /Crit\s+Chance\D+(\d+(?:\.\d+)?)/i],
+    ["baseCritDamage", /Crit\s+Damage\D+(\d+(?:\.\d+)?)/i],
+    ["baseSuperChance", /Super\s+Crit\s+Chance\D+(\d+(?:\.\d+)?)/i],
+    ["baseSuperDamage", /Super\s+Crit\s+Damage\D+(\d+(?:\.\d+)?)/i],
+    ["baseXpGain", /Exp\s+Gain\D+(\d+(?:\.\d+)?)/i],
+    ["baseFragGain", /Fragment\s+Gain\D+(\d+(?:\.\d+)?)/i],
+    ["baseXpMod", /Exp\s+Mod\s+Chance\D+(\d+(?:\.\d+)?)/i],
+    ["baseLootMod", /Loot\s+Mod\s+Chance\D+(\d+(?:\.\d+)?)/i],
+    ["baseSpeedMod", /Speed\s+Mod\s+Chance\D+(\d+(?:\.\d+)?)/i],
+    ["baseStaminaMod", /Stamina\s+Mod\s+Chance\D+(\d+(?:\.\d+)?)/i],
+    ["staminaModGain", /Stamina\s+Mod\s+Gain\D+\+?(\d+(?:\.\d+)?)/i]
+  ];
+  for(const [id,re] of fallback){
+    if(found[id] !== undefined) continue;
+    const m = compact.match(re);
+    if(m) found[id] = m[1];
+  }
+
+  return found;
+}
+
+
+
+function setOcrStatus(message){
+  const status = document.getElementById("ocrStatus");
+  if(status) status.textContent = message || "";
+}
+
+function setOcrRuntimeNote(){
+  const note = document.getElementById("ocrRuntimeNote");
+  if(!note) return;
+  const protocol = window.location.protocol;
+  if(protocol === "file:" || protocol === "content:"){
+    note.textContent = "Note: OCR loads a web worker and language data from the internet. If local-file mode blocks that, open this page from a local web server or hosted URL.";
+  }else{
+    note.textContent = "";
+  }
+}
+
+function describeError(err){
+  if(!err) return "Unknown error.";
+  if(typeof err === "string") return err;
+  if(err.message) return err.message;
+  try{ return JSON.stringify(err); }catch(e){ return String(err); }
+}
+
+async function recognizeWithTesseract(image, statusPrefix){
+  const opts = {
+    workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
+    langPath: "https://tessdata.projectnaptha.com/4.0.0",
+    logger:m=>{
+      if(m && m.status){
+        const pct = m.progress ? ` ${Math.round(m.progress*100)}%` : "";
+        setOcrStatus(`${statusPrefix || "Reading"}: ${m.status}${pct}`);
+      }
+    }
+  };
+  return await Tesseract.recognize(image, "eng", opts);
+}
+
+window.addEventListener("unhandledrejection", e=>{
+  const msg = describeError(e.reason);
+  if(/tesseract|ocr|worker|wasm|traineddata|network|fetch/i.test(msg)){
+    setOcrStatus("Screenshot import failed: " + msg);
+  }
+});
+
+window.addEventListener("error", e=>{
+  const msg = e.message || "";
+  if(/tesseract|ocr|worker|wasm|traineddata|network|fetch/i.test(msg)){
+    setOcrStatus("Screenshot import failed: " + msg);
+  }
+});
+
+function loadScriptOnce(id, src){
+  return new Promise((resolve,reject)=>{
+    if(window.Tesseract) return resolve(window.Tesseract);
+    let existing=document.getElementById(id);
+    if(existing && existing.dataset.loaded==="1") return resolve(window.Tesseract);
+    if(existing && existing.dataset.loading==="1"){
+      const started=Date.now();
+      const timer=setInterval(()=>{
+        if(window.Tesseract){ clearInterval(timer); resolve(window.Tesseract); }
+        else if(Date.now()-started>15000){ clearInterval(timer); reject(new Error("OCR library timed out.")); }
+      },150);
+      return;
+    }
+    const s=existing || document.createElement("script");
+    s.id=id;
+    s.src=src;
+    s.dataset.loading="1";
+    s.onload=()=>{ s.dataset.loading="0"; s.dataset.loaded="1"; resolve(window.Tesseract); };
+    s.onerror=()=>{ s.dataset.loading="0"; reject(new Error("OCR library failed to load. Check internet access or open the file from a hosted/local web server.")); };
+    if(!existing) document.head.appendChild(s);
+    // If the existing script tag was already in the document before this handler
+    // was attached and failed silently, add a timeout so the user gets feedback.
+    setTimeout(()=>{ if(!window.Tesseract) reject(new Error("OCR library failed to load. Check internet access or open the file from a hosted/local web server.")); },15000);
+  });
+}
+
+async function ensureTesseractLoaded(status){
+  if(window.Tesseract) return window.Tesseract;
+  setOcrStatus("Loading OCR library...");
+  return await loadScriptOnce("tesseractDynamicScript", "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js");
+}
+
+async function importStatsFromScreenshot(file){
+  const status = document.getElementById("ocrStatus");
+  const ocrText = document.getElementById("ocrText");
+  const btn = document.getElementById("importStatScreenshotBtn");
+  if(!file) return;
+
+  try{
+    if(btn) btn.disabled = true;
+    await ensureTesseractLoaded(status);
+    setOcrStatus("Loading screenshot...");
+    if(ocrText) ocrText.textContent = "";
+    const img = await loadImageFromFile(file);
+    const baseCanvas = canvasFromImage(img);
+    const rect = detectStatsPanelRect(baseCanvas);
+    const cropped = cropCanvas(baseCanvas, rect);
+    const processed = preprocessForOcr(cropped);
+
+    setOcrStatus("Reading screenshot...");
+    const result = await recognizeWithTesseract(processed, "Reading screenshot");
+
+    let text = result?.data?.text || "";
+    let parsed = parseStatsFromOcr(text);
+
+    // Some crops are worse than the full image. If too few labels are found,
+    // retry against the full screenshot before applying values.
+    if(Object.keys(parsed).length < 5){
+      setOcrStatus("Reading full screenshot...");
+      const fullProcessed = preprocessForOcr(baseCanvas);
+      const fullResult = await recognizeWithTesseract(fullProcessed, "Reading full screenshot");
+      const fullText = fullResult?.data?.text || "";
+      const fullParsed = parseStatsFromOcr(fullText);
+      if(Object.keys(fullParsed).length >= Object.keys(parsed).length){
+        text = fullText;
+        parsed = fullParsed;
+      }
+    }
+
+    if(ocrText) ocrText.textContent = text;
+
+    let applied = 0;
+    for(const [id,val] of Object.entries(parsed)){
+      if(setFieldValue(id,val)) applied++;
+    }
+
+    markOptimizerStale();
+    renderNodes();
+    scoreCurrent();
+    updateSettingsSummary();
+
+    if(status) status.textContent = applied ? `Imported ${applied} stat value${applied===1?"":"s"} from screenshot.` : "OCR finished, but no stat values were imported.";
+  }catch(err){
+    console.error(err);
+    setOcrStatus("Screenshot import failed: " + describeError(err));
+  }finally{
+    if(btn) btn.disabled = false;
+  }
+}
+
+
+function resetAllSettings(){
+  const blankIds = [
+    "selectedLevel","targetFloor",
+    "baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage",
+    "baseXpGain","baseFragGain","baseXpMod","baseLootMod","baseSpeedMod","baseStaminaMod","staminaModGain",
+    "curStr","curAgi","curPer","curInt","curLuck"
+  ];
+
+  for(const id of blankIds){
+    const el = document.getElementById(id);
+    if(el) el.value = id.startsWith("cur") ? "0" : "";
+  }
+
+  const defaults = {
+    maxFloor:"50",
+    nodeSpawnModel:"activeCount",
+    primaryGoal:"allRewards",
+    secondaryGoal:"none",
+    primaryToleranceValue:"2",
+    mcTopCount:"25",
+    mcRunsPerBuild:"1000",
+    reachTopCount:"75",
+    reachRunsPerBuild:"1000",
+    simSeedMode:"random",
+    simSeedValue:"12345"
+  };
+  for(const [id,val] of Object.entries(defaults)){
+    const el = document.getElementById(id);
+    if(el) el.value = val;
+  }
+
+  document.getElementById("primaryProtectionStrict")?.click();
+
+  ["worthlessCommon","worthlessRare","worthlessEpic","worthlessLegendary","worthlessMythic","worthlessDivine"].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.checked=false;
+  });
+
+  if(typeof ARCHAEOLOGY_CARD_KEYS !== "undefined"){
+    ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
+      const el=document.getElementById(cardSettingId(c.key));
+      if(el) el.value="none";
+    });
+  }
+
+  const fileInput=document.getElementById("statScreenshotInput");
+  if(fileInput) fileInput.value="";
+  const status=document.getElementById("ocrStatus");
+  if(status) status.textContent="No screenshot imported.";
+  const ocrText=document.getElementById("ocrText");
+  if(ocrText) ocrText.textContent="";
+
+  clearMonteRerank(true);
+  clearReachability?.();
+  markOptimizerStale();
+  syncSecondaryGoalOptions();
+  syncPrimaryProtectionUI();
+  updateGoalUI();
+  renderNodes();
+  scoreCurrent();
+  updateSettingsSummary();
+}
+
+function selectedStatScreenshotFile(){
+  const input = document.getElementById("statScreenshotInput");
+  return input?.files && input.files[0] ? input.files[0] : null;
+}
+
+function startSelectedScreenshotImport(){
+  const status = document.getElementById("ocrStatus");
+  const file = selectedStatScreenshotFile();
+  if(!file){
+    if(status) status.textContent = "Choose a screenshot first.";
+    return;
+  }
+  importStatsFromScreenshot(file);
+}
+
+function bindStatScreenshotImport(){
+  const input = document.getElementById("statScreenshotInput");
+  const btn = document.getElementById("importStatScreenshotBtn");
+  const status = document.getElementById("ocrStatus");
+
+  if(input){
+    const onSelected=()=>{
+      const file = selectedStatScreenshotFile();
+      if(status) status.textContent = file ? `Selected ${file.name}. Starting import...` : "No screenshot imported.";
+      if(file) startSelectedScreenshotImport();
+    };
+    input.addEventListener("change", onSelected);
+    input.addEventListener("input", onSelected);
+  }
+
+  if(btn){
+    btn.addEventListener("click", startSelectedScreenshotImport);
+  }
+
+  document.addEventListener("change",(e)=>{
+    if(e.target && e.target.id === "statScreenshotInput"){
+      const file = selectedStatScreenshotFile();
+      if(status && !file) status.textContent = "No screenshot imported.";
+    }
+  });
+}
+
+
+/* goal selector */
+function bindGoalSelector(){
+  document.getElementById("primaryGoal")?.addEventListener("change",()=>{
+    syncSecondaryGoalOptions();
+    updateGoalUI();
+    renderNodes();
+    scoreCurrent();
+    updateSettingsSummary();
+  });
+  document.getElementById("secondaryGoal")?.addEventListener("change",()=>{
+    syncSecondaryGoalOptions();
+    updateGoalUI();
+    renderNodes();
+    scoreCurrent();
+    updateSettingsSummary();
+  });
+  document.querySelectorAll('input[name="primaryProtectionMode"]').forEach(el=>el.addEventListener("change",()=>{
+    updateGoalUI();
+    renderNodes();
+    scoreCurrent();
+    updateSettingsSummary();
+  }));
+  document.getElementById("primaryToleranceValue")?.addEventListener("input",()=>{
+    validatePrimaryTolerance();
+    updateGoalUI();
+    renderNodes();
+    scoreCurrent();
+    updateSettingsSummary();
+  });
+  document.getElementById("primaryToleranceValue")?.addEventListener("change",()=>{
+    validatePrimaryTolerance();
+    updateGoalUI();
+    renderNodes();
+    scoreCurrent();
+    updateSettingsSummary();
+  });
+  document.getElementById("targetFloor")?.addEventListener("input",()=>{
+    updateGoalUI();
+    renderNodes();
+    scoreCurrent();
+    updateSettingsSummary();
+  });
+  document.getElementById("targetFloor")?.addEventListener("change",()=>{
+    validateTargetFloor();
+    updateGoalUI();
+    renderNodes();
+    scoreCurrent();
+    updateSettingsSummary();
+  });
+}
+document.getElementById("runExact").addEventListener("click",runExact);
+document.getElementById("runGreedy")?.addEventListener("click",runGreedy);
+document.getElementById("scoreCurrent")?.addEventListener("click",()=>{scoreCurrent(); renderNodes();});
+document.getElementById("runMonte")?.addEventListener("click",runMonte);
+document.getElementById("runMonteRerank").addEventListener("click",runMonteRerank);
+document.getElementById("clearMonteRerank").addEventListener("click",clearMonteRerank);
+document.getElementById("runReachability").addEventListener("click",runReachability);
+document.getElementById("clearReachability").addEventListener("click",clearReachability);
+document.getElementById("resetAllSettings")?.addEventListener("click",resetAllSettings);
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{updateGoalUI(); markOptimizerStale(); renderNodes(); scoreCurrent(); updateSettingsSummary();}));
+document.querySelectorAll("[data-open-settings]").forEach(el=>el.addEventListener("click",()=>openSettings(el.dataset.openSettings)));
+document.querySelectorAll("[data-close-settings]").forEach(el=>el.addEventListener("click",confirmSettings));
+document.querySelectorAll("[data-confirm-settings]").forEach(el=>el.addEventListener("click",confirmSettings));
+document.querySelectorAll("[data-cancel-settings]").forEach(el=>el.addEventListener("click",cancelSettings));
+document.querySelectorAll(".settings-nav button").forEach(btn=>btn.addEventListener("click",()=>openSettings(btn.dataset.section)));
+document.getElementById("settingsModal")?.addEventListener("click",(e)=>{ if(e.target.id==="settingsModal") cancelSettings(); });
+
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="Escape" && document.getElementById("settingsModal")?.classList.contains("open")) cancelSettings();
+});
+
+populateCardSettings();
+
+populateCardSettings();
+document.querySelectorAll("input, select").forEach(el=>{
+  el.addEventListener("input",()=>{ markOptimizerStale(); renderNodes(); scoreCurrent(); updateSettingsSummary(); });
+  el.addEventListener("change",()=>{ markOptimizerStale(); renderNodes(); scoreCurrent(); updateSettingsSummary(); });
+});
+
+// v46: removed obsolete applyGoalPreset startup call; goal controls are initialized directly below.
+document.body.dataset.workflow="results";
+document.body.dataset.objective="custom";
+document.body.dataset.targetUsed="false";
+document.body.dataset.targetUsed="false";
+bindGoalSelector();
+try{
+  bindStatScreenshotImport();
+  setOcrRuntimeNote();
+}catch(err){
+  const status = document.getElementById("ocrStatus");
+  if(status) status.textContent = "Screenshot import setup failed: " + (err?.message || String(err));
+}
+syncSecondaryGoalOptions();
+syncPrimaryProtectionUI();
+updateGoalUI();
+renderNodes();
+scoreCurrent();
+updateSettingsSummary();
+</script>
+</body>
+</html>
