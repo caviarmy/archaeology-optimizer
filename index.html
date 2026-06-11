@@ -621,7 +621,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
       
       <section id="settings-cards" class="settings-section">
-        <div class="small" style="margin-bottom:8px">Select the archaeology cards you own. Normal: -10% node health, +10% EXP/loot. Gilded: -20% / +20%. Polychrome: -35% / +35% (base; up to 50% with an Archaeology upgrade) — all scored. Infernal replaces that bonus with a unique global archaeology effect (shown on each card); those global effects are tracked but not yet folded into node scoring.</div>
+        <div class="small" style="margin-bottom:8px">Select the archaeology cards you own. Normal: -10% node health, +10% EXP/loot. Gilded: -20% / +20%. Polychrome: -35% / +35% (base; up to 50% with an Archaeology upgrade). Infernal amplifies the maxed-polychrome bonus by the number of cards set to infernal — TotalMultiplier = 1 + (1.5 − 1) × (infernal count) — applied to loot/EXP (+) and health (−), with health clamped to −90%. Each infernal card also grants a unique global effect (shown on the card); those global effects are tracked but not yet folded into node scoring.</div>
         <div class="card-bulk">
           <div class="bulk-field">
             <label for="cardBulkRarity">Bulk set rarity</label>
@@ -1045,7 +1045,10 @@ const ARCHAEOLOGY_CARD_KEYS = [
   {key:"t4_divine", label:"Tier 4 Divine"}
 ];
 function cardSettingId(key){ return "card_" + key; }
-function cardBonusForState(state){
+// Maxed polychrome archaeology bonus, used as the PolyBonus for infernal cards.
+const POLY_MAX_BONUS = 0.50;           // +/-50% loot / health
+const INFERNAL_MIN_HP_MULT = 0.10;     // clamp: an infernal card can't take a node below 10% HP
+function cardBonusForState(state, infernalBonus=0){
   // Archaeology cards reduce that node's health and raise its EXP/loot. The
   // rarity tiers scale the same effect (wiki: Cards/Card Effects):
   //   Standard -10%/+10%, Gilded -20%/+20%, Polychrome -35%/+35% base
@@ -1053,12 +1056,19 @@ function cardBonusForState(state){
   if(state==="owned") return {hpMult:0.9, rewardMult:1.1};
   if(state==="gilded") return {hpMult:0.8, rewardMult:1.2};
   if(state==="polychrome") return {hpMult:0.65, rewardMult:1.35};
-  // Infernal REPLACES the health/EXP-loot bonus with a unique per-card global
-  // archaeology effect (see INFERNAL_CARD_EFFECTS). That effect scales with the
-  // number of infernal cards owned and feeds global stats (crit, armor pen,
-  // mod gains, crosshairs, etc.), not this node's HP/reward. So a neutral
-  // per-node multiplier is the correct representation here; the global effect
-  // is a separate modeling layer.
+  if(state==="infernal"){
+    // Igniting keeps and amplifies the (maxed) polychrome node bonus via the
+    // wiki formula  TotalMultiplier = 1 + (PolyBonus - 1) * InfernalBonus,
+    // where PolyBonus = 1 + POLY_MAX_BONUS and InfernalBonus = the number of
+    // archaeology cards currently set to infernal. The result scales loot/EXP
+    // (+) and health (-) symmetrically; health is clamped so it stays sane.
+    // The unique per-card global effect (INFERNAL_CARD_EFFECTS) is shown in the
+    // UI but is a separate modeling layer, not applied here.
+    const count = Math.max(1, infernalBonus);
+    const total = 1 + POLY_MAX_BONUS * count;   // 1 + (1.5 - 1) * count
+    const p = total - 1;                         // effective bonus fraction
+    return { hpMult: clamp(1 - p, INFERNAL_MIN_HP_MULT, 1), rewardMult: 1 + p };
+  }
   return {hpMult:1, rewardMult:1};
 }
 // Per-card infernal effects (wiki: Cards/Card Effects). Surfaced in the UI so
@@ -1453,9 +1463,11 @@ function blockAvailableAtAscension(b, asc){
 
 function visibleBlocks(inp){
   const asc = inp.ascension ?? 0;
+  // InfernalBonus = number of archaeology cards currently set to infernal.
+  const infernalBonus = ARCHAEOLOGY_CARD_KEYS.reduce((n,c)=> n + ((inp.cardStates?.[c.key] === "infernal") ? 1 : 0), 0);
   const blocks = baseBlocks.filter(b => blockAvailableAtAscension(b, asc)).map(b => {
     const cardState = inp.cardStates?.[`t${b.tier}_${b.type}`] || "none";
-    const cardBonus = cardBonusForState(cardState);
+    const cardBonus = cardBonusForState(cardState, infernalBonus);
     const xp0 = b.xp*XP_DISPLAY_SCALE*cardBonus.rewardMult;
     const loot0 = b.frag*FRAG_DISPLAY_SCALE*cardBonus.rewardMult;
     return {
