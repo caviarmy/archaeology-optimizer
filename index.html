@@ -2316,6 +2316,7 @@ function restoreSettingsSnapshot(){
     if(el.type === "checkbox") el.checked = settingsSnapshot[el.id];
     else el.value = settingsSnapshot[el.id];
   });
+  applyAscensionGating();
   syncAllCardFields();
   renderNodes();
   scoreCurrent();
