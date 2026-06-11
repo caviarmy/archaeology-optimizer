@@ -68,6 +68,9 @@ Or simply download `index.html` and double-click it.
   is intentionally excluded until a dedicated real-time mode is added.
 - Loot is converted to an XP-equivalent value so mixed-reward goals share one
   score. Worthless-loot toggles change that baseline.
-- The app currently keeps no saved state — settings reset on reload.
+- Settings (stats, cards, ascension, goals) are saved to your browser's
+  `localStorage` and restored on reload. Use **Reset all** to clear them. In
+  sandboxed previews or private-browsing mode storage may be blocked; the app
+  still works, it just won't remember between reloads.
 </content>
 </invoke>

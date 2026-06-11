@@ -1157,6 +1157,7 @@ function applyCardBulk(scope){
   renderNodes();
   scoreCurrent();
   updateSettingsSummary();
+  scheduleSave();
   showStatus(scope === "clear"
     ? "Cleared all cards."
     : `Set ${scope === "all" ? "all visible" : "tier " + scope} cards to ${rarity === "owned" ? "normal" : rarity}.`);
@@ -1365,6 +1366,63 @@ function getDerived(stats, inp){
   const staminaModChance = clamp(b.staminaMod + A*inc.agiStaminaModPct + L*inc.luckAllModPct,0,0.95);
   const stamina = b.stamina + A*inc.agiStamina;
   return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina};
+}
+
+/* v58: lightweight settings persistence. Saves every id'd input/select plus
+   the card states to localStorage so a reload keeps the player's setup. All
+   access is wrapped in try/catch, so the app still runs where storage is
+   unavailable (private mode, sandboxed preview iframes, etc.). */
+const STORAGE_KEY = "obeliskArchaeologyOptimizer.v1";
+let saveTimer = null;
+
+function getPersistableElements(){
+  return Array.from(document.querySelectorAll("input[id], select[id]"));
+}
+
+function saveState(){
+  try{
+    const fields = {};
+    getPersistableElements().forEach(el=>{
+      if(el.type === "file") return;
+      fields[el.id] = (el.type === "checkbox" || el.type === "radio") ? el.checked : el.value;
+    });
+    const cards = {};
+    ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
+      cards[c.key] = document.getElementById(cardSettingId(c.key))?.value || "none";
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({v:1, fields, cards}));
+  }catch(_e){ /* storage unavailable: skip persistence */ }
+}
+
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveState, 250);
+}
+
+function loadState(){
+  let data = null;
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) data = JSON.parse(raw);
+  }catch(_e){ return false; }
+  if(!data || !data.fields) return false;
+
+  getPersistableElements().forEach(el=>{
+    if(el.type === "file" || !(el.id in data.fields)) return;
+    const val = data.fields[el.id];
+    if(el.type === "checkbox" || el.type === "radio") el.checked = !!val;
+    else el.value = val;
+  });
+  // Cards drive their own checkbox + radio + hidden value, so restore them
+  // through setCardState to keep the UI consistent.
+  if(data.cards){
+    ARCHAEOLOGY_CARD_KEYS.forEach(c=>setCardState(c.key, data.cards[c.key] || "none"));
+  }
+  return true;
+}
+
+function clearStoredState(){
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(_e){}
 }
 
 // Divine blocks unlock at Ascension 1; tier 4 blocks unlock at Ascension 2.
@@ -2321,6 +2379,7 @@ function restoreSettingsSnapshot(){
   renderNodes();
   scoreCurrent();
   updateSettingsSummary();
+  scheduleSave();
 }
 
 function confirmSettings(){
@@ -2920,6 +2979,7 @@ function resetAllSettings(){
   renderNodes();
   scoreCurrent();
   updateSettingsSummary();
+  scheduleSave();
 }
 
 function copyOcrText(event){
@@ -3116,6 +3176,10 @@ document.querySelectorAll("input, select").forEach(el=>{
   el.addEventListener("input",()=>{ markOptimizerStale(); renderNodes(); scoreCurrent(); updateSettingsSummary(); });
   el.addEventListener("change",()=>{ markOptimizerStale(); renderNodes(); scoreCurrent(); updateSettingsSummary(); });
 });
+// v58: persist any user edit (debounced). Document-level so it also catches
+// the dynamically-created card inputs.
+document.addEventListener("input", scheduleSave);
+document.addEventListener("change", scheduleSave);
 
 // v46: removed obsolete applyGoalPreset startup call; goal controls are initialized directly below.
 document.body.dataset.workflow="results";
@@ -3130,6 +3194,7 @@ try{
   const status = document.getElementById("ocrStatus");
   if(status) status.textContent = "Screenshot import setup failed: " + (err?.message || String(err));
 }
+loadState();
 applyAscensionGating();
 syncSecondaryGoalOptions();
 syncPrimaryProtectionUI();
