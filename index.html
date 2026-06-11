@@ -276,10 +276,26 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .ocr-status{margin-top:8px;color:var(--muted)}
 .ocr-output{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;max-height:220px;overflow:auto;font-size:12px}
 
+/* v57: ascension gating. Elements tagged .req-a1 / .req-a2 require the matching
+   ascension. Visibility is toggled from JS (applyAscensionGating) so each
+   element keeps its natural display value when shown. */
+
+/* v57: card bulk controls toolbar */
+.card-bulk{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:12px;margin-bottom:12px}
+.card-bulk .bulk-field{display:flex;flex-direction:column;gap:4px}
+.card-bulk label{margin:0}
+.card-bulk select{width:auto;min-width:150px}
+.card-bulk .bulk-actions{display:flex;flex-wrap:wrap;gap:6px}
+.card-bulk button{padding:8px 11px;border-radius:9px;font-size:13px}
+.card-bulk button.bulk-clear{background:#fff;color:#b42318;border:1px solid #f3b4ad}
+
+/* v57: ascension chip in run-scope summary */
+.asc-note{display:inline-block;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;margin-left:6px}
+
 </style>
 <script id="tesseractCdnScript" src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
-<body data-workflow="results" data-target-used="false" data-simulation-ready="false">
+<body data-workflow="results" data-target-used="false" data-simulation-ready="false" data-ascension="0">
 <header>
   <h1>Obelisk Miner Archaeology Optimizer</h1>
   <p>Compare archaeology stat builds for the selected level. Choose how floors spawn nodes, then compare builds shown as STR / AGI / PER / INT / Luck.</p>
@@ -358,6 +374,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       <button id="resetAllSettings" class="reset-btn" type="button">Reset all</button>
     </div>
     <div class="settings-list">
+      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Ascension</span><span class="v" id="summaryAscension">A0</span><span class="desc">Unlocks divine and tier 4 blocks</span></span></button>
       <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Run scope</span><span class="v" id="summaryLevel">Level —</span><span class="desc">Player level and simulation limit</span></span></button>
       <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Node spawns</span><span class="v" id="summarySpawnModel">Active count</span><span class="desc">How floors create active nodes</span></span></button>
       <button class="setting-row target-only" data-open-settings="settings-general"><span><span class="k">Target</span><span class="v" id="summaryTarget">Target floor —</span><span class="desc">Floor used for success chance</span></span></button>
@@ -520,6 +537,14 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
       <section id="settings-general" class="settings-section active">
         <div class="form-grid">
+          <div>
+            <label>Ascension</label>
+            <select id="ascension">
+              <option value="0" selected>A0 — pre-ascension</option>
+              <option value="1">A1 — divine blocks</option>
+              <option value="2">A2 — divine + tier 4 blocks</option>
+            </select>
+          </div>
           <div><label>Selected player level</label><input id="selectedLevel" type="number" min="0" max="200" value="40"></div>
           <div><label>Max floor to simulate</label><input id="maxFloor" type="number" min="1" max="200" value="50"></div>
           <div>
@@ -531,6 +556,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           </div>
         </div>
         <div class="small" style="margin-top:8px">Active count rolls a floor node count first, then node types from relative weights. Slot chance treats each of 24 slots as independently empty or filled.</div>
+        <div class="small" style="margin-top:8px">Ascension gates which blocks exist. A0 excludes divine and tier 4 blocks. A1 adds divine blocks (unlocked at Ascension 1). A2 adds tier 4 blocks (unlocked at Ascension 2). Changing ascension updates the node table, scoring, available cards, and divine-loot goals.</div>
       </section>
 
       <section id="settings-loot" class="settings-section loot-setting">
@@ -541,7 +567,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <label class="check-row"><input id="worthlessEpic" type="checkbox"> Epic loot worthless</label>
           <label class="check-row"><input id="worthlessLegendary" type="checkbox"> Legendary loot worthless</label>
           <label class="check-row"><input id="worthlessMythic" type="checkbox"> Mythic loot worthless</label>
-          <label class="check-row"><input id="worthlessDivine" type="checkbox"> Divine loot worthless</label>
+          <label class="check-row req-a1"><input id="worthlessDivine" type="checkbox"> Divine loot worthless</label>
         </div>
       </section>
 
@@ -595,7 +621,30 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
       
       <section id="settings-cards" class="settings-section">
-        <div class="small" style="margin-bottom:8px">Select the archaeology cards you own. A standard card gives -10% node health and +10% EXP/loot for that exact node tier and type. A gilded card gives -20% node health and +20% EXP/loot.</div>
+        <div class="small" style="margin-bottom:8px">Select the archaeology cards you own. A normal card gives -10% node health and +10% EXP/loot for that exact node tier and type. A gilded card gives -20% node health and +20% EXP/loot. Polychrome and infernal cards can be recorded here, but their exact multipliers are not yet confirmed, so they do not change scoring.</div>
+        <div class="card-bulk">
+          <div class="bulk-field">
+            <label for="cardBulkRarity">Bulk set rarity</label>
+            <select id="cardBulkRarity">
+              <option value="owned">Normal</option>
+              <option value="gilded">Gilded</option>
+              <option value="polychrome">Polychrome</option>
+              <option value="infernal" class="req-a2">Infernal</option>
+            </select>
+          </div>
+          <div class="bulk-field">
+            <label>Apply to</label>
+            <div class="bulk-actions">
+              <button type="button" class="ghost" data-card-bulk="all">All visible</button>
+              <button type="button" class="ghost" data-card-bulk="1">Tier 1</button>
+              <button type="button" class="ghost" data-card-bulk="2">Tier 2</button>
+              <button type="button" class="ghost" data-card-bulk="3">Tier 3</button>
+              <button type="button" class="ghost req-a2" data-card-bulk="4">Tier 4</button>
+              <button type="button" class="bulk-clear" data-card-bulk="clear">Clear all</button>
+            </div>
+          </div>
+        </div>
+        <div class="small" style="margin-bottom:8px">Bulk controls only affect the cards currently visible for the selected ascension.</div>
         <div class="form-grid" id="cardSettingsGrid"></div>
       </section>
 
@@ -733,7 +782,7 @@ function spawnModel(inp){
 }
 
 function expectedActiveNodesForFloor(floor, inp){
-  const rates = ratesForFloor(floor);
+  const rates = ratesForFloor(floor, inp);
   if(spawnModel(inp)==="slotChance"){
     return 24 * Math.min(100, totalRateForFloorRates(rates)) / 100;
   }
@@ -999,7 +1048,25 @@ function cardSettingId(key){ return "card_" + key; }
 function cardBonusForState(state){
   if(state==="owned") return {hpMult:0.9, rewardMult:1.1};
   if(state==="gilded") return {hpMult:0.8, rewardMult:1.2};
+  // Polychrome and infernal cards can be recorded, but their exact multipliers
+  // are not yet confirmed by the wiki, so they are intentionally neutral until
+  // real values are added (see app plan, phase 4). Treating them as no-ops keeps
+  // the optimizer honest instead of scoring guessed numbers.
   return {hpMult:1, rewardMult:1};
+}
+function cardTierFromKey(key){ return Number(String(key).match(/^t(\d)_/)?.[1] || 0); }
+function cardTypeFromKey(key){ return String(key).split("_")[1] || ""; }
+// A card is only available when its block exists at the current ascension:
+// divine cards need A1 (divine blocks), tier 4 cards need A2 (tier 4 blocks).
+function cardAvailableAtAscension(key, asc){
+  if(cardTierFromKey(key) === 4) return asc >= 2;
+  if(cardTypeFromKey(key) === "divine") return asc >= 1;
+  return true;
+}
+function cardGateClass(key){
+  if(cardTierFromKey(key) === 4) return "req-a2";
+  if(cardTypeFromKey(key) === "divine") return "req-a1";
+  return "";
 }
 function syncCardField(key){
   const hidden = document.getElementById(cardSettingId(key));
@@ -1020,7 +1087,7 @@ function populateCardSettings(){
   const grid = document.getElementById("cardSettingsGrid");
   if(!grid || grid.dataset.ready==="1") return;
   grid.innerHTML = ARCHAEOLOGY_CARD_KEYS.map(c => `
-    <div class="card-field">
+    <div class="card-field ${cardGateClass(c.key)}">
       <label class="card-toggle-head">
         <input type="checkbox" id="card_enabled_${c.key}">
         <span>${c.label} card</span>
@@ -1029,6 +1096,8 @@ function populateCardSettings(){
       <div class="card-tier-options" id="card_options_${c.key}">
         <label><input type="radio" name="card_state_${c.key}" value="owned" checked>Normal</label>
         <label><input type="radio" name="card_state_${c.key}" value="gilded">Gilded</label>
+        <label><input type="radio" name="card_state_${c.key}" value="polychrome">Polychrome</label>
+        <label class="req-a2"><input type="radio" name="card_state_${c.key}" value="infernal">Infernal</label>
       </div>
     </div>
   `).join("");
@@ -1051,6 +1120,92 @@ function populateCardSettings(){
 }
 function syncAllCardFields(){
   ARCHAEOLOGY_CARD_KEYS.forEach(c=>syncCardField(c.key));
+}
+
+function currentAscension(){
+  return Math.max(0, Math.min(2, Math.floor(Number(v("ascension") || 0))));
+}
+
+function setCardState(key, state){
+  const cb = document.getElementById(`card_enabled_${key}`);
+  if(state === "none"){
+    if(cb) cb.checked = false;
+  }else{
+    if(cb) cb.checked = true;
+    const radio = document.querySelector(`input[name="card_state_${key}"][value="${state}"]`);
+    if(radio) radio.checked = true;
+  }
+  syncCardField(key);
+}
+
+// Bulk-set the visible cards (only those available at the current ascension)
+// for a tier, all tiers, or clear everything.
+function applyCardBulk(scope){
+  const asc = currentAscension();
+  let rarity = document.getElementById("cardBulkRarity")?.value || "owned";
+  if(scope === "clear") rarity = "none";
+  if(rarity === "infernal" && asc < 2) rarity = "gilded";
+
+  ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
+    if(scope === "clear"){ setCardState(c.key, "none"); return; }
+    if(scope !== "all" && cardTierFromKey(c.key) !== Number(scope)) return;
+    if(!cardAvailableAtAscension(c.key, asc)) return;
+    setCardState(c.key, rarity);
+  });
+
+  markOptimizerStale();
+  renderNodes();
+  scoreCurrent();
+  updateSettingsSummary();
+  showStatus(scope === "clear"
+    ? "Cleared all cards."
+    : `Set ${scope === "all" ? "all visible" : "tier " + scope} cards to ${rarity === "owned" ? "normal" : rarity}.`);
+}
+
+// Show/hide ascension-gated controls and keep selections consistent with the
+// selected ascension. Block availability itself is enforced in visibleBlocks /
+// ratesForFloor; this handles UI visibility and clears now-invalid selections.
+function applyAscensionGating(){
+  const asc = currentAscension();
+  document.body.dataset.ascension = String(asc);
+
+  const minFor = el => el.classList.contains("req-a2") ? 2 : (el.classList.contains("req-a1") ? 1 : 0);
+  document.querySelectorAll(".req-a1, .req-a2").forEach(el=>{
+    if(el.tagName === "OPTION"){
+      const blocked = asc < minFor(el);
+      el.disabled = blocked;
+      el.hidden = blocked;
+      return;
+    }
+    el.style.display = asc >= minFor(el) ? "" : "none";
+  });
+
+  // Divine loot goals require A1.
+  ["primaryGoal","secondaryGoal"].forEach(id=>{
+    const sel = document.getElementById(id);
+    const opt = sel && Array.from(sel.options).find(o=>o.value==="divine");
+    if(!opt) return;
+    const blocked = asc < 1;
+    opt.disabled = blocked;
+    opt.hidden = blocked;
+    if(blocked && sel.value === "divine") sel.value = (id === "secondaryGoal") ? "none" : "allRewards";
+  });
+
+  // Divine "worthless" toggle is meaningless without divine blocks.
+  if(asc < 1){
+    const d = document.getElementById("worthlessDivine");
+    if(d) d.checked = false;
+  }
+
+  // Infernal rarity needs A2: downgrade any visible infernal pick to gilded.
+  if(asc < 2){
+    ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
+      const hidden = document.getElementById(cardSettingId(c.key));
+      if(hidden && hidden.value === "infernal") setCardState(c.key, "gilded");
+    });
+  }
+
+  syncSecondaryGoalOptions();
 }
 function fmt(x,d=2){ if(!Number.isFinite(x)) return "—"; return Number(x).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d}); }
 function fmt0(x){ if(!Number.isFinite(x)) return "—"; return Math.round(x).toLocaleString(); }
@@ -1095,6 +1250,7 @@ function deterministicSignature(inp){
     selectedLevel: inp.selectedLevel,
     targetFloor: inp.targetFloor,
     maxFloor: inp.maxFloor,
+    ascension: inp.ascension,
     mcTopCount: inp.mcTopCount,
     worthless: inp.worthless,
     base: inp.base,
@@ -1127,6 +1283,7 @@ function getInputs(){
     selectedLevel:Math.max(0, Math.floor(n("selectedLevel"))),
     targetFloor:validateTargetFloor(),
     maxFloor:Math.max(1, Math.floor(n("maxFloor"))),
+    ascension:currentAscension(),
     nodeSpawnModel:v("nodeSpawnModel") || "activeCount",
     speedModel:"none", // speed/ticks-per-second intentionally excluded from tick-efficiency optimization
     mcTopCount:Math.max(1, Math.min(100, Math.floor(n("mcTopCount") || 25))),
@@ -1210,8 +1367,16 @@ function getDerived(stats, inp){
   return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina};
 }
 
+// Divine blocks unlock at Ascension 1; tier 4 blocks unlock at Ascension 2.
+function blockAvailableAtAscension(b, asc){
+  if(b.tier === 4) return asc >= 2;
+  if(b.type === "divine") return asc >= 1;
+  return true;
+}
+
 function visibleBlocks(inp){
-  const blocks = baseBlocks.map(b => {
+  const asc = inp.ascension ?? 0;
+  const blocks = baseBlocks.filter(b => blockAvailableAtAscension(b, asc)).map(b => {
     const cardState = inp.cardStates?.[`t${b.tier}_${b.type}`] || "none";
     const cardBonus = cardBonusForState(cardState);
     const xp0 = b.xp*XP_DISPLAY_SCALE*cardBonus.rewardMult;
@@ -1264,17 +1429,20 @@ function blockForFloor(type, floor, blocks){
   return {...best, hp: resolvedHp};
 }
 
-function ratesForFloor(floor){
-  if(bossMixed[floor]) return {...bossMixed[floor]};
-  if(bossSingle[floor]){
-    const out={dirt:0,common:0,rare:0,epic:0,legendary:0,mythic:0,divine:0};
-    out[bossSingle[floor]]=100;
-    return out;
+function ratesForFloor(floor, inp){
+  let rates;
+  if(bossMixed[floor]){
+    rates = {...bossMixed[floor]};
+  }else if(bossSingle[floor]){
+    rates = {dirt:0,common:0,rare:0,epic:0,legendary:0,mythic:0,divine:0};
+    rates[bossSingle[floor]] = 100;
+  }else{
+    const range = spawnRanges.find(r => r.min<=floor && floor<=r.max) || spawnRanges[spawnRanges.length-1];
+    rates = {...range.rates};
   }
-  for(const r of spawnRanges){
-    if(r.min<=floor && floor<=r.max) return {...r.rates};
-  }
-  return {...spawnRanges[spawnRanges.length-1].rates};
+  // Divine blocks do not exist before Ascension 1, so they never spawn there.
+  if(inp && (inp.ascension ?? 0) < 1) rates.divine = 0;
+  return rates;
 }
 
 /* Expected hits with crit and super-crit breakpoints.
@@ -1351,7 +1519,7 @@ function finalizeMetrics(channels, used){
 }
 
 function floorCostValue(floor, der, inp, blocks){
-  const rates = ratesForFloor(floor);
+  const rates = ratesForFloor(floor, inp);
   let staminaCost=0, tickCost=0, nodes=0;
   const channels=blankChannels();
   for(const type of rarityOrder){
@@ -1378,7 +1546,7 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
   // Expected final-floor model for the active-node-count model.
   // Normal floors use the average active node count from 6..24 (=15), and
   // each active node is distributed by the relative type weights.
-  const rates = ratesForFloor(floor);
+  const rates = ratesForFloor(floor, inp);
   const expectedActive = spawnModel(inp)==="slotChance" ? 24 : expectedActiveNodesForFloor(floor, inp);
   let remaining = Math.max(0, remainingStamina);
   let value = 0, tickCost = 0, nodes = 0, clearedNodes = 0;
@@ -1667,7 +1835,7 @@ function renderNodes(){
 
 /* Simulation uses exact randomized node slots and crits. It is intentionally separate from optimizer. */
 function randBlockTypeForFloor(floor, inp, rng=Math.random){
-  const rates=ratesForFloor(floor);
+  const rates=ratesForFloor(floor, inp);
   const total=totalRateForFloorRates(rates);
   if(total <= 0) return null;
 
@@ -2197,6 +2365,8 @@ function countWorthless(){
 }
 function updateSettingsSummary(){
   const setText=(id,text)=>{ const el=document.getElementById(id); if(el) el.textContent=text; };
+  const asc = currentAscension();
+  setText("summaryAscension", asc === 0 ? "A0 · base blocks" : (asc === 1 ? "A1 · + divine" : "A2 · + divine & tier 4"));
   setText("summaryLevel", `Level ${v("selectedLevel")} · Max floor ${v("maxFloor")}`);
   setText("summarySpawnModel", (v("nodeSpawnModel") || "activeCount") === "slotChance" ? "24 slot chance" : "6–24 active count");
   setText("summaryTarget", `Target floor ${v("targetFloor")}`);
@@ -2209,8 +2379,10 @@ function updateSettingsSummary(){
   setText("summaryBuild", statString(n("curStr"), n("curAgi"), n("curPer"), n("curInt"), n("curLuck")));
   setText("summaryBase", `Dmg ${v("baseDamage")} · Stam ${v("baseStamina")} · Crit ${v("baseCritChance")}%`);
   const activeCards = ARCHAEOLOGY_CARD_KEYS.map(c => document.getElementById(cardSettingId(c.key))?.value || "none").filter(v => v !== "none");
-  const gildedCards = activeCards.filter(v => v === "gilded").length;
-  setText("summaryCards", activeCards.length ? `${activeCards.length} selected${gildedCards ? ` · ${gildedCards} gilded` : ""}` : "No cards selected");
+  const rarityCounts = activeCards.reduce((m,v)=>{ m[v]=(m[v]||0)+1; return m; }, {});
+  const rarityLabel = {owned:"normal", gilded:"gilded", polychrome:"poly", infernal:"infernal"};
+  const breakdown = ["owned","gilded","polychrome","infernal"].filter(r=>rarityCounts[r]).map(r=>`${rarityCounts[r]} ${rarityLabel[r]}`).join(" · ");
+  setText("summaryCards", activeCards.length ? `${activeCards.length} selected · ${breakdown}` : "No cards selected");
   const seedMode = (v("simSeedMode") || "random") === "fixed" ? `fixed seed ${v("simSeedValue") || "12345"}` : "random seed";
   setText("summaryMC", `${v("mcTopCount")} reward builds · ${seedMode}`);
 }
@@ -2698,6 +2870,7 @@ function resetAllSettings(){
 
   const defaults = {
     maxFloor:"50",
+    ascension:"0",
     nodeSpawnModel:"activeCount",
     primaryGoal:"allRewards",
     secondaryGoal:"none",
@@ -2739,6 +2912,7 @@ function resetAllSettings(){
   clearMonteRerank(true);
   clearReachability?.();
   markOptimizerStale();
+  applyAscensionGating();
   syncSecondaryGoalOptions();
   syncPrimaryProtectionUI();
   updateGoalUI();
@@ -2920,6 +3094,15 @@ document.querySelectorAll("[data-confirm-settings]").forEach(el=>el.addEventList
 document.querySelectorAll("[data-cancel-settings]").forEach(el=>el.addEventListener("click",cancelSettings));
 document.querySelectorAll(".settings-nav button").forEach(btn=>btn.addEventListener("click",()=>openSettings(btn.dataset.section)));
 document.getElementById("settingsModal")?.addEventListener("click",(e)=>{ if(e.target.id==="settingsModal") cancelSettings(); });
+document.getElementById("ascension")?.addEventListener("change",()=>{
+  applyAscensionGating();
+  markOptimizerStale();
+  updateGoalUI();
+  renderNodes();
+  scoreCurrent();
+  updateSettingsSummary();
+});
+document.querySelectorAll("[data-card-bulk]").forEach(btn=>btn.addEventListener("click",()=>applyCardBulk(btn.dataset.cardBulk)));
 
 document.addEventListener("keydown",(e)=>{
   if(e.key==="Escape" && document.getElementById("settingsModal")?.classList.contains("open")) cancelSettings();
@@ -2946,6 +3129,7 @@ try{
   const status = document.getElementById("ocrStatus");
   if(status) status.textContent = "Screenshot import setup failed: " + (err?.message || String(err));
 }
+applyAscensionGating();
 syncSecondaryGoalOptions();
 syncPrimaryProtectionUI();
 updateGoalUI();
