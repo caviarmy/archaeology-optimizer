@@ -372,13 +372,11 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       <button id="resetAllSettings" class="reset-btn" type="button">Reset all</button>
     </div>
     <div class="settings-list">
-      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Ascension</span><span class="v" id="summaryAscension">A0</span><span class="desc">Unlocks divine and tier 4 blocks</span></span></button>
-      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Run scope</span><span class="v" id="summaryLevel">Level —</span><span class="desc">Player level and simulation limit</span></span></button>
-      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Node spawns</span><span class="v" id="summarySpawnModel">Active count</span><span class="desc">How floors create active nodes</span></span></button>
+      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Run Scope</span><span class="v" id="summaryAscension">Ascension 0: Base blocks only</span><span class="desc">Ascension, max floor and node spawn model</span></span></button>
+      <button class="setting-row" data-open-settings="settings-base"><span><span class="k">Base Stats</span><span class="v" id="summaryBase">Not set</span><span class="desc">Set manually or import from a screenshot</span></span></button>
+      <button class="setting-row" data-open-settings="settings-cards"><span><span class="k">Card bonuses</span><span class="v" id="summaryCards">No cards</span><span class="desc">Configure active archaeology cards</span></span></button>
+      <button class="setting-row loot-setting" data-open-settings="settings-loot"><span><span class="k">Resource values</span><span class="v" id="summaryLoot">All kept</span><span class="desc">Ignore drops you don't care about</span></span></button>
       <button class="setting-row target-only" data-open-settings="settings-general"><span><span class="k">Target</span><span class="v" id="summaryTarget">Target floor —</span><span class="desc">Floor used for success chance</span></span></button>
-      <button class="setting-row loot-setting" data-open-settings="settings-loot"><span><span class="k">Resource value</span><span class="v" id="summaryLoot">All drops useful</span><span class="desc">Mark drops that do not matter</span></span></button>
-      <button class="setting-row" data-open-settings="settings-base"><span><span class="k">Base stats</span><span class="v" id="summaryBase">—</span><span class="desc">Current unspent-stat values</span></span></button>
-      <button class="setting-row" data-open-settings="settings-cards"><span><span class="k">Card bonuses</span><span class="v" id="summaryCards">No cards selected</span><span class="desc">Owned and gilded archaeology cards</span></span></button>
       <button class="setting-row" data-open-settings="settings-mc"><span><span class="k">Simulation</span><span class="v" id="summaryMC">—</span><span class="desc">Simulation sample sizes</span></span></button>
     </div>
   </section>
@@ -538,7 +536,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
               <option value="2">A2 — divine + tier 4 blocks</option>
             </select>
           </div>
-          <div><label>Selected player level</label><input id="selectedLevel" type="number" min="0" max="200" value="40"></div>
           <div><label>Max floor to simulate</label><input id="maxFloor" type="number" min="1" max="200" value="50"></div>
           <div>
             <label>Node spawn model</label>
@@ -552,12 +549,12 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
       <section id="settings-loot" class="settings-section loot-setting">
         <div class="check-grid">
-          <label class="check-row"><input id="worthlessCommon" type="checkbox"> Common loot worthless</label>
-          <label class="check-row"><input id="worthlessRare" type="checkbox"> Rare loot worthless</label>
-          <label class="check-row"><input id="worthlessEpic" type="checkbox"> Epic loot worthless</label>
-          <label class="check-row"><input id="worthlessLegendary" type="checkbox"> Legendary loot worthless</label>
-          <label class="check-row"><input id="worthlessMythic" type="checkbox"> Mythic loot worthless</label>
-          <label class="check-row req-a1"><input id="worthlessDivine" type="checkbox"> Divine loot worthless</label>
+          <label class="check-row"><input id="worthlessCommon" type="checkbox"> Ignore common drops</label>
+          <label class="check-row"><input id="worthlessRare" type="checkbox"> Ignore rare drops</label>
+          <label class="check-row"><input id="worthlessEpic" type="checkbox"> Ignore epic drops</label>
+          <label class="check-row"><input id="worthlessLegendary" type="checkbox"> Ignore legendary drops</label>
+          <label class="check-row"><input id="worthlessMythic" type="checkbox"> Ignore mythic drops</label>
+          <label class="check-row req-a1"><input id="worthlessDivine" type="checkbox"> Ignore divine drops</label>
         </div>
       </section>
 
@@ -572,11 +569,11 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       </section>
 
       <section id="settings-base" class="settings-section">
+        <div class="helper" id="baseModeNote"></div>
         <div class="protection-options" style="margin-bottom:8px">
           <label class="protection-option"><input type="radio" name="baseStatMode" id="baseStatModeZero" value="zero" checked> Attributes at 0</label>
           <label class="protection-option"><input type="radio" name="baseStatMode" id="baseStatModeSpent" value="spent"> I have spent attribute points</label>
         </div>
-        <div class="helper">! Screenshot your stats with all attribute points unspent (set to 0) so the imported values are your true base. If your points are already spent, pick "I have spent attribute points" and enter your current STR / AGI / PER / INT / Luck below — the app will back them out to recover your base before optimizing.</div>
         <div class="import-box">
           <h3>Import stats from screenshot</h3>
           <div class="import-actions">
@@ -593,6 +590,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           </details>
         </div>
         <div class="form-grid">
+          <div><label>Archaeology level</label><input id="selectedLevel" type="number" min="0" max="200" value=""></div>
           <div><label>Base damage</label><input id="baseDamage" type="number" step="0.001" value=""></div>
           <div><label>Base stamina</label><input id="baseStamina" type="number" step="0.001" value=""></div>
           <div><label>Base crit chance %</label><input id="baseCritChance" type="number" step="0.001" value=""></div>
@@ -1419,6 +1417,10 @@ function syncBaseStatMode(){
   const spent = (document.querySelector('input[name="baseStatMode"]:checked')?.value) === "spent";
   const el = document.getElementById("spentAttrs");
   if(el) el.style.display = spent ? "block" : "none";
+  const note = document.getElementById("baseModeNote");
+  if(note) note.textContent = spent
+    ? "! Your base is calculated from the spent points entered below."
+    : "! Screenshot with attribute points unspent so imported stats are your base.";
 }
 
 function getDerived(stats, inp){
@@ -1465,6 +1467,7 @@ function effectiveArmor(armor, der, inp){
    unavailable (private mode, sandboxed preview iframes, etc.). */
 const STORAGE_KEY = "obeliskArchaeologyOptimizer.v1";
 let saveTimer = null;
+let statsImported = false; // true once base stats were filled from a screenshot
 
 function getPersistableElements(){
   return Array.from(document.querySelectorAll("input[id], select[id]"));
@@ -1481,7 +1484,7 @@ function saveState(){
     ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
       cards[c.key] = document.getElementById(cardSettingId(c.key))?.value || "none";
     });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({v:1, fields, cards}));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({v:1, fields, cards, imported:statsImported}));
   }catch(_e){ /* storage unavailable: skip persistence */ }
 }
 
@@ -1497,6 +1500,7 @@ function loadState(){
     if(raw) data = JSON.parse(raw);
   }catch(_e){ return false; }
   if(!data || !data.fields) return false;
+  if(typeof data.imported === "boolean") statsImported = data.imported;
 
   getPersistableElements().forEach(el=>{
     if(el.type === "file" || !(el.id in data.fields)) return;
@@ -2533,22 +2537,25 @@ function closeSettings(){
 function countWorthless(){
   return ["Common","Rare","Epic","Legendary","Mythic","Divine"].filter(t=>document.getElementById("worthless"+t)?.checked).length;
 }
+const BASE_STAT_FIELD_IDS = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat"];
 function updateSettingsSummary(){
   const setText=(id,text)=>{ const el=document.getElementById(id); if(el) el.textContent=text; };
   updateInfernalEffectLabels();
   const asc = currentAscension();
-  setText("summaryAscension", asc === 0 ? "A0 · base blocks" : (asc === 1 ? "A1 · + divine" : "A2 · + divine & tier 4"));
-  setText("summaryLevel", `Level ${v("selectedLevel")} · Max floor ${v("maxFloor")}`);
-  setText("summarySpawnModel", (v("nodeSpawnModel") || "activeCount") === "slotChance" ? "24 slot chance" : "6–24 active count");
+  // Run Scope value: verbose ascension descriptor.
+  setText("summaryAscension", asc === 0 ? "Ascension 0: Base blocks only"
+    : (asc === 1 ? "Ascension 1: + Divine blocks" : "Ascension 2: + Divine & Tier 4 blocks"));
   setText("summaryTarget", `Target floor ${v("targetFloor")}`);
-  const objective = v("objective") || "total";
-  const w=countWorthless();
-  setText("summaryLoot", w ? `${w} ignored tier${w===1?"":"s"}` : "All drops useful");
-  const primary = rewardFocusLabel(v("primaryGoal") || "allRewards");
-  const secondary = v("secondaryGoal") || "none";
-  const tol = primaryProtectionTolerance();
-  setText("summaryBuild", statString(n("curStr"), n("curAgi"), n("curPer"), n("curInt"), n("curLuck")));
-  setText("summaryBase", `Dmg ${v("baseDamage")} · Stam ${v("baseStamina")} · Crit ${v("baseCritChance")}%`);
+
+  // Resource values: how many drop tiers are ignored.
+  const w = countWorthless();
+  setText("summaryLoot", w ? `${w} drop tier${w===1?"":"s"} ignored` : "All kept");
+
+  // Base stats: count of fields set, with an imported flag.
+  const setCount = BASE_STAT_FIELD_IDS.filter(id => String(document.getElementById(id)?.value || "").trim() !== "").length;
+  setText("summaryBase", setCount ? `${setCount} stat${setCount===1?"":"s"} set${statsImported ? " · imported" : ""}` : "Not set");
+
+  // Card bonuses: count by rarity (only cards available at this ascension).
   const activeCards = ARCHAEOLOGY_CARD_KEYS
     .filter(c => cardAvailableAtAscension(c.key, asc))
     .map(c => document.getElementById(cardSettingId(c.key))?.value || "none")
@@ -2556,7 +2563,8 @@ function updateSettingsSummary(){
   const rarityCounts = activeCards.reduce((m,v)=>{ m[v]=(m[v]||0)+1; return m; }, {});
   const rarityLabel = {owned:"normal", gilded:"gilded", polychrome:"poly", infernal:"infernal"};
   const breakdown = ["owned","gilded","polychrome","infernal"].filter(r=>rarityCounts[r]).map(r=>`${rarityCounts[r]} ${rarityLabel[r]}`).join(" · ");
-  setText("summaryCards", activeCards.length ? `${activeCards.length} selected · ${breakdown}` : "No cards selected");
+  setText("summaryCards", breakdown || "No cards");
+
   const seedMode = (v("simSeedMode") || "random") === "fixed" ? `fixed seed ${v("simSeedValue") || "12345"}` : "random seed";
   setText("summaryMC", `${v("mcTopCount")} reward builds · ${seedMode}`);
 }
@@ -3002,6 +3010,7 @@ async function importStatsFromScreenshot(file){
     for(const [id,val] of Object.entries(parsed)){
       if(setFieldValue(id,val)) applied++;
     }
+    if(applied) statsImported = true;
 
     const preview = document.getElementById("ocrParsedPreview");
     if(preview){
@@ -3034,6 +3043,7 @@ async function importStatsFromScreenshot(file){
 
 
 function resetAllSettings(){
+  statsImported = false;
   const blankIds = [
     "selectedLevel","targetFloor",
     "baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage",
