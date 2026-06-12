@@ -622,6 +622,19 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Base stamina mod %</label><input id="baseStaminaMod" type="number" step="0.001" value=""></div>
           <div><label>Stamina mod gain</label><input id="staminaModGain" type="number" step="0.001" value=""></div>
           <div><label>Base armor pen (flat)</label><input id="baseArmorPenFlat" type="number" step="0.001" value=""></div>
+          <div><label>Base speed mod gain (flat)</label><input id="baseSpeedModGain" type="number" step="0.001" value=""></div>
+          <div><label>Base speed mod atk rate x</label><input id="baseSpeedModAtkRate" type="number" step="0.001" value=""></div>
+        </div>
+        <h3 class="req-a2">Ascension 2 stats</h3>
+        <div class="form-grid req-a2">
+          <div><label>Base ultra crit chance %</label><input id="baseUltraChance" type="number" step="0.001" value=""></div>
+          <div><label>Base ultra crit damage x</label><input id="baseUltraDamage" type="number" step="0.001" value=""></div>
+          <div><label>Base ability instacharge %</label><input id="baseInstacharge" type="number" step="0.001" value=""></div>
+          <div><label>Base crosshair auto-tap %</label><input id="baseAutoTap" type="number" step="0.001" value=""></div>
+          <div><label>Base gold crosshair chance %</label><input id="baseGoldCrosshairChance" type="number" step="0.001" value=""></div>
+          <div><label>Base gold crosshair multi x</label><input id="baseGoldCrosshairMulti" type="number" step="0.001" value=""></div>
+          <div><label>Base gleaming floor chance %</label><input id="baseGleamingChance" type="number" step="0.001" value=""></div>
+          <div><label>Base gleaming floor multi x</label><input id="baseGleamingMulti" type="number" step="0.001" value=""></div>
         </div>
         <h3>Skills (abilities)</h3>
         <div class="form-grid">
@@ -1388,8 +1401,20 @@ function getInputs(){
       lootMod:pct("baseLootMod"),
       lootModGain:n("baseLootModGain") || 3.8,
       speedMod:pct("baseSpeedMod"),
+      speedModGain:n("baseSpeedModGain"),
+      speedModAtkRate:n("baseSpeedModAtkRate"),
       staminaMod:pct("baseStaminaMod"),
-      armorPenFlat:n("baseArmorPenFlat") || 0
+      armorPenFlat:n("baseArmorPenFlat") || 0,
+      // Ascension-2 stats: captured for display/persistence only. Not yet
+      // consumed by getDerived/scoring (deferred to a later integration pass).
+      ultraChance:pct("baseUltraChance"),
+      ultraDamage:n("baseUltraDamage"),
+      instacharge:pct("baseInstacharge"),
+      autoTap:pct("baseAutoTap"),
+      goldCrosshairChance:pct("baseGoldCrosshairChance"),
+      goldCrosshairMulti:n("baseGoldCrosshairMulti"),
+      gleamingChance:pct("baseGleamingChance"),
+      gleamingMulti:n("baseGleamingMulti")
     },
     inc:{
       strFlatDamage:n("strFlatDamage"),
@@ -2624,7 +2649,7 @@ function closeSettings(){
 function countWorthless(){
   return ["Common","Rare","Epic","Legendary","Mythic","Divine"].filter(t=>document.getElementById("worthless"+t)?.checked).length;
 }
-const BASE_STAT_FIELD_IDS = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat"];
+const BASE_STAT_FIELD_IDS = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain","baseArmorPenFlat","baseUltraChance","baseUltraDamage","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti","baseGleamingChance","baseGleamingMulti"];
 function updateSettingsSummary(){
   const setText=(id,text)=>{ const el=document.getElementById(id); if(el) el.textContent=text; };
   updateInfernalEffectLabels();
@@ -3026,15 +3051,27 @@ function parseStatsFromOcr(rawText){
     take("baseStamina", line, new RegExp("Max\\s+Stamina" + gap + val, "i"));
     // Super crit lines and plain crit lines share the word "Crit", so route by
     // whether the line mentions "super" to avoid cross-contamination.
-    if(/super/.test(lc)){
+    if(/ultra/.test(lc)){
+      take("baseUltraChance", line, new RegExp("Crit\\s+Chance" + gap + val, "i"));
+      take("baseUltraDamage", line, new RegExp("Crit\\s+Damage" + gap + val, "i"));
+    }else if(/super/.test(lc)){
       take("baseSuperChance", line, new RegExp("Crit\\s+Chance" + gap + val, "i"));
       take("baseSuperDamage", line, new RegExp("Crit\\s+Damage" + gap + val, "i"));
     }else{
       take("baseCritChance", line, new RegExp("Crit\\s+Chance" + gap + val, "i"));
       take("baseCritDamage", line, new RegExp("Crit\\s+Damage" + gap + val, "i"));
     }
-    if(!/crit|super/.test(lc)) take("baseDamage", line, new RegExp("(?:^|\\s)Damage" + gap + val, "i"));
+    if(!/crit|super|ultra/.test(lc)) take("baseDamage", line, new RegExp("(?:^|\\s)Damage" + gap + val, "i"));
     take("baseArmorPenFlat", line, new RegExp("Armor\\s+Pen\\w*" + gap + val, "i"));
+    take("baseAtkSpeed", line, new RegExp("Atk\\s+Speed" + gap + val, "i"));
+    // A2 stats. Anchor on each unique phrase; Auto-Tap before the plain Gold
+    // Crosshair lines so "Crosshair" isn't grabbed by the wrong label.
+    take("baseInstacharge", line, new RegExp("Insta\\w+" + gap + val, "i"));
+    take("baseAutoTap", line, new RegExp("Auto[\\s-]*Tap" + gap + val, "i"));
+    take("baseGoldCrosshairMulti", line, new RegExp("Crosshair\\s+Multi" + gap + val, "i"));
+    take("baseGoldCrosshairChance", line, new RegExp("Crosshair\\s+Chance" + gap + val, "i"));
+    take("baseGleamingMulti", line, new RegExp("Gleam\\w*\\s+Floor\\s+Multi" + gap + val, "i"));
+    take("baseGleamingChance", line, new RegExp("Gleam\\w*\\s+Floor\\s+Chance" + gap + val, "i"));
 
     // Right column (Mod Gain before Mod Chance before plain Gain so the more
     // specific label wins).
@@ -3044,6 +3081,8 @@ function parseStatsFromOcr(rawText){
     take("baseFragGain", line, new RegExp("Fragment\\s+Gain" + gap + val, "i"));
     take("baseLootModGain", line, new RegExp("Loot\\s+Mod\\s+Gain" + gap + val, "i"));
     take("baseLootMod", line, new RegExp("Loot\\s+Mod\\s+Chance" + gap + val, "i"));
+    take("baseSpeedModAtkRate", line, new RegExp("Speed\\s+Mod\\s+Atk\\s+Rate" + gap + val, "i"));
+    take("baseSpeedModGain", line, new RegExp("Speed\\s+Mod\\s+Gain" + gap + val, "i"));
     take("baseSpeedMod", line, new RegExp("Speed\\s+Mod\\s+Chance" + gap + val, "i"));
     take("staminaModGain", line, new RegExp("Stamina\\s+Mod\\s+Gain" + gap + val, "i"));
     take("baseStaminaMod", line, new RegExp("Stamina\\s+Mod\\s+Chance" + gap + val, "i"));
@@ -3059,11 +3098,14 @@ function parseStatsFromOcr(rawText){
     if(found.baseStamina === undefined && /max\s+stamina/.test(lower)) found.baseStamina = after("stamina");
     if(found.baseDamage === undefined && /damage/.test(lower) && !/crit|super/.test(lower)) found.baseDamage = after("damage");
 
-    if(found.baseCritChance === undefined && /crit\s+chance/.test(lower) && !/super/.test(lower)) found.baseCritChance = after("chance");
-    if(found.baseCritDamage === undefined && /crit\s+damage/.test(lower) && !/super/.test(lower)) found.baseCritDamage = after("damage");
+    if(found.baseCritChance === undefined && /crit\s+chance/.test(lower) && !/super|ultra/.test(lower)) found.baseCritChance = after("chance");
+    if(found.baseCritDamage === undefined && /crit\s+damage/.test(lower) && !/super|ultra/.test(lower)) found.baseCritDamage = after("damage");
 
     if(found.baseSuperChance === undefined && /super/.test(lower) && /crit/.test(lower) && /chance/.test(lower)) found.baseSuperChance = after("chance");
     if(found.baseSuperDamage === undefined && /super/.test(lower) && /crit/.test(lower) && /damage/.test(lower)) found.baseSuperDamage = after("damage");
+
+    if(found.baseUltraChance === undefined && /ultra/.test(lower) && /crit/.test(lower) && /chance/.test(lower)) found.baseUltraChance = after("chance");
+    if(found.baseUltraDamage === undefined && /ultra/.test(lower) && /crit/.test(lower) && /damage/.test(lower)) found.baseUltraDamage = after("damage");
 
     if(found.baseXpGain === undefined && /(exp|xp)\s+gain/.test(lower) && !/mod/.test(lower)) found.baseXpGain = after("gain");
     if(found.baseFragGain === undefined && /fragment\s+gain/.test(lower)) found.baseFragGain = after("gain");
@@ -3072,9 +3114,20 @@ function parseStatsFromOcr(rawText){
     if(found.baseXpModGain === undefined && /(exp|xp).{0,8}mod\s+gain/.test(lower)) found.baseXpModGain = after("gain");
     if(found.baseLootMod === undefined && /loot\s+mod\s+chance/.test(lower)) found.baseLootMod = after("chance");
     if(found.baseLootModGain === undefined && /loot\s+mod\s+gain/.test(lower)) found.baseLootModGain = after("gain");
+    if(found.baseSpeedModAtkRate === undefined && /speed\s+mod\s+atk\s+rate/.test(lower)) found.baseSpeedModAtkRate = after("rate");
+    if(found.baseSpeedModGain === undefined && /speed\s+mod\s+gain/.test(lower)) found.baseSpeedModGain = after("gain");
     if(found.baseSpeedMod === undefined && /speed\s+mod\s+chance/.test(lower)) found.baseSpeedMod = after("chance");
     if(found.baseStaminaMod === undefined && /stamina\s+mod\s+chance/.test(lower)) found.baseStaminaMod = after("chance");
     if(found.staminaModGain === undefined && /stamina\s+mod\s+gain/.test(lower)) found.staminaModGain = after("gain");
+
+    // A2 stats.
+    if(found.baseAtkSpeed === undefined && /atk\s+speed/.test(lower)) found.baseAtkSpeed = after("speed");
+    if(found.baseInstacharge === undefined && /insta/.test(lower)) found.baseInstacharge = after("insta");
+    if(found.baseAutoTap === undefined && /auto[\s-]*tap/.test(lower)) found.baseAutoTap = after("tap");
+    if(found.baseGoldCrosshairMulti === undefined && /crosshair\s+multi/.test(lower)) found.baseGoldCrosshairMulti = after("multi");
+    if(found.baseGoldCrosshairChance === undefined && /crosshair\s+chance/.test(lower)) found.baseGoldCrosshairChance = after("chance");
+    if(found.baseGleamingMulti === undefined && /gleam\w*\s+floor\s+multi/.test(lower)) found.baseGleamingMulti = after("multi");
+    if(found.baseGleamingChance === undefined && /gleam\w*\s+floor\s+chance/.test(lower)) found.baseGleamingChance = after("chance");
 
     // Flat "Armor Penetration" is shown in the stat window; % armor pen is not a
     // tracked base stat (it comes from attributes/upgrades), so only parse flat.
@@ -3174,10 +3227,14 @@ function finishImport(parsed, statsText, fullText){
       selectedLevel:"Level", baseDamage:"Damage", baseStamina:"Stamina", baseCritChance:"Crit %",
       baseCritDamage:"Crit dmg", baseSuperChance:"Super crit %", baseSuperDamage:"Super crit dmg",
       baseXpGain:"XP gain", baseFragGain:"Fragment gain", baseXpMod:"XP mod %", baseXpModGain:"XP mod gain",
-      baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %", baseStaminaMod:"Stamina mod %",
-      staminaModGain:"Stamina mod gain", baseArmorPenFlat:"Armor pen"
+      baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %",
+      baseSpeedModGain:"Speed mod gain", baseSpeedModAtkRate:"Speed mod atk rate", baseStaminaMod:"Stamina mod %",
+      staminaModGain:"Stamina mod gain", baseArmorPenFlat:"Armor pen", baseAtkSpeed:"Atk speed",
+      baseUltraChance:"Ultra crit %", baseUltraDamage:"Ultra crit dmg", baseInstacharge:"Instacharge %",
+      baseAutoTap:"Auto-tap %", baseGoldCrosshairChance:"Gold crosshair %", baseGoldCrosshairMulti:"Gold crosshair x",
+      baseGleamingChance:"Gleaming floor %", baseGleamingMulti:"Gleaming floor x"
     };
-    const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat"];
+    const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseUltraChance","baseUltraDamage","baseAtkSpeed","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain","baseArmorPenFlat","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti","baseGleamingChance","baseGleamingMulti"];
     preview.textContent = Object.keys(parsed).length
       ? "Parsed: " + order.filter(id=>parsed[id] !== undefined).map(id=>`${labels[id] || id} ${parsed[id]}`).join(" · ")
       : "";
@@ -3273,8 +3330,9 @@ function resetAllSettings(){
   const blankIds = [
     "selectedLevel","targetFloor",
     "baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage",
-    "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain",
+    "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain",
     "baseArmorPenFlat",
+    "baseUltraChance","baseUltraDamage","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti","baseGleamingChance","baseGleamingMulti",
     "curStr","curAgi","curPer","curInt","curLuck",
     "spentStr","spentAgi","spentPer","spentInt","spentLuck"
   ];
