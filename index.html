@@ -298,7 +298,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 <body data-workflow="results" data-target-used="false" data-simulation-ready="false" data-ascension="0">
 <header>
   <h1>Obelisk Miner Archaeology Optimizer</h1>
-  <p>Compare archaeology stat builds for the selected level. Choose how floors spawn nodes, then compare builds shown as STR / AGI / PER / INT / Luck.</p>
 </header>
 
 <main>
@@ -325,7 +324,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         </select>
       </div>
       <div>
-        <label>Secondary goal <span class="small">(must differ from primary)</span></label>
+        <label>Secondary goal</label>
         <select id="secondaryGoal">
           <option value="none">None</option>
           <option value="allRewards" disabled>All rewards</option>
@@ -362,14 +361,12 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         </div>
       </div>
     </div>
-    <div class="small goal-help" id="goalHelp">The optimizer protects the primary goal first. The secondary goal is used only among near-best primary builds.</div>
   </section>
 
   <section class="settings-card">
     <div class="settings-card-header">
       <div>
         <h2>Run settings</h2>
-        <div class="small">Tap a row to edit. These settings apply to every goal.</div>
       </div>
       <button id="resetAllSettings" class="reset-btn" type="button">Reset all</button>
     </div>
@@ -389,7 +386,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
     <div class="card" id="deterministicCard">
       <span class="pill-note">Goal: maximize total value</span>
       <h2 id="optimizerTitle">Best build</h2>
-      <div class="small" id="optimizerHelp">Find the best stat split for the selected level. Expand the table only when you want to compare close alternatives.</div>
       <div class="actionbar">
         <button id="runExact">Find best build</button>
         <button id="runMonteRerank" class="ghost">Simulate top builds</button>
@@ -415,7 +411,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
     <div class="card" id="simulationCard">
       <div class="sim-card-head"><h2>Simulated result</h2><button id="clearMonteRerank" class="clear-chip">Clear simulation</button></div>
-      <div class="helper">Simulates the current top candidates using the same active settings. If settings change, rerun Find best build first.</div>
       <div class="metrics simulation-summary">
         <div class="metric good"><div class="k">Best simulated build</div><div class="v" id="simBestBuild">—</div></div>
         <div class="metric"><div class="k" id="simPrimaryLabel">Sim primary score</div><div class="v" id="simPrimaryScore">—</div></div>
@@ -440,7 +435,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
     <div class="card">
       <span class="pill-note">Goal: reach a floor</span>
       <h2>Best floor-push build</h2>
-      <div class="helper">Finds builds that push the farthest, then simulates runs to estimate success chance for the target floor.</div>
       <div class="actionbar">
         <button id="runReachability">Find floor-push build</button>
         <button id="clearReachability" class="clear-chip">Clear floor results</button>
@@ -468,7 +462,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
     <div class="card">
       <span class="pill-note">Goal: evaluate next stat point</span>
       <h2>Manual build and next stat point</h2>
-      <div class="small">Enter a manual stat split in Settings. Order: STR / AGI / PER / INT / Luck.</div>
       <div class="actionbar">
         <button id="scoreCurrent">Score manual build</button>
         <button id="runMonte" class="ghost">Simulation target chance for current build</button>
@@ -494,7 +487,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       <span class="pill-note">Goal: build a level path</span>
       <h2>Level 0–100 path</h2>
       <div class="actionbar"><button id="runGreedy">Build level path</button></div>
-      <div class="helper">Shows one possible point-by-point spending path. Exact level results may differ when breakpoints matter.</div>
       <div class="table-wrap">
         <table id="greedyTable">
           <thead><tr><th>Level</th><th>Added</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Value per tick-hour</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
@@ -532,7 +524,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
     <div class="settings-body">
       <div class="settings-top">
         <button class="settings-back" data-cancel-settings type="button" aria-label="Back">←</button>
-        <div class="settings-title"><h2>Settings</h2><div class="small">Change values, then confirm.</div></div>
+        <div class="settings-title"><h2>Settings</h2></div>
       </div>
 
       <section id="settings-general" class="settings-section active">
@@ -555,12 +547,9 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
             </select>
           </div>
         </div>
-        <div class="small" style="margin-top:8px">Active count rolls a floor node count first, then node types from relative weights. Slot chance treats each of 24 slots as independently empty or filled.</div>
-        <div class="small" style="margin-top:8px">Ascension gates which blocks exist. A0 excludes divine and tier 4 blocks. A1 adds divine blocks (unlocked at Ascension 1). A2 adds tier 4 blocks (unlocked at Ascension 2). Changing ascension updates the node table, scoring, available cards, and divine-loot goals.</div>
       </section>
 
       <section id="settings-loot" class="settings-section loot-setting">
-        <div class="small" style="margin-bottom:8px">Check a drop tier when that resource is not useful for the selected goal.</div>
         <div class="check-grid">
           <label class="check-row"><input id="worthlessCommon" type="checkbox"> Common loot worthless</label>
           <label class="check-row"><input id="worthlessRare" type="checkbox"> Rare loot worthless</label>
@@ -572,7 +561,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       </section>
 
       <section id="settings-current" class="settings-section" style="display:none">
-        <div class="small" style="margin-bottom:8px">Manual stat split. Order: STR / AGI / PER / INT / Luck.</div>
         <div class="form-grid">
           <div><label>STR</label><input id="curStr" type="number" min="0" value="0"></div>
           <div><label>AGI</label><input id="curAgi" type="number" min="0" value="0"></div>
@@ -583,10 +571,8 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       </section>
 
       <section id="settings-base" class="settings-section">
-        <div class="small" style="margin-bottom:8px">Base stats are your current unspent-stat values. Node rewards use public base values; EXP gain and fragment gain are applied during scoring. Node HP includes stage 100/150 scaling.</div>
         <div class="import-box">
           <h3>Import stats from screenshot</h3>
-          <div class="small">Upload a stats screenshot. The app will scan the image and fill matching fields. Internet is required the first time OCR loads.</div>
           <div class="import-actions">
             <input id="statScreenshotInput" type="file" accept="image/*">
             <button id="importStatScreenshotBtn" type="button" class="import-btn icon-btn" title="Retry" aria-label="Retry">↻</button>
@@ -621,7 +607,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
       
       <section id="settings-cards" class="settings-section">
-        <div class="small" style="margin-bottom:8px">Select the archaeology cards you own. Normal: -10% node health, +10% EXP/loot. Gilded: -20% / +20%. Polychrome: -35% / +35% (base; up to 50% with an Archaeology upgrade). Infernal amplifies the maxed-polychrome bonus by the number of cards set to infernal — TotalMultiplier = 1 + (1.5 − 1) × (infernal count) — applied to loot/EXP (+) and health (−), with health clamped to −90%. Each infernal card also grants a unique global effect (shown on the card); those global effects are tracked but not yet folded into node scoring.</div>
         <div class="card-bulk">
           <div class="bulk-field">
             <label for="cardBulkRarity">Bulk set rarity</label>
@@ -644,7 +629,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
             </div>
           </div>
         </div>
-        <div class="small" style="margin-bottom:8px">Bulk controls only affect the cards currently visible for the selected ascension.</div>
         <div class="form-grid" id="cardSettingsGrid"></div>
       </section>
 
@@ -936,24 +920,10 @@ function updateGoalUI(){
 
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
-  const help = document.getElementById("optimizerHelp");
-  if(help) help.textContent = secondaryFocusKey(getInputs())==="none"
-    ? "Finds the best build for the selected primary goal."
-    : `Finds the best build for ${rewardFocusLabel(primaryFocusKey(getInputs()))}; ${rewardFocusLabel(secondaryFocusKey(getInputs()))} is used among near-best primary results.`;
   const label = document.getElementById("bestValueLabel");
   if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(getInputs()))}/tick-hour`;
   const modeLabel = document.getElementById("bestModeLabel");
   if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(getInputs()));
-  const goalHelp = document.getElementById("goalHelp");
-  if(goalHelp){
-    goalHelp.classList.remove("goal-warning");
-    const tol = primaryProtectionTolerance();
-    const protectionText = tol > 0 ? `within ${tol}% of the primary result` : "only after the primary result is protected";
-    const targetText = (primary === "target" || secondary === "target") ? ` Target floor: ${validateTargetFloor()}.` : "";
-    goalHelp.textContent = secondary === "none"
-      ? `Primary goal: ${rewardFocusLabel(primary)}.${targetText}`
-      : `Primary goal: ${rewardFocusLabel(primary)}. Secondary goal: ${rewardFocusLabel(secondary)} is used ${protectionText}.${targetText}`;
-  }
 }
 function targetMetric(sc, inp){
   const target = Math.max(1, inp.targetFloor || 1);
@@ -1802,8 +1772,6 @@ function renderBest(best, top, count){
   if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(inp));
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
-  const help = document.getElementById("optimizerHelp");
-  if(help) help.textContent = secondaryFocusKey(inp)==="none" ? "Uses expected-value scoring. Simulate after running this to compare randomized runs." : `Protects ${rewardFocusLabel(primaryFocusKey(inp))}, then prefers ${rewardFocusLabel(secondaryFocusKey(inp))} inside the tolerance band.`;
   const valueLabel = document.getElementById("bestValueLabel");
   if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))}/tick-hour`;
   document.getElementById("candidateCount").textContent = count.toLocaleString();
