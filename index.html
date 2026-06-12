@@ -502,7 +502,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       <h2>Node values</h2>
       <div class="table-wrap">
         <table id="nodeTable">
-          <thead><tr><th>Tier</th><th>Type</th><th>Floor min</th><th>Floor max</th><th>HP</th><th>XP0</th><th>Loot0</th><th>Loot XP-equivalent</th><th>Worthless?</th></tr></thead>
+          <thead><tr><th>Tier</th><th>Type</th><th>Floor min</th><th>Floor max</th><th>HP</th><th>Armor</th><th>XP0</th><th>Loot0</th><th>Loot XP-equivalent</th><th>Worthless?</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -547,6 +547,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
               <option value="slotChance">Slot chance: 24 independent slots</option>
             </select>
           </div>
+          <label class="check-row"><input id="armorEnabled" type="checkbox" checked> Apply block armor</label>
         </div>
       </section>
 
@@ -603,6 +604,8 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Base speed mod %</label><input id="baseSpeedMod" type="number" step="0.001" value=""></div>
           <div><label>Base stamina mod %</label><input id="baseStaminaMod" type="number" step="0.001" value=""></div>
           <div><label>Stamina mod gain</label><input id="staminaModGain" type="number" step="0.001" value=""></div>
+          <div><label>Base armor pen (flat)</label><input id="baseArmorPenFlat" type="number" step="0.001" value=""></div>
+          <div><label>Base armor pen %</label><input id="baseArmorPenPct" type="number" step="0.001" value=""></div>
         </div>
       </section>
 
@@ -648,8 +651,10 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>AGI stamina mod %</label><input id="agiStaminaModPct" type="number" step="0.001" value="0.2"></div>
           <div><label>PER fragment gain x</label><input id="perFragGain" type="number" step="0.001" value="0.04"></div>
           <div><label>PER loot mod %</label><input id="perLootModPct" type="number" step="0.001" value="0.3"></div>
+          <div><label>PER armor pen (flat)</label><input id="perArmorPen" type="number" step="0.001" value="2"></div>
           <div><label>INT XP gain x</label><input id="intXpGain" type="number" step="0.001" value="0.05"></div>
           <div><label>INT XP mod %</label><input id="intXpModPct" type="number" step="0.001" value="0.3"></div>
+          <div><label>INT armor pen %</label><input id="intArmorPenPct" type="number" step="0.001" value="3"></div>
           <div><label>Luck crit chance %</label><input id="luckCritPct" type="number" step="0.001" value="2"></div>
           <div><label>Luck XP mod %</label><input id="luckXpModPct" type="number" step="0.001" value="0.2"></div>
           <div><label>Luck loot mod %</label><input id="luckLootModPct" type="number" step="0.001" value="0.2"></div>
@@ -703,34 +708,34 @@ window.addEventListener("unhandledrejection", e=>{
 */
 const rarityOrder = ["dirt","common","rare","epic","legendary","mythic","divine"];
 const baseBlocks = [
-  {tier:1,type:"dirt",health:100,xp:0.05,frag:0, floorMin:1, floorMax:11, health100:200, health150:400},
-  {tier:1,type:"common",health:250,xp:0.15,frag:0.01, floorMin:1, floorMax:17, health100:500, health150:1000},
-  {tier:1,type:"rare",health:550,xp:0.35,frag:0.01, floorMin:3, floorMax:25, health100:1100, health150:2200},
-  {tier:1,type:"epic",health:1150,xp:1.0,frag:0.01, floorMin:6, floorMax:29, health100:2300, health150:4600},
-  {tier:1,type:"legendary",health:1950,xp:3.5,frag:0.01, floorMin:12, floorMax:31, health100:3900, health150:7800},
-  {tier:1,type:"mythic",health:3500,xp:7.5,frag:0.01, floorMin:20, floorMax:34, health100:7000, health150:14000},
-  {tier:2,type:"dirt",health:300,xp:0.15,frag:0, floorMin:12, floorMax:23, health100:600, health150:1200},
-  {tier:2,type:"common",health:750,xp:0.45,frag:0.02, floorMin:18, floorMax:29, health100:1500, health150:3000},
-  {tier:2,type:"rare",health:1650,xp:1.05,frag:0.02, floorMin:26, floorMax:35, health100:3300, health150:6600},
-  {tier:2,type:"epic",health:3450,xp:3.0,frag:0.02, floorMin:30, floorMax:41, health100:6900, health150:13800},
-  {tier:2,type:"legendary",health:5850,xp:10.5,frag:0.02, floorMin:32, floorMax:44, health100:11700, health150:23400},
-  {tier:2,type:"mythic",health:10500,xp:22.5,frag:0.02, floorMin:35, floorMax:49, health100:21000, health150:42000},
-  {tier:3,type:"dirt",health:900,xp:0.45,frag:0, floorMin:24, floorMax:80, health100:1800, health150:3600},
-  {tier:3,type:"common",health:2250,xp:1.35,frag:0.04, floorMin:30, floorMax:95, health100:4500, health150:9000},
-  {tier:3,type:"rare",health:4950,xp:3.15,frag:0.04, floorMin:36, floorMax:110, health100:9900, health150:19800},
-  {tier:3,type:"epic",health:10350,xp:9.0,frag:0.04, floorMin:42, floorMax:125, health100:20700, health150:41400},
-  {tier:3,type:"legendary",health:17550,xp:31.5,frag:0.04, floorMin:45, floorMax:135, health100:35100, health150:70200},
-  {tier:3,type:"mythic",health:31500,xp:67.5,frag:0.04, floorMin:50, floorMax:140, health100:63000, health150:126000},
-  {tier:4,type:"dirt",health:2700,xp:1.35,frag:0, floorMin:81, floorMax:999, health100:5400, health150:10800},
-  {tier:4,type:"common",health:6750,xp:4.05,frag:0.08, floorMin:96, floorMax:999, health100:13500, health150:27000},
-  {tier:4,type:"rare",health:14850,xp:9.45,frag:0.08, floorMin:111, floorMax:999, health100:29700, health150:59400},
-  {tier:4,type:"epic",health:31050,xp:27.0,frag:0.08, floorMin:126, floorMax:999, health100:62100, health150:124200},
-  {tier:4,type:"legendary",health:52650,xp:94.5,frag:0.08, floorMin:136, floorMax:999, health100:105300, health150:210600},
-  {tier:4,type:"mythic",health:94500,xp:202.5,frag:0.08, floorMin:141, floorMax:999, health100:189000, health150:378000},
-  {tier:1,type:"divine",health:25000,xp:20,frag:0.01, floorMin:50, floorMax:74, health100:50000, health150:100000},
-  {tier:2,type:"divine",health:75000,xp:60,frag:0.02, floorMin:75, floorMax:99, health100:150000, health150:300000},
-  {tier:3,type:"divine",health:225000,xp:180,frag:0.04, floorMin:100, floorMax:149, health100:450000, health150:900000},
-  {tier:4,type:"divine",health:675000,xp:540,frag:0.08, floorMin:150, floorMax:999, health100:1350000, health150:2700000}
+  {tier:1,type:"dirt",health:100,xp:0.05,frag:0, floorMin:1, floorMax:11, health100:200, health150:400, armor:0, armor100:0, armor150:0},
+  {tier:1,type:"common",health:250,xp:0.15,frag:0.01, floorMin:1, floorMax:17, health100:500, health150:1000, armor:5, armor100:7.5, armor150:7.5},
+  {tier:1,type:"rare",health:550,xp:0.35,frag:0.01, floorMin:3, floorMax:25, health100:1100, health150:2200, armor:12, armor100:18, armor150:18},
+  {tier:1,type:"epic",health:1150,xp:1.0,frag:0.01, floorMin:6, floorMax:29, health100:2300, health150:4600, armor:25, armor100:37.5, armor150:37.5},
+  {tier:1,type:"legendary",health:1950,xp:3.5,frag:0.01, floorMin:12, floorMax:31, health100:3900, health150:7800, armor:50, armor100:75, armor150:75},
+  {tier:1,type:"mythic",health:3500,xp:7.5,frag:0.01, floorMin:20, floorMax:34, health100:7000, health150:14000, armor:150, armor100:225, armor150:225},
+  {tier:2,type:"dirt",health:300,xp:0.15,frag:0, floorMin:12, floorMax:23, health100:600, health150:1200, armor:0, armor100:0, armor150:0},
+  {tier:2,type:"common",health:750,xp:0.45,frag:0.02, floorMin:18, floorMax:29, health100:1500, health150:3000, armor:8.25, armor100:12.38, armor150:12.38},
+  {tier:2,type:"rare",health:1650,xp:1.05,frag:0.02, floorMin:26, floorMax:35, health100:3300, health150:6600, armor:19.8, armor100:29.7, armor150:29.7},
+  {tier:2,type:"epic",health:3450,xp:3.0,frag:0.02, floorMin:30, floorMax:41, health100:6900, health150:13800, armor:41.25, armor100:61.88, armor150:61.88},
+  {tier:2,type:"legendary",health:5850,xp:10.5,frag:0.02, floorMin:32, floorMax:44, health100:11700, health150:23400, armor:82.5, armor100:123.75, armor150:123.75},
+  {tier:2,type:"mythic",health:10500,xp:22.5,frag:0.02, floorMin:35, floorMax:49, health100:21000, health150:42000, armor:247.5, armor100:371.25, armor150:371.25},
+  {tier:3,type:"dirt",health:900,xp:0.45,frag:0, floorMin:24, floorMax:80, health100:1800, health150:3600, armor:0, armor100:0, armor150:0},
+  {tier:3,type:"common",health:2250,xp:1.35,frag:0.04, floorMin:30, floorMax:95, health100:4500, health150:9000, armor:13.61, armor100:20.42, armor150:20.42},
+  {tier:3,type:"rare",health:4950,xp:3.15,frag:0.04, floorMin:36, floorMax:110, health100:9900, health150:19800, armor:32.67, armor100:49, armor150:49},
+  {tier:3,type:"epic",health:10350,xp:9.0,frag:0.04, floorMin:42, floorMax:125, health100:20700, health150:41400, armor:68.06, armor100:102.09, armor150:102.09},
+  {tier:3,type:"legendary",health:17550,xp:31.5,frag:0.04, floorMin:45, floorMax:135, health100:35100, health150:70200, armor:136.12, armor100:204.19, armor150:204.19},
+  {tier:3,type:"mythic",health:31500,xp:67.5,frag:0.04, floorMin:50, floorMax:140, health100:63000, health150:126000, armor:408.37, armor100:612.56, armor150:612.56},
+  {tier:4,type:"dirt",health:2700,xp:1.35,frag:0, floorMin:81, floorMax:999, health100:5400, health150:10800, armor:0, armor100:0, armor150:0},
+  {tier:4,type:"common",health:6750,xp:4.05,frag:0.08, floorMin:96, floorMax:999, health100:13500, health150:27000, armor:22.46, armor100:33.69, armor150:33.69},
+  {tier:4,type:"rare",health:14850,xp:9.45,frag:0.08, floorMin:111, floorMax:999, health100:29700, health150:59400, armor:53.91, armor100:80.86, armor150:80.86},
+  {tier:4,type:"epic",health:31050,xp:27.0,frag:0.08, floorMin:126, floorMax:999, health100:62100, health150:124200, armor:112.3, armor100:168.45, armor150:168.45},
+  {tier:4,type:"legendary",health:52650,xp:94.5,frag:0.08, floorMin:136, floorMax:999, health100:105300, health150:210600, armor:224.61, armor100:336.91, armor150:336.91},
+  {tier:4,type:"mythic",health:94500,xp:202.5,frag:0.08, floorMin:141, floorMax:999, health100:189000, health150:378000, armor:673.82, armor100:1010.73, armor150:1010.73},
+  {tier:1,type:"divine",health:25000,xp:20,frag:0.01, floorMin:50, floorMax:74, health100:50000, health150:100000, armor:300, armor100:450, armor150:450},
+  {tier:2,type:"divine",health:75000,xp:60,frag:0.02, floorMin:75, floorMax:99, health100:150000, health150:300000, armor:495, armor100:742.5, armor150:742.5},
+  {tier:3,type:"divine",health:225000,xp:180,frag:0.04, floorMin:100, floorMax:149, health100:450000, health150:900000, armor:816.75, armor100:1225.13, armor150:1225.13},
+  {tier:4,type:"divine",health:675000,xp:540,frag:0.08, floorMin:150, floorMax:999, health100:1350000, health150:2700000, armor:1347.64, armor100:2021.46, armor150:2021.46}
 ];
 
 const spawnRanges = [
@@ -1263,6 +1268,7 @@ function deterministicSignature(inp){
     targetFloor: inp.targetFloor,
     maxFloor: inp.maxFloor,
     ascension: inp.ascension,
+    armorEnabled: inp.armorEnabled,
     polyUpgrade: inp.polyUpgrade,
     mcTopCount: inp.mcTopCount,
     worthless: inp.worthless,
@@ -1297,6 +1303,7 @@ function getInputs(){
     targetFloor:validateTargetFloor(),
     maxFloor:Math.max(1, Math.floor(n("maxFloor"))),
     ascension:currentAscension(),
+    armorEnabled:checked("armorEnabled"),
     polyUpgrade:checked("polyUpgrade"),
     archInfernalMult:Math.max(0, n("archInfernalMult") || 1),
     nodeSpawnModel:v("nodeSpawnModel") || "activeCount",
@@ -1329,7 +1336,9 @@ function getInputs(){
       lootMod:pct("baseLootMod"),
       lootModGain:n("baseLootModGain") || 3.8,
       speedMod:pct("baseSpeedMod"),
-      staminaMod:pct("baseStaminaMod")
+      staminaMod:pct("baseStaminaMod"),
+      armorPenFlat:n("baseArmorPenFlat") || 0,
+      armorPenPct:pct("baseArmorPenPct")
     },
     inc:{
       strFlatDamage:n("strFlatDamage"),
@@ -1341,8 +1350,10 @@ function getInputs(){
       agiStaminaModPct:pct("agiStaminaModPct"),
       intXpGain:n("intXpGain"),
       intXpModPct:pct("intXpModPct"),
+      intArmorPenPct:pct("intArmorPenPct"),
       perFragGain:n("perFragGain"),
       perLootModPct:pct("perLootModPct"),
+      perArmorPen:n("perArmorPen"),
       luckCritPct:pct("luckCritPct"),
       luckXpModPct:pct("luckXpModPct"),
       luckLootModPct:pct("luckLootModPct"),
@@ -1379,7 +1390,20 @@ function getDerived(stats, inp){
   const speedChance = clamp(b.speedMod + A*inc.agiSpeedPct + L*inc.luckAllModPct,0,0.95);
   const staminaModChance = clamp(b.staminaMod + A*inc.agiStaminaModPct + L*inc.luckAllModPct,0,0.95);
   const stamina = b.stamina + A*inc.agiStamina;
-  return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina};
+  // PER gives flat armor penetration (+2/level), INT gives percent (+3%/level).
+  const armorPenFlat = (b.armorPenFlat || 0) + P*(inc.perArmorPen || 0);
+  const armorPenPct = clamp((b.armorPenPct || 0) + I*(inc.intArmorPenPct || 0), 0, 0.99);
+  return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct};
+}
+
+// Effective block armor after the player's penetration. Percent pen applies to
+// the block's armor, then flat pen subtracts. Returns 0 when armor is disabled.
+// The wiki does not state the armor->damage formula, so this is a modeling
+// choice (flat per-hit reduction); the armor toggle lets it be compared off.
+const MIN_HIT_FRAC = 0.05; // a hit always deals at least 5% of its raw damage
+function effectiveArmor(armor, der, inp){
+  if(!inp.armorEnabled || !(armor > 0)) return 0;
+  return Math.max(0, armor * (1 - der.armorPenPct) - der.armorPenFlat);
 }
 
 /* v58: lightweight settings persistence. Saves every id'd input/select plus
@@ -1463,6 +1487,10 @@ function visibleBlocks(inp){
       hp:b.health*HP_SCALE*cardBonus.hpMult,
       hp100:(b.health100 ?? b.health)*HP_SCALE*cardBonus.hpMult,
       hp150:(b.health150 ?? b.health100 ?? b.health)*HP_SCALE*cardBonus.hpMult,
+      // Armor is a block property; cards reduce health, not armor.
+      armor:b.armor ?? 0,
+      armor100:b.armor100 ?? b.armor ?? 0,
+      armor150:b.armor150 ?? b.armor100 ?? b.armor ?? 0,
       xp0,
       loot0
     };
@@ -1499,7 +1527,8 @@ function blockForFloor(type, floor, blocks){
   }
   if(!best) return null;
   const resolvedHp = floor >= 150 ? best.hp150 : (floor >= 100 ? best.hp100 : best.hp);
-  return {...best, hp: resolvedHp};
+  const resolvedArmor = floor >= 150 ? best.armor150 : (floor >= 100 ? best.armor100 : best.armor);
+  return {...best, hp: resolvedHp, armor: resolvedArmor};
 }
 
 function ratesForFloor(floor, inp){
@@ -1523,20 +1552,22 @@ function ratesForFloor(floor, inp){
    normal, super, crit, and crit+super. For small hit counts it solves the
    expected clear time exactly by recursive expectation. For very large hit
    counts it falls back to average damage to keep exhaustive searches fast. */
-function expectedHitsFull(hp, der, inp){
+function expectedHitsFull(hp, der, inp, armor=0){
   if(hp <= 0) return 0;
 
   if(!der._hitCache) der._hitCache = new Map();
-  const cacheKey = Math.ceil(hp * 1000);
+  const cacheKey = Math.ceil(hp * 1000) + "|" + Math.round(armor * 100);
   if(der._hitCache.has(cacheKey)) return der._hitCache.get(cacheKey);
 
   const pCrit = der.critChance;
   const pSuper = inp.base.superChance;
+  // Armor reduces each hit by a flat amount, with a floor of MIN_HIT_FRAC of the raw hit.
+  const reduce = raw => Math.max(raw * MIN_HIT_FRAC, raw - armor);
   const outcomes = [
-    {p:(1-pCrit)*(1-pSuper), d:der.damage},
-    {p:(1-pCrit)*pSuper, d:der.damage*inp.base.superDamage},
-    {p:pCrit*(1-pSuper), d:der.damage*der.critDamage},
-    {p:pCrit*pSuper, d:der.damage*der.critDamage*inp.base.superDamage}
+    {p:(1-pCrit)*(1-pSuper), d:reduce(der.damage)},
+    {p:(1-pCrit)*pSuper, d:reduce(der.damage*inp.base.superDamage)},
+    {p:pCrit*(1-pSuper), d:reduce(der.damage*der.critDamage)},
+    {p:pCrit*pSuper, d:reduce(der.damage*der.critDamage*inp.base.superDamage)}
   ].filter(o => o.p > 0 && o.d > 0);
 
   const minHit = Math.min(...outcomes.map(o => o.d));
@@ -1601,7 +1632,7 @@ function floorCostValue(floor, der, inp, blocks){
     const expectedCount = expectedTypeCountForFloor(type, floor, rates, inp);
     const b = blockForFloor(type, floor, blocks);
     if(!b) continue;
-    const hits = expectedHitsFull(b.hp, der, inp);
+    const hits = expectedHitsFull(b.hp, der, inp, effectiveArmor(b.armor, der, inp));
     const costs = nodeCosts(hits, der, inp);
     const xpValue = b.xp0 * der.xpMult;
     const lootValue = b.lootXpEq * der.lootMult;
@@ -1636,7 +1667,7 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
       if(p<=0) continue;
       const b = blockForFloor(type, floor, blocks);
       if(!b) continue;
-      const hits = expectedHitsFull(b.hp, der, inp);
+      const hits = expectedHitsFull(b.hp, der, inp, effectiveArmor(b.armor, der, inp));
       const costs = nodeCosts(hits, der, inp);
       const xpValue = b.xp0 * der.xpMult;
       const lootValue = b.lootXpEq * der.lootMult;
@@ -1898,7 +1929,7 @@ function renderNodes(){
   tbody.innerHTML="";
   for(const b of blocks){
     const tr=document.createElement("tr");
-    const cells=[b.tier,b.type,b.floorMin,b.floorMax===999?"∞":b.floorMax,fmt(b.hp,0),fmt(b.xp0,3),fmt(b.loot0,3),fmt(b.lootXpEq,3),b.isWorthless?"Yes":"No"];
+    const cells=[b.tier,b.type,b.floorMin,b.floorMax===999?"∞":b.floorMax,fmt(b.hp,0),b.armor>0?fmt(b.armor,2):"—",fmt(b.xp0,3),fmt(b.loot0,3),fmt(b.lootXpEq,3),b.isWorthless?"Yes":"No"];
     for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
     tbody.appendChild(tr);
   }
@@ -1945,11 +1976,12 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
       }
 
       let hp=b.hp;
+      const armor=effectiveArmor(b.armor, der, inp);
       while(hp>0 && stamina>0){
         const crit=rng()<der.critChance;
         const superCrit=rng()<inp.base.superChance;
         const dmg=der.damage * (crit?der.critDamage:1) * (superCrit?inp.base.superDamage:1);
-        hp-=dmg;
+        hp-=Math.max(dmg*MIN_HIT_FRAC, dmg-armor);
         stamina-=1;
         ticksSpent+=1;
       }
@@ -2834,6 +2866,13 @@ function parseStatsFromOcr(rawText){
     if(found.baseSpeedMod === undefined && /speed\s+mod\s+chance/.test(lower)) found.baseSpeedMod = get();
     if(found.baseStaminaMod === undefined && /stamina\s+mod\s+chance/.test(lower)) found.baseStaminaMod = get();
     if(found.staminaModGain === undefined && /stamina\s+mod\s+gain/.test(lower)) found.staminaModGain = get();
+
+    // Armor penetration: a "%" on the line means percent pen, otherwise flat.
+    if(/armor\s*pen/.test(lower)){
+      if(/%/.test(line)){
+        if(found.baseArmorPenPct === undefined) found.baseArmorPenPct = get();
+      }else if(found.baseArmorPenFlat === undefined) found.baseArmorPenFlat = get();
+    }
   }
 
   return found;
@@ -2909,9 +2948,9 @@ async function importStatsFromScreenshot(file){
         baseCritDamage:"Crit dmg", baseSuperChance:"Super crit %", baseSuperDamage:"Super crit dmg",
         baseXpGain:"XP gain", baseFragGain:"Fragment gain", baseXpMod:"XP mod %", baseXpModGain:"XP mod gain",
         baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %", baseStaminaMod:"Stamina mod %",
-        staminaModGain:"Stamina mod gain"
+        staminaModGain:"Stamina mod gain", baseArmorPenFlat:"Armor pen", baseArmorPenPct:"Armor pen %"
       };
-      const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain"];
+      const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat","baseArmorPenPct"];
       preview.textContent = Object.keys(parsed).length
         ? "Parsed: " + order.filter(id=>parsed[id] !== undefined).map(id=>`${labels[id] || id} ${parsed[id]}`).join(" · ")
         : "";
@@ -2937,6 +2976,7 @@ function resetAllSettings(){
     "selectedLevel","targetFloor",
     "baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage",
     "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain",
+    "baseArmorPenFlat","baseArmorPenPct",
     "curStr","curAgi","curPer","curInt","curLuck"
   ];
 
@@ -2970,6 +3010,7 @@ function resetAllSettings(){
   ["worthlessCommon","worthlessRare","worthlessEpic","worthlessLegendary","worthlessMythic","worthlessDivine","polyUpgrade"].forEach(id=>{
     const el=document.getElementById(id); if(el) el.checked=false;
   });
+  const armorToggle=document.getElementById("armorEnabled"); if(armorToggle) armorToggle.checked=true;
 
   if(typeof ARCHAEOLOGY_CARD_KEYS !== "undefined"){
     ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
