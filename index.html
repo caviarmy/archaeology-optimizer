@@ -3105,18 +3105,19 @@ function parseAbilitiesFromOcr(rawText){
   if(m){ const d = Number(parseOcrNumericValue(m[0])); if(ok(d,1,1000) && d !== out.quakeDmgPct) out.enrageDmgPct = d; }
 
   // Title line per card reads "<name> <charges> <cooldown>" (icons stripped to
-  // spaces), so the first two numbers after the name are charges then cooldown.
-  const titleNums = (name) => {
+  // spaces). Charges are small (1-50) and the cooldown is bigger (20-600), so
+  // pick the first cooldown-range number after the name rather than assuming a
+  // fixed position (the small charges number can come first or be doubled by
+  // the effect text's "Next N").
+  const numsAfterName = (name) => {
     const i = lower.indexOf(name); if(i < 0) return [];
-    const seg = text.slice(i+name.length, i+name.length+26)
+    const seg = text.slice(i+name.length, i+name.length+16)
       .replace(/[Oo]/g,"0").replace(/[Il|]/g,"1").replace(/[Zz]/g,"2").replace(/G/g,"4").replace(/b/g,"6").replace(/B/g,"8").replace(/S/g,"5");
-    return (seg.match(/\d+(?:\.\d+)?/g) || []).map(Number);
+    return (seg.match(/\d+/g) || []).map(Number);
   };
-  const setCd = (key, x) => { if(x != null && x >= 5 && x <= 600) out[key] = x; };
-  const setCh = (key, x) => { if(x != null && x >= 1 && x <= 50) out[key] = x; };
-  const enT = titleNums("enrage"); setCd("enrageCooldown", enT[1]);
-  const flT = titleNums("flurry"); setCh("flurryCharges", flT[0]); setCd("flurryCooldown", flT[1]);
-  const qkT = titleNums("quake");  setCd("quakeCooldown", qkT[1]);
+  const enN = numsAfterName("enrage"); { const c = enN.find(x=>x>=20&&x<=600); if(c) out.enrageCooldown = c; }
+  const flN = numsAfterName("flurry"); { const c = flN.find(x=>x>=20&&x<=600); if(c) out.flurryCooldown = c; const h = flN.find(x=>x>=1&&x<=50); if(h) out.flurryCharges = h; }
+  const qkN = numsAfterName("quake");  { const c = qkN.find(x=>x>=20&&x<=600); if(c) out.quakeCooldown = c; }
 
   out._detected = { enrage: lower.includes("enrage"), flurry: lower.includes("flurry"), quake: lower.includes("quake") };
   return out;
@@ -3209,6 +3210,11 @@ async function importStatsFromScreenshot(file){
       enableAbility(det.enrage, "enrageOn");
       enableAbility(det.flurry, "flurryOn");
       enableAbility(det.quake, "quakeOn");
+      // Surface the full-screen pass (which holds the skill cards) in the OCR
+      // text box so it can be inspected/shared for tuning.
+      if(ocrText && fullText && fullText !== text){
+        ocrText.textContent = text + "\n\n===== full screen (skills pass) =====\n" + fullText;
+      }
     }catch(_e){}
 
     const preview = document.getElementById("ocrParsedPreview");
