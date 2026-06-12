@@ -3050,7 +3050,7 @@ function cleanStatLine(rawLine){
     .replace(/Camase/gi,"Damage")
     .replace(/Damase/gi,"Damage")
     .replace(/Damaze/gi,"Damage")
-    .replace(/\bC?[o0]ma[a-z]e\b/gi,"Damage")
+    .replace(/\b[A-Za-z]?[o0]ma[a-z]e\b/gi,"Damage")
     .replace(/CDamage/gi,"Damage")
     // Gleaming Floor: 'G' commonly reads as 'f', and 'Multi' as 'Melti'.
     .replace(/\b[FfGg]leamin[a-z]*/gi,"Gleaming")
