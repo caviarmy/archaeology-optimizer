@@ -586,6 +586,11 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         </div>
         <div class="import-box">
           <h3>Import stats from screenshot</h3>
+          <details style="margin-bottom:8px">
+            <summary>? Example screenshot</summary>
+            <div class="small" style="margin:6px 0">Open the Stats popup so the stat panel and the Enrage / Flurry / Quake cards are both visible, then screenshot the whole screen. Stats and skill values are read together.</div>
+            <img src="stat-skill-example.jpg" alt="Example: stats popup with ability cards visible" style="max-width:100%;border:1px solid var(--line);border-radius:8px">
+          </details>
           <div class="import-actions">
             <input id="statScreenshotInput" type="file" accept="image/*">
             <button id="importStatScreenshotBtn" type="button" class="import-btn icon-btn" title="Retry" aria-label="Retry">↻</button>
@@ -3069,6 +3074,38 @@ function parseStatsFromOcr(rawText){
   return found;
 }
 
+// Parse the Enrage/Flurry/Quake ability cards from a full-screen OCR. The three
+// cards sit side-by-side so OCR merges them, so we anchor on each effect's
+// UNIQUE phrase and read the number right next to it (a small window) rather
+// than trying to separate columns. Best-effort: cooldowns aren't read (their
+// title numbers are unreliable), so they stay at the editable defaults.
+function parseAbilitiesFromOcr(rawText){
+  const full = normalizeOcrText(rawText || "").replace(/\s+/g, " ");
+  // Restrict to the ability region (from the first ability name onward) so the
+  // stats text above — which also has "Crit Damage", "Atk Speed", "Stamina" —
+  // can't be mistaken for ability values.
+  const start = full.toLowerCase().search(/enrage|flurry|quake/);
+  if(start < 0) return {};
+  const text = full.slice(start);
+  const lower = text.toLowerCase();
+  const out = {};
+  const numIn = (str, last) => { const v = parseOcrNumericValue(str, {preferLast:!!last}); return v == null ? null : Number(v); };
+  const before = (kw, w=20) => { const i = lower.indexOf(kw); return i < 0 ? null : numIn(text.slice(Math.max(0,i-w), i), true); };
+  const after  = (kw, w=20) => { const i = lower.indexOf(kw); return i < 0 ? null : numIn(text.slice(i+kw.length, i+kw.length+w), false); };
+  const ok = (x,lo,hi) => x != null && x >= lo && x <= hi;
+
+  let v;
+  v = before("crit damage");  if(ok(v,1,1000)) out.enrageCritDmgPct = v;    // "+110% Crit Damage"
+  v = before("atk speed");    if(ok(v,1,1000)) out.flurryAtkSpeedPct = v;    // "+100% Atk Speed"
+  v = before("stamina on cast"); if(ok(v,1,100)) out.flurryStaminaOnCast = v; // "+7 Stamina On Cast" (anchor includes Stamina so its S->5 doesn't pollute)
+  v = after("deal");          if(ok(v,1,100))  out.quakeDmgPct = v;         // "deal 20% Damage To all Blocks"
+  v = after("next");          if(ok(v,1,50)){ out.enrageCharges = v; out.quakeCharges = v; } // "Next 5 Attacks"
+  // Enrage +damage%: first "N% Damage" that isn't "Crit Damage" and isn't the Quake value.
+  const m = [...lower.matchAll(/(\d{1,4})\s*%?\s*damage/g)].find(mm => !/crit\s*$/.test(lower.slice(Math.max(0,mm.index-6), mm.index)));
+  if(m){ const d = Number(parseOcrNumericValue(m[0])); if(ok(d,1,1000) && d !== out.quakeDmgPct) out.enrageDmgPct = d; }
+  return out;
+}
+
 
 async function importStatsFromScreenshot(file){
   const status = document.getElementById("ocrStatus");
@@ -3092,6 +3129,7 @@ async function importStatsFromScreenshot(file){
 
     let text = result?.data?.text || "";
     let parsed = parseStatsFromOcr(text);
+    let fullText = "";
 
     // If stamina mod OCR is only one decimal, run one alternate crop pass and
     // use it only if it gives a more precise stamina-mod value.
@@ -3113,7 +3151,7 @@ async function importStatsFromScreenshot(file){
       setOcrStatus("Reading full screenshot...");
       const fullProcessed = preprocessForOcr(baseCanvas);
       const fullResult = await recognizeWithTesseract(fullProcessed, "Reading full screenshot");
-      const fullText = fullResult?.data?.text || "";
+      fullText = fullResult?.data?.text || "";
       const fullParsed = parseStatsFromOcr(fullText);
       if(Object.keys(fullParsed).length >= Object.keys(parsed).length){
         text = fullText;
@@ -3132,6 +3170,19 @@ async function importStatsFromScreenshot(file){
       if(setFieldValue(id,val)) applied++;
     }
     if(applied) statsImported = true;
+
+    // Ability cards live below the stats popup, outside the stats crop, so read
+    // the full screenshot (reuse the fallback pass if it already ran).
+    try{
+      if(!fullText){
+        setOcrStatus("Reading skill cards...");
+        const abilityResult = await recognizeWithTesseract(preprocessForOcr(baseCanvas), "Reading skill cards");
+        fullText = abilityResult?.data?.text || "";
+      }
+      const ab = parseAbilitiesFromOcr(fullText);
+      const abIds = ["enrageDmgPct","enrageCritDmgPct","enrageCharges","flurryAtkSpeedPct","flurryStaminaOnCast","quakeDmgPct","quakeCharges"];
+      for(const id of abIds){ if(ab[id] !== undefined) setFieldValue(id, ab[id]); }
+    }catch(_e){}
 
     const preview = document.getElementById("ocrParsedPreview");
     if(preview){
