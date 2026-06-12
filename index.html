@@ -604,7 +604,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Base stamina mod %</label><input id="baseStaminaMod" type="number" step="0.001" value=""></div>
           <div><label>Stamina mod gain</label><input id="staminaModGain" type="number" step="0.001" value=""></div>
           <div><label>Base armor pen (flat)</label><input id="baseArmorPenFlat" type="number" step="0.001" value=""></div>
-          <div><label>Base armor pen %</label><input id="baseArmorPenPct" type="number" step="0.001" value=""></div>
         </div>
       </section>
 
@@ -1334,8 +1333,7 @@ function getInputs(){
       lootModGain:n("baseLootModGain") || 3.8,
       speedMod:pct("baseSpeedMod"),
       staminaMod:pct("baseStaminaMod"),
-      armorPenFlat:n("baseArmorPenFlat") || 0,
-      armorPenPct:pct("baseArmorPenPct")
+      armorPenFlat:n("baseArmorPenFlat") || 0
     },
     inc:{
       strFlatDamage:n("strFlatDamage"),
@@ -2877,12 +2875,9 @@ function parseStatsFromOcr(rawText){
     if(found.baseStaminaMod === undefined && /stamina\s+mod\s+chance/.test(lower)) found.baseStaminaMod = get();
     if(found.staminaModGain === undefined && /stamina\s+mod\s+gain/.test(lower)) found.staminaModGain = get();
 
-    // Armor penetration: a "%" on the line means percent pen, otherwise flat.
-    if(/armor\s*pen/.test(lower)){
-      if(/%/.test(line)){
-        if(found.baseArmorPenPct === undefined) found.baseArmorPenPct = get();
-      }else if(found.baseArmorPenFlat === undefined) found.baseArmorPenFlat = get();
-    }
+    // Flat "Armor Penetration" is shown in the stat window; % armor pen is not a
+    // tracked base stat (it comes from attributes/upgrades), so only parse flat.
+    if(found.baseArmorPenFlat === undefined && /armor\s*pen/.test(lower) && !/%/.test(line)) found.baseArmorPenFlat = get();
   }
 
   return found;
@@ -2958,9 +2953,9 @@ async function importStatsFromScreenshot(file){
         baseCritDamage:"Crit dmg", baseSuperChance:"Super crit %", baseSuperDamage:"Super crit dmg",
         baseXpGain:"XP gain", baseFragGain:"Fragment gain", baseXpMod:"XP mod %", baseXpModGain:"XP mod gain",
         baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %", baseStaminaMod:"Stamina mod %",
-        staminaModGain:"Stamina mod gain", baseArmorPenFlat:"Armor pen", baseArmorPenPct:"Armor pen %"
+        staminaModGain:"Stamina mod gain", baseArmorPenFlat:"Armor pen"
       };
-      const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat","baseArmorPenPct"];
+      const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat"];
       preview.textContent = Object.keys(parsed).length
         ? "Parsed: " + order.filter(id=>parsed[id] !== undefined).map(id=>`${labels[id] || id} ${parsed[id]}`).join(" · ")
         : "";
@@ -2986,7 +2981,7 @@ function resetAllSettings(){
     "selectedLevel","targetFloor",
     "baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage",
     "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain",
-    "baseArmorPenFlat","baseArmorPenPct",
+    "baseArmorPenFlat",
     "curStr","curAgi","curPer","curInt","curLuck"
   ];
 
