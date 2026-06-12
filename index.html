@@ -1391,19 +1391,21 @@ function getDerived(stats, inp){
   const staminaModChance = clamp(b.staminaMod + A*inc.agiStaminaModPct + L*inc.luckAllModPct,0,0.95);
   const stamina = b.stamina + A*inc.agiStamina;
   // PER gives flat armor penetration (+2/level), INT gives percent (+3%/level).
+  // Percent armor pen buffs the flat armor-pen stat (e.g. 100 pen +9% = 109 pen).
   const armorPenFlat = (b.armorPenFlat || 0) + P*(inc.perArmorPen || 0);
-  const armorPenPct = clamp((b.armorPenPct || 0) + I*(inc.intArmorPenPct || 0), 0, 0.99);
+  const armorPenPct = Math.max(0, (b.armorPenPct || 0) + I*(inc.intArmorPenPct || 0));
   return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct};
 }
 
-// Effective block armor after the player's penetration. Percent pen applies to
-// the block's armor, then flat pen subtracts. Returns 0 when armor is disabled.
-// The wiki does not state the armor->damage formula, so this is a modeling
-// choice (flat per-hit reduction); the armor toggle lets it be compared off.
+// Effective block armor after the player's penetration. Percent armor pen buffs
+// the flat armor-pen stat, then total pen subtracts from the block's armor.
+// Returns 0 when armor is disabled. The wiki does not state the armor->damage
+// formula, so the per-hit reduction is a modeling choice; the toggle compares off.
 const MIN_HIT_FRAC = 0.05; // a hit always deals at least 5% of its raw damage
 function effectiveArmor(armor, der, inp){
   if(!inp.armorEnabled || !(armor > 0)) return 0;
-  return Math.max(0, armor * (1 - der.armorPenPct) - der.armorPenFlat);
+  const totalPen = der.armorPenFlat * (1 + der.armorPenPct);
+  return Math.max(0, armor - totalPen);
 }
 
 /* v58: lightweight settings persistence. Saves every id'd input/select plus
