@@ -2747,19 +2747,50 @@ async function ensureTesseractLoaded(){
   return await loadScriptOnce("tesseractDynamicScript", "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js");
 }
 
-async function recognizeWithTesseract(image, statusPrefix){
-  const opts = {
+// Tight whitelist for the stats panel. Only digits, the letters that actually
+// appear in stat labels (J/Q/W/Z never do), and the punctuation the panel uses.
+// Forcing Tesseract to pick the best ALLOWED glyph removes junk like § & [ « | ©
+// and stops a digit from collapsing onto a letter that can never be correct here.
+const STAT_CHAR_WHITELIST = "0123456789ABCDEFGHIKLMNOPRSTUVXYabcdefghiklmnoprstuvxy .:%/+-";
+// Skill cards add words like "Quake"/"Blocks", so keep every letter there and
+// only strip the junk symbols.
+const FULL_CHAR_WHITELIST = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .:%/+-";
+
+let _ocrWorker = null;
+let _ocrWhitelist = null;
+let _ocrStatusPrefix = "Reading";
+
+// One reusable worker for the whole session. Reuse is faster than the
+// recognize() convenience helper (which reloads each call) and, crucially, lets
+// us set tessedit_char_whitelist — which the convenience call cannot.
+async function getOcrWorker(){
+  if(_ocrWorker) return _ocrWorker;
+  const T = await ensureTesseractLoaded();
+  _ocrWorker = await T.createWorker("eng", 1, {
     workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
     corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js",
     langPath: "https://tessdata.projectnaptha.com/4.0.0",
     logger:m=>{
       if(m && m.status){
         const pct = m.progress ? ` ${Math.round(m.progress*100)}%` : "";
-        setOcrStatus(`${statusPrefix || "Reading"}: ${m.status}${pct}`);
+        setOcrStatus(`${_ocrStatusPrefix}: ${m.status}${pct}`);
       }
     }
-  };
-  return await Tesseract.recognize(image, "eng", opts);
+  });
+  return _ocrWorker;
+}
+
+async function recognizeWithTesseract(image, statusPrefix, whitelist){
+  const worker = await getOcrWorker();
+  _ocrStatusPrefix = statusPrefix || "Reading";
+  // Default to the tight stats whitelist; callers reading card text pass the
+  // looser one. Only re-issue setParameters when the list actually changes.
+  const wl = whitelist === undefined ? STAT_CHAR_WHITELIST : whitelist;
+  if(wl !== _ocrWhitelist){
+    await worker.setParameters({ tessedit_char_whitelist: wl });
+    _ocrWhitelist = wl;
+  }
+  return await worker.recognize(image);
 }
 
 function setOcrRuntimeNote(){
@@ -3301,7 +3332,7 @@ async function importStatsFromScreenshot(file){
     if(Object.keys(parsed).length < 5){
       setOcrStatus("Reading full screenshot...");
       const fullProcessed = preprocessForOcr(baseCanvas);
-      const fullResult = await recognizeWithTesseract(fullProcessed, "Reading full screenshot");
+      const fullResult = await recognizeWithTesseract(fullProcessed, "Reading full screenshot", FULL_CHAR_WHITELIST);
       fullText = fullResult?.data?.text || "";
       const fullParsed = parseStatsFromOcr(fullText);
       if(Object.keys(fullParsed).length >= Object.keys(parsed).length){
@@ -3321,7 +3352,7 @@ async function importStatsFromScreenshot(file){
     try{
       setOcrStatus("Reading skill cards...");
       const abCrop = cropCanvas(baseCanvas, abilityRegionRect(baseCanvas, rect));
-      const abResult = await recognizeWithTesseract(preprocessForOcr(abCrop, 4, 3000), "Reading skill cards");
+      const abResult = await recognizeWithTesseract(preprocessForOcr(abCrop, 4, 3000), "Reading skill cards", FULL_CHAR_WHITELIST);
       abilityText = abResult?.data?.text || "";
     }catch(_e){}
     finishImport(parsed, text, abilityText || fullText || text);
