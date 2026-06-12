@@ -547,7 +547,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
               <option value="slotChance">Slot chance: 24 independent slots</option>
             </select>
           </div>
-          <label class="check-row"><input id="armorEnabled" type="checkbox" checked> Apply block armor</label>
         </div>
       </section>
 
@@ -1268,7 +1267,6 @@ function deterministicSignature(inp){
     targetFloor: inp.targetFloor,
     maxFloor: inp.maxFloor,
     ascension: inp.ascension,
-    armorEnabled: inp.armorEnabled,
     polyUpgrade: inp.polyUpgrade,
     mcTopCount: inp.mcTopCount,
     worthless: inp.worthless,
@@ -1303,7 +1301,6 @@ function getInputs(){
     targetFloor:validateTargetFloor(),
     maxFloor:Math.max(1, Math.floor(n("maxFloor"))),
     ascension:currentAscension(),
-    armorEnabled:checked("armorEnabled"),
     polyUpgrade:checked("polyUpgrade"),
     archInfernalMult:Math.max(0, n("archInfernalMult") || 1),
     nodeSpawnModel:v("nodeSpawnModel") || "activeCount",
@@ -1399,11 +1396,11 @@ function getDerived(stats, inp){
 
 // Effective block armor after the player's penetration. Percent armor pen buffs
 // the flat armor-pen stat, then total pen subtracts from the block's armor.
-// Returns 0 when armor is disabled. Each hit's damage to the block is reduced by
-// this flat amount; a hit that doesn't exceed it deals nothing (a wasted tick),
-// and a block no hit can exceed is unbreakable.
+// Each hit's damage to the block is reduced by this flat amount; a hit that
+// doesn't exceed it deals nothing (a wasted tick), and a block no hit can exceed
+// is unbreakable.
 function effectiveArmor(armor, der, inp){
-  if(!inp.armorEnabled || !(armor > 0)) return 0;
+  if(!(armor > 0)) return 0;
   const totalPen = der.armorPenFlat * (1 + der.armorPenPct);
   return Math.max(0, armor - totalPen);
 }
@@ -3023,7 +3020,6 @@ function resetAllSettings(){
   ["worthlessCommon","worthlessRare","worthlessEpic","worthlessLegendary","worthlessMythic","worthlessDivine","polyUpgrade"].forEach(id=>{
     const el=document.getElementById(id); if(el) el.checked=false;
   });
-  const armorToggle=document.getElementById("armorEnabled"); if(armorToggle) armorToggle.checked=true;
 
   if(typeof ARCHAEOLOGY_CARD_KEYS !== "undefined"){
     ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
