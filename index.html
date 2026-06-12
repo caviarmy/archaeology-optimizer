@@ -593,8 +593,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           </details>
           <div class="import-actions">
             <input id="statScreenshotInput" type="file" accept="image/*">
-            <button id="importStatScreenshotBtn" type="button" class="import-btn icon-btn" title="Import with Tesseract" aria-label="Import with Tesseract">↻</button>
-            <button id="importPaddleBtn" type="button" class="ghost" title="Import with PaddleOCR (experimental)">PaddleOCR</button>
+            <button id="importStatScreenshotBtn" type="button" class="import-btn icon-btn" title="Retry import" aria-label="Retry import">↻</button>
           </div>
           <div id="ocrStatus" class="ocr-status small">No screenshot imported.</div>
           <div id="ocrRuntimeNote" class="ocr-status small"></div>
@@ -2842,8 +2841,18 @@ function cropCanvas(canvas, rect){
   return out;
 }
 
-function preprocessForOcr(canvas){
-  const scale = Math.max(1, Math.min(3, 2200 / Math.max(canvas.width, canvas.height)));
+// Region below the stats panel, where the ability cards live. Anchored to the
+// detected stats panel (cards are below it); falls back to the lower half.
+function abilityRegionRect(canvas, statsRect){
+  const w = canvas.width, h = canvas.height;
+  let top = (statsRect && statsRect.h && (statsRect.y + statsRect.h) < h*0.9)
+    ? (statsRect.y + statsRect.h) : Math.round(h*0.5);
+  top = Math.max(0, Math.min(top, Math.round(h*0.78)));
+  return {x:0, y:top, w:w, h:h-top};
+}
+
+function preprocessForOcr(canvas, maxScale=3, target=2200){
+  const scale = Math.max(1, Math.min(maxScale, target / Math.max(canvas.width, canvas.height)));
   const out = document.createElement("canvas");
   out.width = Math.round(canvas.width * scale);
   out.height = Math.round(canvas.height * scale);
@@ -3238,16 +3247,17 @@ async function importStatsFromScreenshot(file){
       parsed.baseStaminaMod = "0.75";
     }
 
-    // Ability cards live below the stats popup, outside the stats crop, so read
-    // the full screenshot (reuse the fallback pass if it already ran).
-    if(!fullText){
+    // Ability cards live below the stats panel. Crop just that lower region
+    // (anchored to the detected stats panel) and upscale it hard so the small
+    // card text — especially cooldowns — survives OCR.
+    let abilityText = "";
+    try{
       setOcrStatus("Reading skill cards...");
-      try{
-        const abilityResult = await recognizeWithTesseract(preprocessForOcr(baseCanvas), "Reading skill cards");
-        fullText = abilityResult?.data?.text || "";
-      }catch(_e){}
-    }
-    finishImport(parsed, text, fullText);
+      const abCrop = cropCanvas(baseCanvas, abilityRegionRect(baseCanvas, rect));
+      const abResult = await recognizeWithTesseract(preprocessForOcr(abCrop, 4, 3000), "Reading skill cards");
+      abilityText = abResult?.data?.text || "";
+    }catch(_e){}
+    finishImport(parsed, text, abilityText || fullText || text);
   }catch(err){
     console.error(err);
     setOcrStatus("Screenshot import failed: " + describeError(err));
@@ -3256,56 +3266,6 @@ async function importStatsFromScreenshot(file){
   }
 }
 
-/* Experimental: PaddleOCR (PP-OCR) in-browser via PaddleJS, loaded from CDN.
-   Feeds its text through the same parsers so we can compare it to Tesseract. */
-let paddleOcrModule = null;
-async function ensurePaddleOcr(){
-  if(paddleOcrModule) return paddleOcrModule;
-  setOcrStatus("Loading PaddleOCR (first run downloads models)...");
-  // PaddleJS expects a bundler; jsDelivr's /+esm leaves WASM globals undefined
-  // ("Module is not defined"). esm.sh polyfills browser/Node globals, so try it
-  // first and fall back to jsDelivr.
-  const sources = [
-    "https://esm.sh/@paddlejs-models/ocr",
-    "https://cdn.jsdelivr.net/npm/@paddlejs-models/ocr/+esm"
-  ];
-  let mod = null, lastErr = null;
-  for(const url of sources){
-    try{ mod = await import(/* @vite-ignore */ url); break; }
-    catch(e){ lastErr = e; }
-  }
-  if(!mod) throw (lastErr || new Error("Could not load PaddleOCR module"));
-  if(typeof mod.init === "function") await mod.init();
-  paddleOcrModule = mod;
-  return mod;
-}
-async function recognizeWithPaddle(imageEl){
-  const ocr = await ensurePaddleOcr();
-  const res = await ocr.recognize(imageEl);
-  if(Array.isArray(res?.text)) return res.text.join("\n");
-  if(typeof res?.text === "string") return res.text;
-  if(Array.isArray(res)) return res.join("\n");
-  return String(res || "");
-}
-async function importStatsWithPaddle(file){
-  const status = document.getElementById("ocrStatus");
-  const btn = document.getElementById("importPaddleBtn");
-  if(!file) return;
-  try{
-    if(btn) btn.disabled = true;
-    const img = await loadImageFromFile(file);
-    await ensurePaddleOcr();
-    setOcrStatus("Reading screenshot with PaddleOCR...");
-    const text = await recognizeWithPaddle(img);
-    const parsed = parseStatsFromOcr(text);
-    finishImport(parsed, text, text);
-  }catch(err){
-    console.error(err);
-    setOcrStatus("PaddleOCR failed: " + describeError(err) + " (check internet / model CDN)");
-  }finally{
-    if(btn) btn.disabled = false;
-  }
-}
 
 
 function resetAllSettings(){
@@ -3482,11 +3442,6 @@ function bindStatScreenshotImport(){
   if(btn){
     btn.addEventListener("click", startSelectedScreenshotImport);
   }
-  document.getElementById("importPaddleBtn")?.addEventListener("click", ()=>{
-    const file = selectedStatScreenshotFile();
-    if(!file){ if(status) status.textContent = "Choose a screenshot first."; return; }
-    importStatsWithPaddle(file);
-  });
   document.getElementById("copyOcrTextBtn")?.addEventListener("click",copyOcrText);
 
   document.addEventListener("change",(e)=>{
