@@ -3127,8 +3127,9 @@ function resetAllSettings(){
 
   if(typeof ARCHAEOLOGY_CARD_KEYS !== "undefined"){
     ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
-      const el=document.getElementById(cardSettingId(c.key));
-      if(el) el.value="none";
+      const owned=document.querySelector(`input[name="card_state_${c.key}"][value="owned"]`);
+      if(owned) owned.checked=true;   // reset rarity back to Normal
+      setCardState(c.key, "none");     // uncheck the card + hidden value none + close radios
     });
   }
 
