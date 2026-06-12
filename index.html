@@ -3262,7 +3262,19 @@ let paddleOcrModule = null;
 async function ensurePaddleOcr(){
   if(paddleOcrModule) return paddleOcrModule;
   setOcrStatus("Loading PaddleOCR (first run downloads models)...");
-  const mod = await import("https://cdn.jsdelivr.net/npm/@paddlejs-models/ocr/+esm");
+  // PaddleJS expects a bundler; jsDelivr's /+esm leaves WASM globals undefined
+  // ("Module is not defined"). esm.sh polyfills browser/Node globals, so try it
+  // first and fall back to jsDelivr.
+  const sources = [
+    "https://esm.sh/@paddlejs-models/ocr",
+    "https://cdn.jsdelivr.net/npm/@paddlejs-models/ocr/+esm"
+  ];
+  let mod = null, lastErr = null;
+  for(const url of sources){
+    try{ mod = await import(/* @vite-ignore */ url); break; }
+    catch(e){ lastErr = e; }
+  }
+  if(!mod) throw (lastErr || new Error("Could not load PaddleOCR module"));
   if(typeof mod.init === "function") await mod.init();
   paddleOcrModule = mod;
   return mod;
