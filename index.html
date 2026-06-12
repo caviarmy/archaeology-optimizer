@@ -2981,6 +2981,10 @@ function parseOcrNumericValue(raw, opts={}){
     .replace(/[%xX+]/g," ")
     .trim();
 
+  // Re-join a decimal split by a letter→digit fix, e.g. "6b. 25" became
+  // "66. 25" only after b→6, so the earlier join missed it. ("66.25")
+  s = s.replace(/([0-9])\s*\.\s*([0-9]{2})\b/g, "$1.$2");
+
   const nums = s.match(/[+-]?\d+(?:\.\d+)?/g);
   if(!nums || !nums.length) return null;
   return (opts.preferLast ? nums[nums.length-1] : nums[0]).replace(/^\+/,"");
@@ -2994,6 +2998,7 @@ function cleanStatLine(rawLine){
     .replace(/Archaeolo(?:g|s|e)y/gi,"Archaeology")
     .replace(/Archaeolosy/gi,"Archaeology")
     .replace(/Fraement/gi,"Fragment")
+    .replace(/Fras?ment/gi,"Fragment")
     .replace(/Fragment\s+Bain/gi,"Fragment Gain")
     .replace(/Fragment\s+Baim/gi,"Fragment Gain")
     .replace(/\bBain\b/gi,"Gain")
@@ -3013,7 +3018,12 @@ function cleanStatLine(rawLine){
     .replace(/Camage/gi,"Damage")
     .replace(/Camase/gi,"Damage")
     .replace(/Damase/gi,"Damage")
+    .replace(/Damaze/gi,"Damage")
+    .replace(/\bC?[o0]ma[a-z]e\b/gi,"Damage")
     .replace(/CDamage/gi,"Damage")
+    // Gleaming Floor: 'G' commonly reads as 'f', and 'Multi' as 'Melti'.
+    .replace(/\b[FfGg]leamin[a-z]*/gi,"Gleaming")
+    .replace(/\bMelti\b/gi,"Multi")
     .replace(/Dama\s*=\s*e/gi,"Damage")
     .replace(/Cama\s*=\s*e/gi,"Damage");
 }
