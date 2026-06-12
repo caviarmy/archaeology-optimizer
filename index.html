@@ -2900,6 +2900,47 @@ function cropCanvas(canvas, rect){
   return out;
 }
 
+// Crop a region — given in the ORIGINAL image's pixel coordinates — straight
+// from the full-resolution image, so stat text keeps its detail instead of being
+// sampled from a pre-shrunk working canvas. The rect is clamped to the image,
+// and the output's long side can be capped (used to bound the big ability crop).
+function cropImageRegion(img, rect, maxOut){
+  const W = img.naturalWidth, H = img.naturalHeight;
+  const ix = Math.max(0, Math.min(Math.round(rect.x), W-1));
+  const iy = Math.max(0, Math.min(Math.round(rect.y), H-1));
+  const iw = Math.max(1, Math.min(Math.round(rect.w), W - ix));
+  const ih = Math.max(1, Math.min(Math.round(rect.h), H - iy));
+  const scale = maxOut ? Math.min(1, maxOut / Math.max(iw, ih)) : 1;
+  const out = document.createElement("canvas");
+  out.width = Math.max(1, Math.round(iw*scale));
+  out.height = Math.max(1, Math.round(ih*scale));
+  const ctx = out.getContext("2d", {willReadFrequently:true});
+  ctx.imageSmoothingEnabled = scale < 1; // smooth only when shrinking
+  ctx.drawImage(img, ix, iy, iw, ih, 0, 0, out.width, out.height);
+  return out;
+}
+
+// Otsu's method: pick the luminance cut that best separates the dark panel from
+// the light text, so a bright floor bleeding through the translucent panel
+// doesn't break a fixed threshold. Falls back to the caller's default if the
+// histogram is degenerate.
+function otsuThreshold(hist, total){
+  if(!total) return -1;
+  let sum=0; for(let i=0;i<256;i++) sum += i*hist[i];
+  let sumB=0, wB=0, maxVar=-1, thr=-1;
+  for(let i=0;i<256;i++){
+    wB += hist[i];
+    if(wB===0) continue;
+    const wF = total - wB;
+    if(wF<=0) break;
+    sumB += i*hist[i];
+    const mB = sumB/wB, mF = (sum-sumB)/wF;
+    const between = wB*wF*(mB-mF)*(mB-mF);
+    if(between > maxVar){ maxVar = between; thr = i; }
+  }
+  return thr;
+}
+
 // Region below the stats panel, where the ability cards live. Anchored to the
 // detected stats panel (cards are below it); falls back to the lower half.
 function abilityRegionRect(canvas, statsRect){
@@ -2910,7 +2951,7 @@ function abilityRegionRect(canvas, statsRect){
   return {x:0, y:top, w:w, h:h-top};
 }
 
-function preprocessForOcr(canvas, maxScale=3, target=2200, stripColor=false){
+function preprocessForOcr(canvas, maxScale=3, target=2200, stripColor=false, adaptive=false){
   const scale = Math.max(1, Math.min(maxScale, target / Math.max(canvas.width, canvas.height)));
   const out = document.createElement("canvas");
   out.width = Math.round(canvas.width * scale);
@@ -2919,24 +2960,13 @@ function preprocessForOcr(canvas, maxScale=3, target=2200, stripColor=false){
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(canvas, 0, 0, out.width, out.height);
 
-  const img = ctx.getImageData(0,0,out.width,out.height);
-  const d = img.data;
-  for(let i=0;i<d.length;i+=4){
-    const r=d[i], g=d[i+1], b=d[i+2];
-    const lum = 0.299*r + 0.587*g + 0.114*b;
-    // Stat labels/values are near-white (low chroma). Colored stat icons and the
-    // little "+3"/"XP" decorations are saturated, so dropping high-chroma pixels
-    // erases them at the source instead of letting OCR misread them as glyphs.
-    const chroma = Math.max(r,g,b) - Math.min(r,g,b);
-    const isText = lum > 135 && (!stripColor || chroma < 60);
-    d[i] = d[i+1] = d[i+2] = isText ? 0 : 255;
-    d[i+3] = 255;
-  }
-  ctx.putImageData(img,0,0);
+  const imgData = ctx.getImageData(0,0,out.width,out.height);
+  binarizeImageData(imgData, stripColor, adaptive ? 135 : null, 135);
+  ctx.putImageData(imgData,0,0);
   return out;
 }
 
-function preprocessForOcrAlt(canvas, stripColor=false){
+function preprocessForOcrAlt(canvas, stripColor=false, adaptive=false){
   const scale = Math.max(1, Math.min(3, 2200 / Math.max(canvas.width, canvas.height)));
   const out = document.createElement("canvas");
   out.width = Math.round(canvas.width * scale);
@@ -2945,18 +2975,39 @@ function preprocessForOcrAlt(canvas, stripColor=false){
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(canvas, 0, 0, out.width, out.height);
 
-  const img = ctx.getImageData(0,0,out.width,out.height);
-  const d = img.data;
-  for(let i=0;i<d.length;i+=4){
+  const imgData = ctx.getImageData(0,0,out.width,out.height);
+  binarizeImageData(imgData, stripColor, adaptive ? 118 : null, 118);
+  ctx.putImageData(imgData,0,0);
+  return out;
+}
+
+// Shared binarizer. Drops saturated (icon/decoration) pixels when stripColor is
+// set, then thresholds luminance — adaptively via Otsu when adaptiveFallback is
+// non-null (using it only if Otsu is sane), otherwise at fixedThreshold. Stat
+// labels/values are near-white; the panel and floor behind it are darker.
+function binarizeImageData(imgData, stripColor, adaptiveFallback, fixedThreshold){
+  const d = imgData.data, n = d.length;
+  const hist = new Uint32Array(256);
+  let counted = 0;
+  for(let i=0;i<n;i+=4){
     const r=d[i], g=d[i+1], b=d[i+2];
-    const lum = 0.299*r + 0.587*g + 0.114*b;
-    const chroma = Math.max(r,g,b) - Math.min(r,g,b);
-    const isText = lum > 118 && (!stripColor || chroma < 60);
+    const colored = stripColor && (Math.max(r,g,b) - Math.min(r,g,b)) >= 60;
+    d[i+3] = colored ? 1 : 0; // stash the flag in alpha; RGB stays intact
+    if(!colored){ hist[(0.299*r + 0.587*g + 0.114*b)|0]++; counted++; }
+  }
+  let t = fixedThreshold;
+  if(adaptiveFallback !== null){
+    const ot = otsuThreshold(hist, counted);
+    t = (ot >= 60 && ot <= 235) ? ot : adaptiveFallback;
+  }
+  for(let i=0;i<n;i+=4){
+    const colored = d[i+3] === 1;
+    const lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    const isText = !colored && lum > t;
     d[i] = d[i+1] = d[i+2] = isText ? 0 : 255;
     d[i+3] = 255;
   }
-  ctx.putImageData(img,0,0);
-  return out;
+  return t;
 }
 
 function parsedValuePrecision(value){
@@ -3311,10 +3362,14 @@ async function importStatsFromScreenshot(file){
     setOcrStatus("Loading screenshot...");
     if(ocrText) ocrText.textContent = "";
     const img = await loadImageFromFile(file);
-    const baseCanvas = canvasFromImage(img);
-    const rect = detectStatsPanelRect(baseCanvas);
-    const cropped = cropCanvas(baseCanvas, rect);
-    const processed = preprocessForOcr(cropped, 3, 2200, true);
+    // Detect the panel on a fast downscaled copy, then map the box back to the
+    // original image and crop full-resolution pixels (keeps stat-text detail).
+    const detectCanvas = canvasFromImage(img, 1400);
+    const rect = detectStatsPanelRect(detectCanvas);
+    const k = img.naturalWidth / detectCanvas.width;
+    const rectFull = {x:rect.x*k, y:rect.y*k, w:rect.w*k, h:rect.h*k};
+    const cropped = cropImageRegion(img, rectFull);
+    const processed = preprocessForOcr(cropped, 3, 2200, true, true);
 
     setOcrStatus("Reading screenshot...");
     const result = await recognizeWithTesseract(processed, "Reading screenshot");
@@ -3327,7 +3382,7 @@ async function importStatsFromScreenshot(file){
     // use it only if it gives a more precise stamina-mod value.
     if(parsed.baseStaminaMod !== undefined && parsedValuePrecision(parsed.baseStaminaMod) < 2){
       try{
-        const altResult = await recognizeWithTesseract(preprocessForOcrAlt(cropped, true), "Reading stamina mod");
+        const altResult = await recognizeWithTesseract(preprocessForOcrAlt(cropped, true, true), "Reading stamina mod");
         const altText = altResult?.data?.text || "";
         const altParsed = parseStatsFromOcr(altText);
         parsed = mergeParsedSingleField(parsed, altParsed, "baseStaminaMod");
@@ -3341,7 +3396,8 @@ async function importStatsFromScreenshot(file){
     // retry against the full screenshot before applying values.
     if(Object.keys(parsed).length < 5){
       setOcrStatus("Reading full screenshot...");
-      const fullProcessed = preprocessForOcr(baseCanvas, 3, 2200, true);
+      const fullCanvas = canvasFromImage(img, 1800);
+      const fullProcessed = preprocessForOcr(fullCanvas, 3, 2200, true, true);
       const fullResult = await recognizeWithTesseract(fullProcessed, "Reading full screenshot", FULL_CHAR_WHITELIST, "3");
       fullText = fullResult?.data?.text || "";
       const fullParsed = parseStatsFromOcr(fullText);
@@ -3361,7 +3417,8 @@ async function importStatsFromScreenshot(file){
     let abilityText = "";
     try{
       setOcrStatus("Reading skill cards...");
-      const abCrop = cropCanvas(baseCanvas, abilityRegionRect(baseCanvas, rect));
+      const abRectFull = abilityRegionRect({width:img.naturalWidth, height:img.naturalHeight}, rectFull);
+      const abCrop = cropImageRegion(img, abRectFull, 1800);
       const abResult = await recognizeWithTesseract(preprocessForOcr(abCrop, 4, 3000), "Reading skill cards", FULL_CHAR_WHITELIST, "3");
       abilityText = abResult?.data?.text || "";
     }catch(_e){}
