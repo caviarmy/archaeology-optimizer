@@ -2817,7 +2817,13 @@ function normalizeOcrText(text){
     .replace(/[|]/g,"I")
     .replace(/[：]/g,":")
     .replace(/[％]/g,"%")
-    .replace(/[×]/g,"x");
+    .replace(/[×]/g,"x")
+    // The pixel font commonly reads 'C' as a bracket glyph.
+    .replace(/[(\[{]/g,"C")
+    // Everything else outside the meaningful set is a misread icon / artifact:
+    // drop it to a space so it can't block a label or be mistaken for a value.
+    // Kept: letters, digits, space, and . % / + : & § = , - (used by parsing).
+    .replace(/[^A-Za-z0-9 .%\/+:&§=,\-]/g," ");
 }
 
 function lineNumber(line){
