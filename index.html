@@ -2755,6 +2755,8 @@ const STAT_CHAR_WHITELIST = "0123456789ABCDEFGHIKLMNOPRSTUVXYabcdefghiklmnoprstu
 // Skill cards add words like "Quake"/"Blocks", so keep every letter there and
 // only strip the junk symbols.
 const FULL_CHAR_WHITELIST = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .:%/+-";
+// Digits + the punctuation values use. Used for the per-value refinement pass.
+const DIGIT_CHAR_WHITELIST = "0123456789.,+-%x/ ";
 
 let _ocrWorker = null;
 let _ocrParamKey = null;
@@ -2793,12 +2795,93 @@ async function recognizeWithTesseract(image, statusPrefix, whitelist, psm){
     await worker.setParameters({ tessedit_char_whitelist: wl, tessedit_pageseg_mode: ps });
     _ocrParamKey = key;
   }
-  return await worker.recognize(image);
+  // Request blocks/words so the digit-refinement pass can find value boxes.
+  return await worker.recognize(image, {}, { text: true, blocks: true });
 }
 
 function setOcrRuntimeNote(){
   const note = document.getElementById("ocrRuntimeNote");
   if(note) note.textContent = "";
+}
+
+// Letters this pixel font commonly emits in place of digits — used to catch
+// value tokens that came back with NO digit at all (e.g. 881 -> "HAL", 2x -> "lx").
+const DIGITISH = /^[0-9OolIiSsBbGgZzHALTtxX.,%+/\-]+$/;
+function isValueCandidate(text){
+  const t = (text || "").trim();
+  if(!t) return false;
+  if(/[0-9]/.test(t)) return true;                       // already has a digit
+  return t.length >= 2 && t.length <= 4 && DIGITISH.test(t); // short, digit-shaped
+}
+
+function extractOcrWords(data){
+  const out = [];
+  const push = w => { if(w && w.bbox && typeof w.text === "string") out.push({text:w.text, bbox:w.bbox}); };
+  if(data && Array.isArray(data.words) && data.words.length){ data.words.forEach(push); return out; }
+  for(const blk of (data?.blocks || []))
+    for(const par of (blk.paragraphs || []))
+      for(const ln of (par.lines || []))
+        for(const w of (ln.words || [])) push(w);
+  return out;
+}
+
+// Regroup words into reading-order lines from their boxes (independent of how the
+// engine paragraph-ised them), so reconstructed text matches the label layout.
+function groupWordsIntoLines(words){
+  const ws = [...words].sort((a,b)=>(a.bbox.y0-b.bbox.y0) || (a.bbox.x0-b.bbox.x0));
+  const lines = [];
+  for(const w of ws){
+    const yc = (w.bbox.y0 + w.bbox.y1)/2, hh = Math.max(1, w.bbox.y1 - w.bbox.y0);
+    let L = lines.find(l => Math.abs(l.yc - yc) < hh*0.6);
+    if(!L){ L = {yc, words:[]}; lines.push(L); }
+    L.words.push(w);
+    L.yc = (L.yc*(L.words.length-1) + yc) / L.words.length;
+  }
+  lines.sort((a,b)=>a.yc-b.yc);
+  lines.forEach(L => L.words.sort((a,b)=>a.bbox.x0-b.bbox.x0));
+  return lines.map(L => L.words);
+}
+
+function cropWordBox(canvas, bbox, pad=4, targetH=80){
+  const x = Math.max(0, Math.round(bbox.x0 - pad));
+  const y = Math.max(0, Math.round(bbox.y0 - pad));
+  const w = Math.min(canvas.width - x, Math.round(bbox.x1 - bbox.x0 + pad*2));
+  const h = Math.min(canvas.height - y, Math.round(bbox.y1 - bbox.y0 + pad*2));
+  const scale = Math.max(1, targetH / Math.max(1, h));
+  const out = document.createElement("canvas");
+  out.width = Math.max(1, Math.round(w*scale));
+  out.height = Math.max(1, Math.round(h*scale));
+  const ctx = out.getContext("2d", {willReadFrequently:true});
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(canvas, x, y, w, h, 0, 0, out.width, out.height);
+  return out;
+}
+
+// The accuracy fix: re-OCR each value's own box with a digits-only whitelist, so
+// letters physically can't appear in a number (881 can't become "HAL", a 6 read
+// as "G" must resolve to a digit). Returns text with values swapped in, or null
+// if the engine handed us no word boxes (then we keep the first-pass result).
+async function refineNumbersByDigitPass(processedCanvas, data){
+  const words = extractOcrWords(data);
+  const note = document.getElementById("ocrRuntimeNote");
+  if(!words.length){ if(note) note.textContent = "Value refinement skipped: OCR returned no word boxes."; return null; }
+  const lines = groupWordsIntoLines(words);
+  const candidates = words.filter(w => isValueCandidate(w.text)
+      && (w.bbox.x1 - w.bbox.x0) >= 4 && (w.bbox.y1 - w.bbox.y0) >= 4).slice(0, 60);
+  let done = 0;
+  for(const w of candidates){
+    done++;
+    setOcrStatus(`Refining values ${done}/${candidates.length}...`);
+    let cleaned = "";
+    try{
+      const crop = cropWordBox(processedCanvas, w.bbox);
+      const res = await recognizeWithTesseract(crop, "Refining values", DIGIT_CHAR_WHITELIST, "7");
+      cleaned = (res?.data?.text || "").replace(/[^0-9.,%x+/\-]/gi, "").trim();
+    }catch(_e){}
+    if(/[0-9]/.test(cleaned)) w.text = cleaned; // only trust a result that has a digit
+  }
+  if(note) note.textContent = `Digit-refined ${candidates.length} value${candidates.length===1?"":"s"}.`;
+  return lines.map(L => L.words.map(w => w.text).join(" ")).join("\n");
 }
 
 
@@ -3380,6 +3463,17 @@ async function importStatsFromScreenshot(file){
     let text = result?.data?.text || "";
     let parsed = parseStatsFromOcr(text);
     let fullText = "";
+
+    // Re-read each value's box with a digits-only whitelist and merge the cleaner
+    // numbers over the first-pass parse (labels stay; only values are swapped).
+    try{
+      const refinedText = await refineNumbersByDigitPass(processed, result.data);
+      if(refinedText){
+        const refined = parseStatsFromOcr(refinedText);
+        for(const key in refined) parsed[key] = refined[key];
+        text = text + "\n\n===== digit-refined values =====\n" + refinedText;
+      }
+    }catch(_e){}
 
     // If stamina mod OCR is only one decimal, run one alternate crop pass and
     // use it only if it gives a more precise stamina-mod value.
