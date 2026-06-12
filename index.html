@@ -374,7 +374,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
     </div>
     <div class="settings-list">
       <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Run Scope</span><span class="v" id="summaryAscension">Ascension 0: Base blocks only</span><span class="desc">Ascension, max floor and node spawn model</span></span></button>
-      <button class="setting-row" data-open-settings="settings-base"><span><span class="k">Base Stats</span><span class="v" id="summaryBase">Not set</span><span class="desc">Set manually or import from a screenshot</span></span></button>
+      <button class="setting-row" data-open-settings="settings-base"><span><span class="k">Base stats &amp; skills</span><span class="v" id="summaryBase">Not set</span><span class="desc">Set manually or import from a screenshot</span></span></button>
       <button class="setting-row" data-open-settings="settings-cards"><span><span class="k">Card bonuses</span><span class="v" id="summaryCards">No cards</span><span class="desc">Configure active archaeology cards</span></span></button>
       <button class="setting-row loot-setting" data-open-settings="settings-loot"><span><span class="k">Resource values</span><span class="v" id="summaryLoot">All kept</span><span class="desc">Ignore drops you don't care about</span></span></button>
       <button class="setting-row" data-open-settings="settings-mc"><span><span class="k">Simulation</span><span class="v" id="summaryMC">—</span><span class="desc">Simulation sample sizes</span></span></button>
@@ -515,7 +515,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
     <nav class="settings-nav">
       <button data-section="settings-general" class="active">Run scope</button>
       <button class="loot-setting" data-section="settings-loot">Resource value</button>
-      <button data-section="settings-base">Base stats</button>
+      <button data-section="settings-base">Base &amp; skills</button>
       <button data-section="settings-cards">Card bonuses</button>
       <button data-section="settings-scaling">Stat scaling</button>
       <button data-section="settings-mc">Simulation</button>
@@ -617,6 +617,30 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Base stamina mod %</label><input id="baseStaminaMod" type="number" step="0.001" value=""></div>
           <div><label>Stamina mod gain</label><input id="staminaModGain" type="number" step="0.001" value=""></div>
           <div><label>Base armor pen (flat)</label><input id="baseArmorPenFlat" type="number" step="0.001" value=""></div>
+        </div>
+        <h3>Skills (abilities)</h3>
+        <div class="form-grid">
+          <div><label>Base atk speed /sec</label><input id="baseAtkSpeed" type="number" step="0.01" min="0.01" value="1"></div>
+        </div>
+        <label class="check-row"><input id="enrageOn" type="checkbox"> Auto-use Enrage</label>
+        <div class="form-grid">
+          <div><label>Enrage +damage %</label><input id="enrageDmgPct" type="number" step="1" value="20"></div>
+          <div><label>Enrage +crit dmg %</label><input id="enrageCritDmgPct" type="number" step="1" value="100"></div>
+          <div><label>Enrage charges</label><input id="enrageCharges" type="number" step="1" min="0" value="5"></div>
+          <div><label>Enrage cooldown s</label><input id="enrageCooldown" type="number" step="1" min="1" value="60"></div>
+        </div>
+        <label class="check-row"><input id="flurryOn" type="checkbox"> Auto-use Flurry</label>
+        <div class="form-grid">
+          <div><label>Flurry +atk speed %</label><input id="flurryAtkSpeedPct" type="number" step="1" value="100"></div>
+          <div><label>Flurry stamina on cast</label><input id="flurryStaminaOnCast" type="number" step="1" value="5"></div>
+          <div><label>Flurry charges</label><input id="flurryCharges" type="number" step="1" min="0" value="5"></div>
+          <div><label>Flurry cooldown s</label><input id="flurryCooldown" type="number" step="1" min="1" value="120"></div>
+        </div>
+        <label class="check-row"><input id="quakeOn" type="checkbox"> Auto-use Quake</label>
+        <div class="form-grid">
+          <div><label>Quake +damage % (all blocks)</label><input id="quakeDmgPct" type="number" step="1" value="20"></div>
+          <div><label>Quake charges</label><input id="quakeCharges" type="number" step="1" min="0" value="5"></div>
+          <div><label>Quake cooldown s</label><input id="quakeCooldown" type="number" step="1" min="1" value="180"></div>
         </div>
       </section>
 
@@ -829,6 +853,16 @@ function v(id){ return document.getElementById(id).value; }
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
 function checked(id){ return document.getElementById(id).checked; }
+// Safe readers (return a default if the element is missing) for optional fields.
+function numOr(id, d){ const el=document.getElementById(id); const x=el?Number(el.value):NaN; return Number.isFinite(x)?x:d; }
+function chkOr(id){ return !!document.getElementById(id)?.checked; }
+function abilityInputs(){
+  return {
+    enrage:{on:chkOr("enrageOn"), charges:numOr("enrageCharges",5), cooldown:numOr("enrageCooldown",60), dmgPct:numOr("enrageDmgPct",20), critDmgPct:numOr("enrageCritDmgPct",100)},
+    flurry:{on:chkOr("flurryOn"), charges:numOr("flurryCharges",5), cooldown:numOr("flurryCooldown",120), atkSpeedPct:numOr("flurryAtkSpeedPct",100), staminaOnCast:numOr("flurryStaminaOnCast",5)},
+    quake:{on:chkOr("quakeOn"), charges:numOr("quakeCharges",5), cooldown:numOr("quakeCooldown",180), dmgPct:numOr("quakeDmgPct",20)}
+  };
+}
 function objectiveLabel(obj){
   if(obj==="loot") return "Loot";
   if(obj==="exp") return "EXP";
@@ -1279,6 +1313,8 @@ function deterministicSignature(inp){
     targetFloor: inp.targetFloor,
     maxFloor: inp.maxFloor,
     ascension: inp.ascension,
+    atkSpeed: inp.atkSpeed,
+    abilities: inp.abilities,
     polyUpgrade: inp.polyUpgrade,
     mcTopCount: inp.mcTopCount,
     worthless: inp.worthless,
@@ -1315,6 +1351,8 @@ function getInputs(){
     ascension:currentAscension(),
     polyUpgrade:checked("polyUpgrade"),
     archInfernalMult:Math.max(0, n("archInfernalMult") || 1),
+    atkSpeed:Math.max(0.01, numOr("baseAtkSpeed", 1)),
+    abilities:abilityInputs(),
     nodeSpawnModel:v("nodeSpawnModel") || "activeCount",
     speedModel:"none", // speed/ticks-per-second intentionally excluded from tick-efficiency optimization
     mcTopCount:Math.max(1, Math.min(100, Math.floor(n("mcTopCount") || 25))),
@@ -1448,7 +1486,18 @@ function getDerived(stats, inp){
   // Percent armor pen buffs the flat armor-pen stat (e.g. 100 pen +9% = 109 pen).
   const armorPenFlat = (b.armorPenFlat || 0) + P*(inc.perArmorPen || 0);
   const armorPenPct = Math.max(0, (b.armorPenPct || 0) + I*(inc.intArmorPenPct || 0));
-  return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct};
+  // EV approximation of Enrage: average its damage/crit-damage buff over its
+  // uptime (charges per cooldown). Used only by the expected-value hit model;
+  // the simulation schedules Enrage per-attack. Flurry/Quake are simulation-only.
+  let evDamage = damage, evCritDamage = critDamage;
+  const en = inp.abilities?.enrage;
+  if(en && en.on){
+    const atk = Math.max(0.01, inp.atkSpeed || 1);
+    const uptime = Math.min(1, (en.charges || 0) / Math.max(1e-9, atk * (en.cooldown || 1)));
+    evDamage = damage * (1 + uptime * ((en.dmgPct || 0) / 100));
+    evCritDamage = critDamage + uptime * ((en.critDmgPct || 0) / 100);
+  }
+  return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage};
 }
 
 // Effective block armor after the player's penetration. Percent armor pen buffs
@@ -1619,13 +1668,15 @@ function expectedHitsFull(hp, der, inp, armor=0){
 
   const pCrit = der.critChance;
   const pSuper = inp.base.superChance;
+  const dmg = der.evDamage ?? der.damage;          // includes the Enrage EV uptime buff
+  const cdmg = der.evCritDamage ?? der.critDamage;
   // Armor subtracts flat from each hit's damage (min 0). Keep every outcome's
   // probability: a blocked hit (0 damage) is still a spent tick.
   const allOutcomes = [
-    {p:(1-pCrit)*(1-pSuper), d:der.damage},
-    {p:(1-pCrit)*pSuper, d:der.damage*inp.base.superDamage},
-    {p:pCrit*(1-pSuper), d:der.damage*der.critDamage},
-    {p:pCrit*pSuper, d:der.damage*der.critDamage*inp.base.superDamage}
+    {p:(1-pCrit)*(1-pSuper), d:dmg},
+    {p:(1-pCrit)*pSuper, d:dmg*inp.base.superDamage},
+    {p:pCrit*(1-pSuper), d:dmg*cdmg},
+    {p:pCrit*pSuper, d:dmg*cdmg*inp.base.superDamage}
   ].map(o => ({p:o.p, d:Math.max(0, o.d - armor)})).filter(o => o.p > 0);
 
   const hitting = allOutcomes.filter(o => o.d > 0);
@@ -2025,56 +2076,85 @@ function randBlockTypeForFloor(floor, inp, rng=Math.random){
 function simulateOneRun(stats, inp, blocks, rng=Math.random){
   const der=getDerived(stats,inp);
   let stamina=der.stamina;
-  let ticksSpent=0;
-  let totalValue=0;
+  let ticksSpent=0, totalValue=0, timeSec=0;
   const channels=blankChannels();
   let floorReached=1;
+  const slot = spawnModel(inp)==="slotChance";
+  const atkSpeedBase = Math.max(0.01, inp.atkSpeed || 1);
+
+  // Ability scheduler: a cast buffs the next `charges` attacks, recast when the
+  // cooldown (real seconds) has elapsed. Auto-use only. Disabled abilities are
+  // skipped, so with all abilities off this reduces to plain attacks.
+  const A = inp.abilities || {};
+  const sched = {};
+  for(const k of ["enrage","flurry","quake"]){
+    const a = A[k] || {};
+    sched[k] = {on:!!a.on, charges:Math.max(0,a.charges||0), cooldown:Math.max(0.01,a.cooldown||1), nextAt:0, left:0, a};
+  }
+  function tryCast(){
+    for(const k of ["enrage","flurry","quake"]){
+      const s = sched[k];
+      if(s.on && timeSec >= s.nextAt){
+        s.left = s.charges;
+        s.nextAt = timeSec + s.cooldown;
+        if(k === "flurry") stamina += (s.a.staminaOnCast || 0);
+      }
+    }
+  }
+  function clearNode(node){
+    if(node.cleared) return;
+    node.cleared = true;
+    const xpMod = rng() < (inp.base.xpMod + stats.I*inp.inc.intXpModPct + stats.L*inp.inc.luckXpModPct) ? 3 : 1;
+    const lootMod = rng() < (inp.base.lootMod + stats.P*inp.inc.perLootModPct + stats.L*inp.inc.luckLootModPct) ? 3.8 : 1;
+    const xpGain = inp.base.xpGain + stats.I*inp.inc.intXpGain;
+    const fragGain = inp.base.fragGain + stats.P*inp.inc.perFragGain;
+    const xpValue = node.b.xp0 * xpGain * xpMod;
+    const lootValue = node.b.lootXpEq * fragGain * lootMod;
+    channels.xp += xpValue;
+    if(channels[node.type] !== undefined) channels[node.type] += lootValue;
+    totalValue += xpValue + lootValue;
+    if(rng()<der.staminaModChance) stamina += inp.inc.staminaModGain;
+  }
 
   for(let floor=1; floor<=inp.maxFloor && stamina>0; floor++){
     const activeNodeCount = rollNodeAttemptsForFloor(floor, inp, rng);
-    let clearedNodes=0;
-    for(let node=0; node<activeNodeCount && stamina>0; node++){
-      const type=randBlockTypeForFloor(floor, inp, rng);
-      if(!type){
-        if(spawnModel(inp)==="slotChance") clearedNodes++;
-        continue;
-      }
-      const b=blockForFloor(type,floor,blocks);
-      if(!b){
-        continue;
-      }
-
-      let hp=b.hp;
-      const armor=effectiveArmor(b.armor, der, inp);
-      while(hp>0 && stamina>0){
-        const crit=rng()<der.critChance;
-        const superCrit=rng()<inp.base.superChance;
-        const dmg=der.damage * (crit?der.critDamage:1) * (superCrit?inp.base.superDamage:1);
-        hp-=Math.max(0, dmg-armor);
-        stamina-=1;
-        ticksSpent+=1;
-      }
-
-      if(hp<=0){
-        const xpMod = rng() < (inp.base.xpMod + stats.I*inp.inc.intXpModPct + stats.L*inp.inc.luckXpModPct) ? 3 : 1;
-        const lootMod = rng() < (inp.base.lootMod + stats.P*inp.inc.perLootModPct + stats.L*inp.inc.luckLootModPct) ? 3.8 : 1;
-        const xpGain = inp.base.xpGain + stats.I*inp.inc.intXpGain;
-        const fragGain = inp.base.fragGain + stats.P*inp.inc.perFragGain;
-        const xpValue = b.xp0 * xpGain * xpMod;
-        const lootValue = b.lootXpEq * fragGain * lootMod;
-        channels.xp += xpValue;
-        if(channels[type] !== undefined) channels[type] += lootValue;
-        totalValue += xpValue + lootValue;
-
-        if(rng()<der.staminaModChance) stamina += inp.inc.staminaModGain;
-        clearedNodes++;
-      }
+    let clearedCount = 0;
+    // Pre-roll the floor's nodes so Quake can damage all of them at once.
+    const nodes = [];
+    for(let i=0;i<activeNodeCount;i++){
+      const type = randBlockTypeForFloor(floor, inp, rng);
+      if(!type){ if(slot) clearedCount++; continue; }
+      const b = blockForFloor(type, floor, blocks);
+      if(!b) continue;
+      nodes.push({type, b, hp:b.hp, armor:effectiveArmor(b.armor, der, inp), hasSpeed: der.speedChance>0 ? rng()<der.speedChance : false, cleared:false});
     }
-    if(stamina>0){
-      floorReached=floor+1;
-    } else {
-      floorReached=floor + (activeNodeCount > 0 ? clearedNodes/activeNodeCount : 0);
+    for(const node of nodes){
+      if(stamina<=0) break;
+      if(node.cleared) continue; // already cleared by a Quake AoE
+      while(node.hp>0 && stamina>0){
+        tryCast();
+        const enr = sched.enrage.left>0, flu = sched.flurry.left>0, qk = sched.quake.left>0;
+        let dmg = der.damage, cdmg = der.critDamage;
+        if(enr){ dmg *= 1 + (sched.enrage.a.dmgPct||0)/100; cdmg += (sched.enrage.a.critDmgPct||0)/100; }
+        const crit = rng()<der.critChance, superCrit = rng()<inp.base.superChance;
+        const hitDmg = dmg * (crit?cdmg:1) * (superCrit?inp.base.superDamage:1);
+        node.hp -= Math.max(0, hitDmg - node.armor);
+        if(qk){
+          const share = der.damage * ((sched.quake.a.dmgPct||0)/100); // % of base damage to all blocks
+          for(const o of nodes){ if(o!==node && !o.cleared){ o.hp -= share; if(o.hp<=0) clearNode(o); } }
+        }
+        const rate = atkSpeedBase * (flu ? 1+(sched.flurry.a.atkSpeedPct||0)/100 : 1) * (node.hasSpeed ? 2 : 1);
+        timeSec += 1/Math.max(0.01, rate);
+        if(enr) sched.enrage.left--;
+        if(flu) sched.flurry.left--;
+        if(qk) sched.quake.left--;
+        stamina-=1; ticksSpent+=1;
+      }
+      if(node.hp<=0) clearNode(node);
     }
+    clearedCount += nodes.reduce((c,nd)=>c+(nd.cleared?1:0),0);
+    if(stamina>0) floorReached = floor+1;
+    else floorReached = floor + (activeNodeCount>0 ? Math.min(1, clearedCount/activeNodeCount) : 0);
   }
 
   const usedTicks = Math.max(1,ticksSpent);
@@ -2083,6 +2163,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
     floorReached,
     totalValue,
     ticksSpent:usedTicks,
+    timeSec,
     channels,
     metrics,
     rewardHr:metrics.allRewards
@@ -3102,6 +3183,10 @@ function resetAllSettings(){
     maxFloor:"50",
     ascension:"0",
     archInfernalMult:"1",
+    baseAtkSpeed:"1",
+    enrageDmgPct:"20", enrageCritDmgPct:"100", enrageCharges:"5", enrageCooldown:"60",
+    flurryAtkSpeedPct:"100", flurryStaminaOnCast:"5", flurryCharges:"5", flurryCooldown:"120",
+    quakeDmgPct:"20", quakeCharges:"5", quakeCooldown:"180",
     nodeSpawnModel:"activeCount",
     primaryGoal:"allRewards",
     secondaryGoal:"none",
@@ -3121,7 +3206,7 @@ function resetAllSettings(){
   document.getElementById("primaryProtectionStrict")?.click();
   const baseModeZero=document.getElementById("baseStatModeZero"); if(baseModeZero) baseModeZero.checked=true;
 
-  ["worthlessCommon","worthlessRare","worthlessEpic","worthlessLegendary","worthlessMythic","worthlessDivine","polyUpgrade"].forEach(id=>{
+  ["worthlessCommon","worthlessRare","worthlessEpic","worthlessLegendary","worthlessMythic","worthlessDivine","polyUpgrade","enrageOn","flurryOn","quakeOn"].forEach(id=>{
     const el=document.getElementById(id); if(el) el.checked=false;
   });
 
