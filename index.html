@@ -572,6 +572,11 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       </section>
 
       <section id="settings-base" class="settings-section">
+        <div class="protection-options" style="margin-bottom:8px">
+          <label class="protection-option"><input type="radio" name="baseStatMode" id="baseStatModeZero" value="zero" checked> Attributes at 0</label>
+          <label class="protection-option"><input type="radio" name="baseStatMode" id="baseStatModeSpent" value="spent"> I have spent attribute points</label>
+        </div>
+        <div class="helper">! Screenshot your stats with all attribute points unspent (set to 0) so the imported values are your true base. If your points are already spent, pick "I have spent attribute points" and enter your current STR / AGI / PER / INT / Luck below — the app will back them out to recover your base before optimizing.</div>
         <div class="import-box">
           <h3>Import stats from screenshot</h3>
           <div class="import-actions">
@@ -604,6 +609,16 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Base stamina mod %</label><input id="baseStaminaMod" type="number" step="0.001" value=""></div>
           <div><label>Stamina mod gain</label><input id="staminaModGain" type="number" step="0.001" value=""></div>
           <div><label>Base armor pen (flat)</label><input id="baseArmorPenFlat" type="number" step="0.001" value=""></div>
+        </div>
+        <div id="spentAttrs" style="display:none">
+          <h3>Current spent attribute points</h3>
+          <div class="form-grid">
+            <div><label>Spent STR</label><input id="spentStr" type="number" min="0" step="1" value="0"></div>
+            <div><label>Spent AGI</label><input id="spentAgi" type="number" min="0" step="1" value="0"></div>
+            <div><label>Spent PER</label><input id="spentPer" type="number" min="0" step="1" value="0"></div>
+            <div><label>Spent INT</label><input id="spentInt" type="number" min="0" step="1" value="0"></div>
+            <div><label>Spent Luck</label><input id="spentLuck" type="number" min="0" step="1" value="0"></div>
+          </div>
         </div>
       </section>
 
@@ -1293,7 +1308,7 @@ function markOptimizerStale(){
 }
 
 function getInputs(){
-  return {
+  const out = {
     mode:v("mode"),
     objective:v("objective") || "total",
     selectedLevel:Math.max(0, Math.floor(n("selectedLevel"))),
@@ -1363,6 +1378,47 @@ function getInputs(){
     },
     cardStates:Object.fromEntries(ARCHAEOLOGY_CARD_KEYS.map(c => [c.key, (document.getElementById(cardSettingId(c.key))?.value || "none")]))
   };
+  // "Attributes spent" mode: the entered base fields are the displayed TOTALS
+  // (which include the current attribute points), so back out the attribute
+  // contributions to recover the true base before any scoring.
+  if((document.querySelector('input[name="baseStatMode"]:checked')?.value) === "spent"){
+    const pts = {
+      S:Math.max(0, Math.floor(n("spentStr"))),
+      A:Math.max(0, Math.floor(n("spentAgi"))),
+      P:Math.max(0, Math.floor(n("spentPer"))),
+      I:Math.max(0, Math.floor(n("spentInt"))),
+      L:Math.max(0, Math.floor(n("spentLuck")))
+    };
+    out.base = reverseBaseStats(out.base, pts, out.inc);
+  }
+  return out;
+}
+
+// Recover unspent base stats from displayed totals by removing the contribution
+// of the currently-spent attribute points, inverting the getDerived formulas.
+function reverseBaseStats(b, pts, inc){
+  const {S,A,P,I,L} = pts;
+  return {
+    ...b,
+    damage: Math.max(0, (b.damage / (1 + S*inc.strDamagePct)) - S*inc.strFlatDamage),
+    stamina: Math.max(0, b.stamina - A*inc.agiStamina),
+    critChance: Math.max(0, b.critChance - A*inc.agiCritPct - L*inc.luckCritPct),
+    critDamage: Math.max(1, b.critDamage - S*inc.strCritDamage),
+    xpGain: Math.max(0, b.xpGain - I*inc.intXpGain),
+    fragGain: Math.max(0, b.fragGain - P*inc.perFragGain),
+    xpMod: Math.max(0, b.xpMod - I*inc.intXpModPct - L*inc.luckXpModPct),
+    lootMod: Math.max(0, b.lootMod - P*inc.perLootModPct - L*inc.luckLootModPct),
+    speedMod: Math.max(0, b.speedMod - A*inc.agiSpeedPct - L*inc.luckAllModPct),
+    staminaMod: Math.max(0, b.staminaMod - A*inc.agiStaminaModPct - L*inc.luckAllModPct),
+    armorPenFlat: Math.max(0, (b.armorPenFlat || 0) - P*(inc.perArmorPen || 0))
+    // superChance, superDamage, xpModGain, lootModGain, staminaModGain: no attribute scaling
+  };
+}
+
+function syncBaseStatMode(){
+  const spent = (document.querySelector('input[name="baseStatMode"]:checked')?.value) === "spent";
+  const el = document.getElementById("spentAttrs");
+  if(el) el.style.display = spent ? "block" : "none";
 }
 
 function getDerived(stats, inp){
@@ -2428,6 +2484,7 @@ function restoreSettingsSnapshot(){
     else el.value = settingsSnapshot[el.id];
   });
   applyAscensionGating();
+  syncBaseStatMode();
   syncAllCardFields();
   renderNodes();
   scoreCurrent();
@@ -2982,12 +3039,13 @@ function resetAllSettings(){
     "baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage",
     "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain",
     "baseArmorPenFlat",
-    "curStr","curAgi","curPer","curInt","curLuck"
+    "curStr","curAgi","curPer","curInt","curLuck",
+    "spentStr","spentAgi","spentPer","spentInt","spentLuck"
   ];
 
   for(const id of blankIds){
     const el = document.getElementById(id);
-    if(el) el.value = id.startsWith("cur") ? "0" : "";
+    if(el) el.value = (id.startsWith("cur") || id.startsWith("spent")) ? "0" : "";
   }
 
   const defaults = {
@@ -3011,6 +3069,7 @@ function resetAllSettings(){
   }
 
   document.getElementById("primaryProtectionStrict")?.click();
+  const baseModeZero=document.getElementById("baseStatModeZero"); if(baseModeZero) baseModeZero.checked=true;
 
   ["worthlessCommon","worthlessRare","worthlessEpic","worthlessLegendary","worthlessMythic","worthlessDivine","polyUpgrade"].forEach(id=>{
     const el=document.getElementById(id); if(el) el.checked=false;
@@ -3036,6 +3095,7 @@ function resetAllSettings(){
   clearReachability?.();
   markOptimizerStale();
   applyAscensionGating();
+  syncBaseStatMode();
   syncSecondaryGoalOptions();
   syncPrimaryProtectionUI();
   updateGoalUI();
@@ -3227,6 +3287,13 @@ document.getElementById("ascension")?.addEventListener("change",()=>{
   updateSettingsSummary();
 });
 document.querySelectorAll("[data-card-bulk]").forEach(btn=>btn.addEventListener("click",()=>applyCardBulk(btn.dataset.cardBulk)));
+document.querySelectorAll('input[name="baseStatMode"]').forEach(el=>el.addEventListener("change",()=>{
+  syncBaseStatMode();
+  markOptimizerStale();
+  renderNodes();
+  scoreCurrent();
+  updateSettingsSummary();
+}));
 
 document.addEventListener("keydown",(e)=>{
   if(e.key==="Escape" && document.getElementById("settingsModal")?.classList.contains("open")) cancelSettings();
@@ -3259,6 +3326,7 @@ try{
 }
 loadState();
 applyAscensionGating();
+syncBaseStatMode();
 syncSecondaryGoalOptions();
 syncPrimaryProtectionUI();
 updateGoalUI();
