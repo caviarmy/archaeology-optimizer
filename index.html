@@ -2844,7 +2844,8 @@ function parseOcrNumericValue(raw, opts={}){
   s = s
     .replace(/[Oo]/g,"0")
     .replace(/[Il|]/g,"1")
-    .replace(/b/g,"6")
+    .replace(/[Zz]/g,"2")
+    .replace(/[bG]/g,"6")
     .replace(/B/g,"8")
     .replace(/S/g,"5")
     .replace(/[§]/g,".")
@@ -2900,8 +2901,12 @@ function parseStatsFromOcr(rawText){
     .filter(Boolean);
 
   const found = {};
-  const val = "([0-9OIlSbB&§+.,\\s]{1,18})";
-  const gap = "[^0-9&§+.,-]*";
+  // Capture everything after the label, then take the FIRST number from it. The
+  // stat window has two columns that OCR often merges onto one line, so we must
+  // anchor on the label and read the value immediately next to it (never the
+  // last number on the line).
+  const val = "(.+)";
+  const gap = "[\\s:=]*";
   const take = (id, line, regex)=>{
     if(found[id] !== undefined) return;
     const v = valueAfterLabel(line, regex);
@@ -2909,56 +2914,65 @@ function parseStatsFromOcr(rawText){
   };
 
   for(const line of lines){
+    const lc = line.toLowerCase();
     // Left column.
     take("selectedLevel", line, new RegExp("Archaeol\\w*\\s+Level" + gap + val, "i"));
     take("baseStamina", line, new RegExp("Max\\s+Stamina" + gap + val, "i"));
-    take("baseDamage", line, new RegExp("(?:^|\\s)Damage" + gap + val, "i"));
-    take("baseCritChance", line, new RegExp("(?:^|\\s)Crit\\s+Chance" + gap + val, "i"));
-    take("baseCritDamage", line, new RegExp("(?:^|\\s)Crit\\s+Damage" + gap + val, "i"));
-    take("baseSuperChance", line, new RegExp("Super\\s+Crit\\s+Chance" + gap + val, "i"));
-    take("baseSuperDamage", line, new RegExp("Super\\s+Crit\\s+Damage" + gap + val, "i"));
+    // Super crit lines and plain crit lines share the word "Crit", so route by
+    // whether the line mentions "super" to avoid cross-contamination.
+    if(/super/.test(lc)){
+      take("baseSuperChance", line, new RegExp("Crit\\s+Chance" + gap + val, "i"));
+      take("baseSuperDamage", line, new RegExp("Crit\\s+Damage" + gap + val, "i"));
+    }else{
+      take("baseCritChance", line, new RegExp("Crit\\s+Chance" + gap + val, "i"));
+      take("baseCritDamage", line, new RegExp("Crit\\s+Damage" + gap + val, "i"));
+    }
+    if(!/crit|super/.test(lc)) take("baseDamage", line, new RegExp("(?:^|\\s)Damage" + gap + val, "i"));
+    take("baseArmorPenFlat", line, new RegExp("Armor\\s+Pen\\w*" + gap + val, "i"));
 
-    // Right column.
-    take("baseXpGain", line, new RegExp("(?:EXP|Exp|XP)\\s+Gain" + gap + val, "i"));
-    take("baseFragGain", line, new RegExp("Fragment\\s+Gain" + gap + val, "i"));
-    take("baseXpMod", line, new RegExp("(?:EXP|Exp|XP)\\s+(?:Exp\\s+)?Mod\\s+Chance" + gap + val, "i"));
+    // Right column (Mod Gain before Mod Chance before plain Gain so the more
+    // specific label wins).
     take("baseXpModGain", line, new RegExp("(?:EXP|Exp|XP)\\s+(?:Exp\\s+)?Mod\\s+Gain" + gap + val, "i"));
-    take("baseLootMod", line, new RegExp("Loot\\s+Mod\\s+Chance" + gap + val, "i"));
+    take("baseXpMod", line, new RegExp("(?:EXP|Exp|XP)\\s+(?:Exp\\s+)?Mod\\s+Chance" + gap + val, "i"));
+    if(!/mod/.test(lc)) take("baseXpGain", line, new RegExp("(?:EXP|Exp|XP)\\s+Gain" + gap + val, "i"));
+    take("baseFragGain", line, new RegExp("Fragment\\s+Gain" + gap + val, "i"));
     take("baseLootModGain", line, new RegExp("Loot\\s+Mod\\s+Gain" + gap + val, "i"));
+    take("baseLootMod", line, new RegExp("Loot\\s+Mod\\s+Chance" + gap + val, "i"));
     take("baseSpeedMod", line, new RegExp("Speed\\s+Mod\\s+Chance" + gap + val, "i"));
-    take("baseStaminaMod", line, new RegExp("Stamina\\s+Mod\\s+Chance" + gap + val, "i"));
     take("staminaModGain", line, new RegExp("Stamina\\s+Mod\\s+Gain" + gap + val, "i"));
+    take("baseStaminaMod", line, new RegExp("Stamina\\s+Mod\\s+Chance" + gap + val, "i"));
   }
 
-  // Fallback for labels with damaged punctuation. Prefer the last number on the line.
+  // Fallback for labels with damaged punctuation. Anchor on the label keyword
+  // and take the FIRST number after it (never the last on a merged two-column line).
   for(const line of lines){
     const lower = line.toLowerCase();
-    const get = ()=>parseOcrNumericValue(line, {preferLast:true});
+    const after = (kw)=>{ const i = lower.indexOf(kw); return parseOcrNumericValue(i>=0 ? line.slice(i+kw.length) : line); };
 
-    if(found.selectedLevel === undefined && /archaeol/.test(lower) && /level/.test(lower)) found.selectedLevel = get();
-    if(found.baseStamina === undefined && /max\s+stamina/.test(lower)) found.baseStamina = get();
-    if(found.baseDamage === undefined && /damage/.test(lower) && !/crit|super|mod|armor/.test(lower)) found.baseDamage = get();
+    if(found.selectedLevel === undefined && /archaeol/.test(lower) && /level/.test(lower)) found.selectedLevel = after("level");
+    if(found.baseStamina === undefined && /max\s+stamina/.test(lower)) found.baseStamina = after("stamina");
+    if(found.baseDamage === undefined && /damage/.test(lower) && !/crit|super/.test(lower)) found.baseDamage = after("damage");
 
-    if(found.baseCritChance === undefined && /crit\s+chance/.test(lower) && !/super/.test(lower)) found.baseCritChance = get();
-    if(found.baseCritDamage === undefined && /crit\s+damage/.test(lower) && !/super/.test(lower)) found.baseCritDamage = get();
+    if(found.baseCritChance === undefined && /crit\s+chance/.test(lower) && !/super/.test(lower)) found.baseCritChance = after("chance");
+    if(found.baseCritDamage === undefined && /crit\s+damage/.test(lower) && !/super/.test(lower)) found.baseCritDamage = after("damage");
 
-    if(found.baseSuperChance === undefined && /super/.test(lower) && /crit/.test(lower) && /chance/.test(lower)) found.baseSuperChance = get();
-    if(found.baseSuperDamage === undefined && /super/.test(lower) && /crit/.test(lower) && /damage/.test(lower)) found.baseSuperDamage = get();
+    if(found.baseSuperChance === undefined && /super/.test(lower) && /crit/.test(lower) && /chance/.test(lower)) found.baseSuperChance = after("chance");
+    if(found.baseSuperDamage === undefined && /super/.test(lower) && /crit/.test(lower) && /damage/.test(lower)) found.baseSuperDamage = after("damage");
 
-    if(found.baseXpGain === undefined && /(exp|xp)\s+gain/.test(lower) && !/mod/.test(lower)) found.baseXpGain = get();
-    if(found.baseFragGain === undefined && /fragment\s+gain/.test(lower)) found.baseFragGain = get();
+    if(found.baseXpGain === undefined && /(exp|xp)\s+gain/.test(lower) && !/mod/.test(lower)) found.baseXpGain = after("gain");
+    if(found.baseFragGain === undefined && /fragment\s+gain/.test(lower)) found.baseFragGain = after("gain");
 
-    if(found.baseXpMod === undefined && /(exp|xp).{0,8}mod\s+chance/.test(lower)) found.baseXpMod = get();
-    if(found.baseXpModGain === undefined && /(exp|xp).{0,8}mod\s+gain/.test(lower)) found.baseXpModGain = get();
-    if(found.baseLootMod === undefined && /loot\s+mod\s+chance/.test(lower)) found.baseLootMod = get();
-    if(found.baseLootModGain === undefined && /loot\s+mod\s+gain/.test(lower)) found.baseLootModGain = get();
-    if(found.baseSpeedMod === undefined && /speed\s+mod\s+chance/.test(lower)) found.baseSpeedMod = get();
-    if(found.baseStaminaMod === undefined && /stamina\s+mod\s+chance/.test(lower)) found.baseStaminaMod = get();
-    if(found.staminaModGain === undefined && /stamina\s+mod\s+gain/.test(lower)) found.staminaModGain = get();
+    if(found.baseXpMod === undefined && /(exp|xp).{0,8}mod\s+chance/.test(lower)) found.baseXpMod = after("chance");
+    if(found.baseXpModGain === undefined && /(exp|xp).{0,8}mod\s+gain/.test(lower)) found.baseXpModGain = after("gain");
+    if(found.baseLootMod === undefined && /loot\s+mod\s+chance/.test(lower)) found.baseLootMod = after("chance");
+    if(found.baseLootModGain === undefined && /loot\s+mod\s+gain/.test(lower)) found.baseLootModGain = after("gain");
+    if(found.baseSpeedMod === undefined && /speed\s+mod\s+chance/.test(lower)) found.baseSpeedMod = after("chance");
+    if(found.baseStaminaMod === undefined && /stamina\s+mod\s+chance/.test(lower)) found.baseStaminaMod = after("chance");
+    if(found.staminaModGain === undefined && /stamina\s+mod\s+gain/.test(lower)) found.staminaModGain = after("gain");
 
     // Flat "Armor Penetration" is shown in the stat window; % armor pen is not a
     // tracked base stat (it comes from attributes/upgrades), so only parse flat.
-    if(found.baseArmorPenFlat === undefined && /armor\s*pen/.test(lower) && !/%/.test(line)) found.baseArmorPenFlat = get();
+    if(found.baseArmorPenFlat === undefined && /armor\s*pen/.test(lower) && !/%/.test(line)) found.baseArmorPenFlat = after("pen");
   }
 
   return found;
