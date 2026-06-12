@@ -593,7 +593,8 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           </details>
           <div class="import-actions">
             <input id="statScreenshotInput" type="file" accept="image/*">
-            <button id="importStatScreenshotBtn" type="button" class="import-btn icon-btn" title="Retry" aria-label="Retry">↻</button>
+            <button id="importStatScreenshotBtn" type="button" class="import-btn icon-btn" title="Import with Tesseract" aria-label="Import with Tesseract">↻</button>
+            <button id="importPaddleBtn" type="button" class="ghost" title="Import with PaddleOCR (experimental)">PaddleOCR</button>
           </div>
           <div id="ocrStatus" class="ocr-status small">No screenshot imported.</div>
           <div id="ocrRuntimeNote" class="ocr-status small"></div>
@@ -3124,6 +3125,63 @@ function parseAbilitiesFromOcr(rawText){
 }
 
 
+// Shared apply step for any OCR engine: apply parsed stats, parse + apply
+// abilities from the full-screen text, enable detected abilities, update the
+// OCR-text box + preview, and re-render. Engine-agnostic (no OCR calls here).
+function finishImport(parsed, statsText, fullText){
+  const ocrText = document.getElementById("ocrText");
+  const status = document.getElementById("ocrStatus");
+  fullText = fullText || statsText;
+
+  let applied = 0;
+  for(const [id,val] of Object.entries(parsed)){ if(setFieldValue(id,val)) applied++; }
+  if(applied) statsImported = true;
+
+  try{
+    const ab = parseAbilitiesFromOcr(fullText);
+    const abIds = ["enrageDmgPct","enrageCritDmgPct","enrageCharges","enrageCooldown",
+                   "flurryAtkSpeedPct","flurryStaminaOnCast","flurryCharges","flurryCooldown",
+                   "quakeDmgPct","quakeCharges","quakeCooldown"];
+    for(const id of abIds){ if(ab[id] !== undefined) setFieldValue(id, ab[id]); }
+    const det = ab._detected || {};
+    const enableAbility = (present, id) => {
+      const el = document.getElementById(id);
+      if(present && el && !el.checked){ el.checked = true; el.dispatchEvent(new Event("change", {bubbles:true})); }
+    };
+    enableAbility(det.enrage, "enrageOn");
+    enableAbility(det.flurry, "flurryOn");
+    enableAbility(det.quake, "quakeOn");
+  }catch(_e){}
+
+  if(ocrText){
+    ocrText.textContent = (fullText && fullText !== statsText)
+      ? statsText + "\n\n===== full screen (skills pass) =====\n" + fullText
+      : statsText;
+  }
+
+  const preview = document.getElementById("ocrParsedPreview");
+  if(preview){
+    const labels = {
+      selectedLevel:"Level", baseDamage:"Damage", baseStamina:"Stamina", baseCritChance:"Crit %",
+      baseCritDamage:"Crit dmg", baseSuperChance:"Super crit %", baseSuperDamage:"Super crit dmg",
+      baseXpGain:"XP gain", baseFragGain:"Fragment gain", baseXpMod:"XP mod %", baseXpModGain:"XP mod gain",
+      baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %", baseStaminaMod:"Stamina mod %",
+      staminaModGain:"Stamina mod gain", baseArmorPenFlat:"Armor pen"
+    };
+    const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat"];
+    preview.textContent = Object.keys(parsed).length
+      ? "Parsed: " + order.filter(id=>parsed[id] !== undefined).map(id=>`${labels[id] || id} ${parsed[id]}`).join(" · ")
+      : "";
+  }
+
+  markOptimizerStale();
+  renderNodes();
+  scoreCurrent();
+  updateSettingsSummary();
+  if(status) status.textContent = applied ? `Imported ${applied} stat value${applied===1?"":"s"}.` : "OCR finished, but no stat values were imported.";
+  return applied;
+}
+
 async function importStatsFromScreenshot(file){
   const status = document.getElementById("ocrStatus");
   const ocrText = document.getElementById("ocrText");
@@ -3180,67 +3238,58 @@ async function importStatsFromScreenshot(file){
       parsed.baseStaminaMod = "0.75";
     }
 
-    if(ocrText) ocrText.textContent = text;
-
-    let applied = 0;
-    for(const [id,val] of Object.entries(parsed)){
-      if(setFieldValue(id,val)) applied++;
-    }
-    if(applied) statsImported = true;
-
     // Ability cards live below the stats popup, outside the stats crop, so read
     // the full screenshot (reuse the fallback pass if it already ran).
-    try{
-      if(!fullText){
-        setOcrStatus("Reading skill cards...");
+    if(!fullText){
+      setOcrStatus("Reading skill cards...");
+      try{
         const abilityResult = await recognizeWithTesseract(preprocessForOcr(baseCanvas), "Reading skill cards");
         fullText = abilityResult?.data?.text || "";
-      }
-      const ab = parseAbilitiesFromOcr(fullText);
-      const abIds = ["enrageDmgPct","enrageCritDmgPct","enrageCharges","enrageCooldown",
-                     "flurryAtkSpeedPct","flurryStaminaOnCast","flurryCharges","flurryCooldown",
-                     "quakeDmgPct","quakeCharges","quakeCooldown"];
-      for(const id of abIds){ if(ab[id] !== undefined) setFieldValue(id, ab[id]); }
-      // A card being on screen means the player has the ability — enable it.
-      const det = ab._detected || {};
-      const enableAbility = (present, id) => {
-        const el = document.getElementById(id);
-        if(present && el && !el.checked){ el.checked = true; el.dispatchEvent(new Event("change", {bubbles:true})); }
-      };
-      enableAbility(det.enrage, "enrageOn");
-      enableAbility(det.flurry, "flurryOn");
-      enableAbility(det.quake, "quakeOn");
-      // Surface the full-screen pass (which holds the skill cards) in the OCR
-      // text box so it can be inspected/shared for tuning.
-      if(ocrText && fullText && fullText !== text){
-        ocrText.textContent = text + "\n\n===== full screen (skills pass) =====\n" + fullText;
-      }
-    }catch(_e){}
-
-    const preview = document.getElementById("ocrParsedPreview");
-    if(preview){
-      const labels = {
-        selectedLevel:"Level", baseDamage:"Damage", baseStamina:"Stamina", baseCritChance:"Crit %",
-        baseCritDamage:"Crit dmg", baseSuperChance:"Super crit %", baseSuperDamage:"Super crit dmg",
-        baseXpGain:"XP gain", baseFragGain:"Fragment gain", baseXpMod:"XP mod %", baseXpModGain:"XP mod gain",
-        baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %", baseStaminaMod:"Stamina mod %",
-        staminaModGain:"Stamina mod gain", baseArmorPenFlat:"Armor pen"
-      };
-      const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat"];
-      preview.textContent = Object.keys(parsed).length
-        ? "Parsed: " + order.filter(id=>parsed[id] !== undefined).map(id=>`${labels[id] || id} ${parsed[id]}`).join(" · ")
-        : "";
+      }catch(_e){}
     }
-
-    markOptimizerStale();
-    renderNodes();
-    scoreCurrent();
-    updateSettingsSummary();
-
-    if(status) status.textContent = applied ? `Imported ${applied} stat value${applied===1?"":"s"} from screenshot.` : "OCR finished, but no stat values were imported.";
+    finishImport(parsed, text, fullText);
   }catch(err){
     console.error(err);
     setOcrStatus("Screenshot import failed: " + describeError(err));
+  }finally{
+    if(btn) btn.disabled = false;
+  }
+}
+
+/* Experimental: PaddleOCR (PP-OCR) in-browser via PaddleJS, loaded from CDN.
+   Feeds its text through the same parsers so we can compare it to Tesseract. */
+let paddleOcrModule = null;
+async function ensurePaddleOcr(){
+  if(paddleOcrModule) return paddleOcrModule;
+  setOcrStatus("Loading PaddleOCR (first run downloads models)...");
+  const mod = await import("https://cdn.jsdelivr.net/npm/@paddlejs-models/ocr/+esm");
+  if(typeof mod.init === "function") await mod.init();
+  paddleOcrModule = mod;
+  return mod;
+}
+async function recognizeWithPaddle(imageEl){
+  const ocr = await ensurePaddleOcr();
+  const res = await ocr.recognize(imageEl);
+  if(Array.isArray(res?.text)) return res.text.join("\n");
+  if(typeof res?.text === "string") return res.text;
+  if(Array.isArray(res)) return res.join("\n");
+  return String(res || "");
+}
+async function importStatsWithPaddle(file){
+  const status = document.getElementById("ocrStatus");
+  const btn = document.getElementById("importPaddleBtn");
+  if(!file) return;
+  try{
+    if(btn) btn.disabled = true;
+    const img = await loadImageFromFile(file);
+    await ensurePaddleOcr();
+    setOcrStatus("Reading screenshot with PaddleOCR...");
+    const text = await recognizeWithPaddle(img);
+    const parsed = parseStatsFromOcr(text);
+    finishImport(parsed, text, text);
+  }catch(err){
+    console.error(err);
+    setOcrStatus("PaddleOCR failed: " + describeError(err) + " (check internet / model CDN)");
   }finally{
     if(btn) btn.disabled = false;
   }
@@ -3421,6 +3470,11 @@ function bindStatScreenshotImport(){
   if(btn){
     btn.addEventListener("click", startSelectedScreenshotImport);
   }
+  document.getElementById("importPaddleBtn")?.addEventListener("click", ()=>{
+    const file = selectedStatScreenshotFile();
+    if(!file){ if(status) status.textContent = "Choose a screenshot first."; return; }
+    importStatsWithPaddle(file);
+  });
   document.getElementById("copyOcrTextBtn")?.addEventListener("click",copyOcrText);
 
   document.addEventListener("change",(e)=>{
