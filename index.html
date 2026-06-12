@@ -1399,9 +1399,9 @@ function getDerived(stats, inp){
 
 // Effective block armor after the player's penetration. Percent armor pen buffs
 // the flat armor-pen stat, then total pen subtracts from the block's armor.
-// Returns 0 when armor is disabled. The wiki does not state the armor->damage
-// formula, so the per-hit reduction is a modeling choice; the toggle compares off.
-const MIN_HIT_FRAC = 0.05; // a hit always deals at least 5% of its raw damage
+// Returns 0 when armor is disabled. Each hit's damage to the block is reduced by
+// this flat amount; a hit that doesn't exceed it deals nothing (a wasted tick),
+// and a block no hit can exceed is unbreakable.
 function effectiveArmor(armor, der, inp){
   if(!inp.armorEnabled || !(armor > 0)) return 0;
   const totalPen = der.armorPenFlat * (1 + der.armorPenPct);
@@ -1563,34 +1563,45 @@ function expectedHitsFull(hp, der, inp, armor=0){
 
   const pCrit = der.critChance;
   const pSuper = inp.base.superChance;
-  // Armor reduces each hit by a flat amount, with a floor of MIN_HIT_FRAC of the raw hit.
-  const reduce = raw => Math.max(raw * MIN_HIT_FRAC, raw - armor);
-  const outcomes = [
-    {p:(1-pCrit)*(1-pSuper), d:reduce(der.damage)},
-    {p:(1-pCrit)*pSuper, d:reduce(der.damage*inp.base.superDamage)},
-    {p:pCrit*(1-pSuper), d:reduce(der.damage*der.critDamage)},
-    {p:pCrit*pSuper, d:reduce(der.damage*der.critDamage*inp.base.superDamage)}
-  ].filter(o => o.p > 0 && o.d > 0);
+  // Armor subtracts flat from each hit's damage (min 0). Keep every outcome's
+  // probability: a blocked hit (0 damage) is still a spent tick.
+  const allOutcomes = [
+    {p:(1-pCrit)*(1-pSuper), d:der.damage},
+    {p:(1-pCrit)*pSuper, d:der.damage*inp.base.superDamage},
+    {p:pCrit*(1-pSuper), d:der.damage*der.critDamage},
+    {p:pCrit*pSuper, d:der.damage*der.critDamage*inp.base.superDamage}
+  ].map(o => ({p:o.p, d:Math.max(0, o.d - armor)})).filter(o => o.p > 0);
 
-  const minHit = Math.min(...outcomes.map(o => o.d));
+  const hitting = allOutcomes.filter(o => o.d > 0);
+  const pZero = allOutcomes.reduce((s,o)=> s + (o.d <= 0 ? o.p : 0), 0);
+  if(hitting.length === 0 || pZero >= 1 - 1e-12){
+    der._hitCache.set(cacheKey, Infinity); // no hit can damage it: unbreakable
+    return Infinity;
+  }
+
+  const avgHit = allOutcomes.reduce((sum,o) => sum + o.p * o.d, 0);
+  const minHit = Math.min(...hitting.map(o => o.d));
   const maxHits = Math.ceil(hp / Math.max(1e-9, minHit));
 
   if(maxHits > 80){
-    const avgHit = outcomes.reduce((sum,o) => sum + o.p * o.d, 0);
-    const approx = hp / Math.max(1e-9, avgHit);
+    const approx = hp / avgHit; // avgHit already discounts wasted blocked ticks
     der._hitCache.set(cacheKey, approx);
     return approx;
   }
 
+  // Exact expectation with blocked hits as wasted ticks:
+  //   E(hp) = (1 + sum_hitting p_i*E(hp - d_i)) / (1 - pZero)
+  const denom = 1 - pZero;
   const memo = new Map();
   function E(remainingHp){
     if(remainingHp <= 0) return 0;
     const key = Math.ceil(remainingHp * 1000);
     if(memo.has(key)) return memo.get(key);
     let value = 1;
-    for(const o of outcomes){
+    for(const o of hitting){
       value += o.p * E(remainingHp - o.d);
     }
+    value /= denom;
     memo.set(key, value);
     return value;
   }
@@ -1983,7 +1994,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
         const crit=rng()<der.critChance;
         const superCrit=rng()<inp.base.superChance;
         const dmg=der.damage * (crit?der.critDamage:1) * (superCrit?inp.base.superDamage:1);
-        hp-=Math.max(dmg*MIN_HIT_FRAC, dmg-armor);
+        hp-=Math.max(0, dmg-armor);
         stamina-=1;
         ticksSpent+=1;
       }
