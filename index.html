@@ -3100,6 +3100,8 @@ function cleanStatLine(rawLine){
     .replace(/\bhain\b/gi,"Gain")
     .replace(/\bHain\b/gi,"Gain")
     .replace(/\bHod\b/gi,"Mod")
+    .replace(/\bMed\b/gi,"Mod")
+    .replace(/\bBtk\b/gi,"Atk")
     .replace(/\bEzp\b/gi,"Exp")
     .replace(/\bXzP\b/gi,"Exp")
     .replace(/\bEXF\b/gi,"Exp")
@@ -3111,10 +3113,11 @@ function cleanStatLine(rawLine){
     .replace(/Camase/gi,"Damage")
     .replace(/Damase/gi,"Damage")
     .replace(/Damaze/gi,"Damage")
+    .replace(/Damace/gi,"Damage")
     .replace(/\b[A-Za-z]?[o0]ma[a-z]e\b/gi,"Damage")
     .replace(/CDamage/gi,"Damage")
     // Gleaming Floor: 'G' commonly reads as 'f', and 'Multi' as 'Melti'.
-    .replace(/\b[FfGg]leamin[a-z]*/gi,"Gleaming")
+    .replace(/\b[FfGgBb]leamin[a-z]*/gi,"Gleaming")
     .replace(/\bMelti\b/gi,"Multi")
     .replace(/Dama\s*=\s*e/gi,"Damage")
     .replace(/Cama\s*=\s*e/gi,"Damage");
