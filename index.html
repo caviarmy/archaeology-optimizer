@@ -56,6 +56,7 @@ label{display:block;font-weight:800;margin:8px 0 5px;font-size:12px;color:#34405
 body[data-workflow="target"] .target-only{display:flex}
 .pill-note{display:inline-block;background:#eef2ff;color:#1e3a8a;border:1px solid #c7d2fe;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;margin-bottom:8px}
 .helper{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px;color:#7c2d12;margin:8px 0}
+.helper.warn-note{background:#fef2f2;border-color:#fecaca;color:#991b1b}
 .actionbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
 .clear-chip{display:none;align-items:center;gap:5px;background:#fff;color:#475467;border:1px solid #cbd5e1;border-radius:999px;padding:7px 10px;font-weight:800}
 .clear-chip::before{content:"×";font-size:16px;line-height:12px;color:#b42318}
@@ -372,13 +373,10 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       <button id="resetAllSettings" class="reset-btn" type="button">Reset all</button>
     </div>
     <div class="settings-list">
-      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Ascension</span><span class="v" id="summaryAscension">A0</span><span class="desc">Unlocks divine and tier 4 blocks</span></span></button>
-      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Run scope</span><span class="v" id="summaryLevel">Level —</span><span class="desc">Player level and simulation limit</span></span></button>
-      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Node spawns</span><span class="v" id="summarySpawnModel">Active count</span><span class="desc">How floors create active nodes</span></span></button>
-      <button class="setting-row target-only" data-open-settings="settings-general"><span><span class="k">Target</span><span class="v" id="summaryTarget">Target floor —</span><span class="desc">Floor used for success chance</span></span></button>
-      <button class="setting-row loot-setting" data-open-settings="settings-loot"><span><span class="k">Resource value</span><span class="v" id="summaryLoot">All drops useful</span><span class="desc">Mark drops that do not matter</span></span></button>
-      <button class="setting-row" data-open-settings="settings-base"><span><span class="k">Base stats</span><span class="v" id="summaryBase">—</span><span class="desc">Current unspent-stat values</span></span></button>
-      <button class="setting-row" data-open-settings="settings-cards"><span><span class="k">Card bonuses</span><span class="v" id="summaryCards">No cards selected</span><span class="desc">Owned and gilded archaeology cards</span></span></button>
+      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Run Scope</span><span class="v" id="summaryAscension">Ascension 0: Base blocks only</span><span class="desc">Ascension, max floor and node spawn model</span></span></button>
+      <button class="setting-row" data-open-settings="settings-base"><span><span class="k">Base stats &amp; skills</span><span class="v" id="summaryBase">Not set</span><span class="desc">Set manually or import from a screenshot</span></span></button>
+      <button class="setting-row" data-open-settings="settings-cards"><span><span class="k">Card bonuses</span><span class="v" id="summaryCards">No cards</span><span class="desc">Configure active archaeology cards</span></span></button>
+      <button class="setting-row loot-setting" data-open-settings="settings-loot"><span><span class="k">Resource values</span><span class="v" id="summaryLoot">All kept</span><span class="desc">Ignore drops you don't care about</span></span></button>
       <button class="setting-row" data-open-settings="settings-mc"><span><span class="k">Simulation</span><span class="v" id="summaryMC">—</span><span class="desc">Simulation sample sizes</span></span></button>
     </div>
   </section>
@@ -517,7 +515,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
     <nav class="settings-nav">
       <button data-section="settings-general" class="active">Run scope</button>
       <button class="loot-setting" data-section="settings-loot">Resource value</button>
-      <button data-section="settings-base">Base stats</button>
+      <button data-section="settings-base">Base &amp; skills</button>
       <button data-section="settings-cards">Card bonuses</button>
       <button data-section="settings-scaling">Stat scaling</button>
       <button data-section="settings-mc">Simulation</button>
@@ -538,7 +536,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
               <option value="2">A2 — divine + tier 4 blocks</option>
             </select>
           </div>
-          <div><label>Selected player level</label><input id="selectedLevel" type="number" min="0" max="200" value="40"></div>
           <div><label>Max floor to simulate</label><input id="maxFloor" type="number" min="1" max="200" value="50"></div>
           <div>
             <label>Node spawn model</label>
@@ -552,12 +549,12 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
       <section id="settings-loot" class="settings-section loot-setting">
         <div class="check-grid">
-          <label class="check-row"><input id="worthlessCommon" type="checkbox"> Common loot worthless</label>
-          <label class="check-row"><input id="worthlessRare" type="checkbox"> Rare loot worthless</label>
-          <label class="check-row"><input id="worthlessEpic" type="checkbox"> Epic loot worthless</label>
-          <label class="check-row"><input id="worthlessLegendary" type="checkbox"> Legendary loot worthless</label>
-          <label class="check-row"><input id="worthlessMythic" type="checkbox"> Mythic loot worthless</label>
-          <label class="check-row req-a1"><input id="worthlessDivine" type="checkbox"> Divine loot worthless</label>
+          <label class="check-row"><input id="worthlessCommon" type="checkbox"> Ignore common drops</label>
+          <label class="check-row"><input id="worthlessRare" type="checkbox"> Ignore rare drops</label>
+          <label class="check-row"><input id="worthlessEpic" type="checkbox"> Ignore epic drops</label>
+          <label class="check-row"><input id="worthlessLegendary" type="checkbox"> Ignore legendary drops</label>
+          <label class="check-row"><input id="worthlessMythic" type="checkbox"> Ignore mythic drops</label>
+          <label class="check-row req-a1"><input id="worthlessDivine" type="checkbox"> Ignore divine drops</label>
         </div>
       </section>
 
@@ -572,11 +569,32 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       </section>
 
       <section id="settings-base" class="settings-section">
+        <div class="helper" id="baseModeNote"></div>
+        <div class="protection-options" style="margin-bottom:8px">
+          <label class="protection-option"><input type="radio" name="baseStatMode" id="baseStatModeZero" value="zero" checked> Attributes at 0</label>
+          <label class="protection-option"><input type="radio" name="baseStatMode" id="baseStatModeSpent" value="spent"> I have spent attribute points</label>
+        </div>
+        <div id="spentAttrs" style="display:none">
+          <h3>Current spent attribute points</h3>
+          <div class="form-grid">
+            <div><label>Spent STR</label><input id="spentStr" type="number" min="0" step="1" value="0"></div>
+            <div><label>Spent AGI</label><input id="spentAgi" type="number" min="0" step="1" value="0"></div>
+            <div><label>Spent PER</label><input id="spentPer" type="number" min="0" step="1" value="0"></div>
+            <div><label>Spent INT</label><input id="spentInt" type="number" min="0" step="1" value="0"></div>
+            <div><label>Spent Luck</label><input id="spentLuck" type="number" min="0" step="1" value="0"></div>
+          </div>
+        </div>
         <div class="import-box">
           <h3>Import stats from screenshot</h3>
+          <details style="margin-bottom:8px">
+            <summary>? Example screenshot</summary>
+            <div class="small" style="margin:6px 0">Open the Stats popup so the stat panel and the Enrage / Flurry / Quake cards are both visible, then screenshot the whole screen. Stats and skill values are read together.</div>
+            <img src="stat-skill-example.jpg" alt="Example: stats popup with ability cards visible" style="max-width:100%;border:1px solid var(--line);border-radius:8px">
+          </details>
           <div class="import-actions">
             <input id="statScreenshotInput" type="file" accept="image/*">
-            <button id="importStatScreenshotBtn" type="button" class="import-btn icon-btn" title="Retry" aria-label="Retry">↻</button>
+            <button id="importStatScreenshotBtn" type="button" class="import-btn icon-btn" title="Import with Tesseract" aria-label="Import with Tesseract">↻</button>
+            <button id="importPaddleBtn" type="button" class="ghost" title="Import with PaddleOCR (experimental)">PaddleOCR</button>
           </div>
           <div id="ocrStatus" class="ocr-status small">No screenshot imported.</div>
           <div id="ocrRuntimeNote" class="ocr-status small"></div>
@@ -588,6 +606,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           </details>
         </div>
         <div class="form-grid">
+          <div><label>Archaeology level</label><input id="selectedLevel" type="number" min="0" max="200" value=""></div>
           <div><label>Base damage</label><input id="baseDamage" type="number" step="0.001" value=""></div>
           <div><label>Base stamina</label><input id="baseStamina" type="number" step="0.001" value=""></div>
           <div><label>Base crit chance %</label><input id="baseCritChance" type="number" step="0.001" value=""></div>
@@ -604,7 +623,30 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Base stamina mod %</label><input id="baseStaminaMod" type="number" step="0.001" value=""></div>
           <div><label>Stamina mod gain</label><input id="staminaModGain" type="number" step="0.001" value=""></div>
           <div><label>Base armor pen (flat)</label><input id="baseArmorPenFlat" type="number" step="0.001" value=""></div>
-          <div><label>Base armor pen %</label><input id="baseArmorPenPct" type="number" step="0.001" value=""></div>
+        </div>
+        <h3>Skills (abilities)</h3>
+        <div class="form-grid">
+          <div><label>Base atk speed /sec</label><input id="baseAtkSpeed" type="number" step="0.01" min="0.01" value="1"></div>
+        </div>
+        <label class="check-row"><input id="enrageOn" type="checkbox"> Auto-use Enrage</label>
+        <div class="form-grid">
+          <div><label>Enrage +damage %</label><input id="enrageDmgPct" type="number" step="1" value="20"></div>
+          <div><label>Enrage +crit dmg %</label><input id="enrageCritDmgPct" type="number" step="1" value="100"></div>
+          <div><label>Enrage charges</label><input id="enrageCharges" type="number" step="1" min="0" value="5"></div>
+          <div><label>Enrage cooldown s</label><input id="enrageCooldown" type="number" step="1" min="1" value="60"></div>
+        </div>
+        <label class="check-row"><input id="flurryOn" type="checkbox"> Auto-use Flurry</label>
+        <div class="form-grid">
+          <div><label>Flurry +atk speed %</label><input id="flurryAtkSpeedPct" type="number" step="1" value="100"></div>
+          <div><label>Flurry stamina on cast</label><input id="flurryStaminaOnCast" type="number" step="1" value="5"></div>
+          <div><label>Flurry charges</label><input id="flurryCharges" type="number" step="1" min="0" value="5"></div>
+          <div><label>Flurry cooldown s</label><input id="flurryCooldown" type="number" step="1" min="1" value="120"></div>
+        </div>
+        <label class="check-row"><input id="quakeOn" type="checkbox"> Auto-use Quake</label>
+        <div class="form-grid">
+          <div><label>Quake +damage % (all blocks)</label><input id="quakeDmgPct" type="number" step="1" value="20"></div>
+          <div><label>Quake charges</label><input id="quakeCharges" type="number" step="1" min="0" value="5"></div>
+          <div><label>Quake cooldown s</label><input id="quakeCooldown" type="number" step="1" min="1" value="180"></div>
         </div>
       </section>
 
@@ -817,6 +859,16 @@ function v(id){ return document.getElementById(id).value; }
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
 function checked(id){ return document.getElementById(id).checked; }
+// Safe readers (return a default if the element is missing) for optional fields.
+function numOr(id, d){ const el=document.getElementById(id); const x=el?Number(el.value):NaN; return Number.isFinite(x)?x:d; }
+function chkOr(id){ return !!document.getElementById(id)?.checked; }
+function abilityInputs(){
+  return {
+    enrage:{on:chkOr("enrageOn"), charges:numOr("enrageCharges",5), cooldown:numOr("enrageCooldown",60), dmgPct:numOr("enrageDmgPct",20), critDmgPct:numOr("enrageCritDmgPct",100)},
+    flurry:{on:chkOr("flurryOn"), charges:numOr("flurryCharges",5), cooldown:numOr("flurryCooldown",120), atkSpeedPct:numOr("flurryAtkSpeedPct",100), staminaOnCast:numOr("flurryStaminaOnCast",5)},
+    quake:{on:chkOr("quakeOn"), charges:numOr("quakeCharges",5), cooldown:numOr("quakeCooldown",180), dmgPct:numOr("quakeDmgPct",20)}
+  };
+}
 function objectiveLabel(obj){
   if(obj==="loot") return "Loot";
   if(obj==="exp") return "EXP";
@@ -1267,6 +1319,8 @@ function deterministicSignature(inp){
     targetFloor: inp.targetFloor,
     maxFloor: inp.maxFloor,
     ascension: inp.ascension,
+    atkSpeed: inp.atkSpeed,
+    abilities: inp.abilities,
     polyUpgrade: inp.polyUpgrade,
     mcTopCount: inp.mcTopCount,
     worthless: inp.worthless,
@@ -1294,7 +1348,7 @@ function markOptimizerStale(){
 }
 
 function getInputs(){
-  return {
+  const out = {
     mode:v("mode"),
     objective:v("objective") || "total",
     selectedLevel:Math.max(0, Math.floor(n("selectedLevel"))),
@@ -1303,6 +1357,8 @@ function getInputs(){
     ascension:currentAscension(),
     polyUpgrade:checked("polyUpgrade"),
     archInfernalMult:Math.max(0, n("archInfernalMult") || 1),
+    atkSpeed:Math.max(0.01, numOr("baseAtkSpeed", 1)),
+    abilities:abilityInputs(),
     nodeSpawnModel:v("nodeSpawnModel") || "activeCount",
     speedModel:"none", // speed/ticks-per-second intentionally excluded from tick-efficiency optimization
     mcTopCount:Math.max(1, Math.min(100, Math.floor(n("mcTopCount") || 25))),
@@ -1334,8 +1390,7 @@ function getInputs(){
       lootModGain:n("baseLootModGain") || 3.8,
       speedMod:pct("baseSpeedMod"),
       staminaMod:pct("baseStaminaMod"),
-      armorPenFlat:n("baseArmorPenFlat") || 0,
-      armorPenPct:pct("baseArmorPenPct")
+      armorPenFlat:n("baseArmorPenFlat") || 0
     },
     inc:{
       strFlatDamage:n("strFlatDamage"),
@@ -1365,6 +1420,52 @@ function getInputs(){
     },
     cardStates:Object.fromEntries(ARCHAEOLOGY_CARD_KEYS.map(c => [c.key, (document.getElementById(cardSettingId(c.key))?.value || "none")]))
   };
+  // "Attributes spent" mode: the entered base fields are the displayed TOTALS
+  // (which include the current attribute points), so back out the attribute
+  // contributions to recover the true base before any scoring.
+  if((document.querySelector('input[name="baseStatMode"]:checked')?.value) === "spent"){
+    const pts = {
+      S:Math.max(0, Math.floor(n("spentStr"))),
+      A:Math.max(0, Math.floor(n("spentAgi"))),
+      P:Math.max(0, Math.floor(n("spentPer"))),
+      I:Math.max(0, Math.floor(n("spentInt"))),
+      L:Math.max(0, Math.floor(n("spentLuck")))
+    };
+    out.base = reverseBaseStats(out.base, pts, out.inc);
+  }
+  return out;
+}
+
+// Recover unspent base stats from displayed totals by removing the contribution
+// of the currently-spent attribute points, inverting the getDerived formulas.
+function reverseBaseStats(b, pts, inc){
+  const {S,A,P,I,L} = pts;
+  return {
+    ...b,
+    damage: Math.max(0, (b.damage / (1 + S*inc.strDamagePct)) - S*inc.strFlatDamage),
+    stamina: Math.max(0, b.stamina - A*inc.agiStamina),
+    critChance: Math.max(0, b.critChance - A*inc.agiCritPct - L*inc.luckCritPct),
+    critDamage: Math.max(1, b.critDamage - S*inc.strCritDamage),
+    xpGain: Math.max(0, b.xpGain - I*inc.intXpGain),
+    fragGain: Math.max(0, b.fragGain - P*inc.perFragGain),
+    xpMod: Math.max(0, b.xpMod - I*inc.intXpModPct - L*inc.luckXpModPct),
+    lootMod: Math.max(0, b.lootMod - P*inc.perLootModPct - L*inc.luckLootModPct),
+    speedMod: Math.max(0, b.speedMod - A*inc.agiSpeedPct - L*inc.luckAllModPct),
+    staminaMod: Math.max(0, b.staminaMod - A*inc.agiStaminaModPct - L*inc.luckAllModPct),
+    armorPenFlat: Math.max(0, (b.armorPenFlat || 0) - P*(inc.perArmorPen || 0))
+    // superChance, superDamage, xpModGain, lootModGain, staminaModGain: no attribute scaling
+  };
+}
+
+function baseStatModeSpent(){
+  return (document.querySelector('input[name="baseStatMode"]:checked')?.value) === "spent";
+}
+function spentPointsSum(){
+  return ["spentStr","spentAgi","spentPer","spentInt","spentLuck"].reduce((s,id)=>s + (n(id)||0), 0);
+}
+function syncBaseStatMode(){
+  const el = document.getElementById("spentAttrs");
+  if(el) el.style.display = baseStatModeSpent() ? "block" : "none";
 }
 
 function getDerived(stats, inp){
@@ -1391,7 +1492,18 @@ function getDerived(stats, inp){
   // Percent armor pen buffs the flat armor-pen stat (e.g. 100 pen +9% = 109 pen).
   const armorPenFlat = (b.armorPenFlat || 0) + P*(inc.perArmorPen || 0);
   const armorPenPct = Math.max(0, (b.armorPenPct || 0) + I*(inc.intArmorPenPct || 0));
-  return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct};
+  // EV approximation of Enrage: average its damage/crit-damage buff over its
+  // uptime (charges per cooldown). Used only by the expected-value hit model;
+  // the simulation schedules Enrage per-attack. Flurry/Quake are simulation-only.
+  let evDamage = damage, evCritDamage = critDamage;
+  const en = inp.abilities?.enrage;
+  if(en && en.on){
+    const atk = Math.max(0.01, inp.atkSpeed || 1);
+    const uptime = Math.min(1, (en.charges || 0) / Math.max(1e-9, atk * (en.cooldown || 1)));
+    evDamage = damage * (1 + uptime * ((en.dmgPct || 0) / 100));
+    evCritDamage = critDamage + uptime * ((en.critDmgPct || 0) / 100);
+  }
+  return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage};
 }
 
 // Effective block armor after the player's penetration. Percent armor pen buffs
@@ -1411,6 +1523,7 @@ function effectiveArmor(armor, der, inp){
    unavailable (private mode, sandboxed preview iframes, etc.). */
 const STORAGE_KEY = "obeliskArchaeologyOptimizer.v1";
 let saveTimer = null;
+let statsImported = false; // true once base stats were filled from a screenshot
 
 function getPersistableElements(){
   return Array.from(document.querySelectorAll("input[id], select[id]"));
@@ -1427,7 +1540,7 @@ function saveState(){
     ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
       cards[c.key] = document.getElementById(cardSettingId(c.key))?.value || "none";
     });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({v:1, fields, cards}));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({v:1, fields, cards, imported:statsImported}));
   }catch(_e){ /* storage unavailable: skip persistence */ }
 }
 
@@ -1443,6 +1556,7 @@ function loadState(){
     if(raw) data = JSON.parse(raw);
   }catch(_e){ return false; }
   if(!data || !data.fields) return false;
+  if(typeof data.imported === "boolean") statsImported = data.imported;
 
   getPersistableElements().forEach(el=>{
     if(el.type === "file" || !(el.id in data.fields)) return;
@@ -1560,13 +1674,15 @@ function expectedHitsFull(hp, der, inp, armor=0){
 
   const pCrit = der.critChance;
   const pSuper = inp.base.superChance;
+  const dmg = der.evDamage ?? der.damage;          // includes the Enrage EV uptime buff
+  const cdmg = der.evCritDamage ?? der.critDamage;
   // Armor subtracts flat from each hit's damage (min 0). Keep every outcome's
   // probability: a blocked hit (0 damage) is still a spent tick.
   const allOutcomes = [
-    {p:(1-pCrit)*(1-pSuper), d:der.damage},
-    {p:(1-pCrit)*pSuper, d:der.damage*inp.base.superDamage},
-    {p:pCrit*(1-pSuper), d:der.damage*der.critDamage},
-    {p:pCrit*pSuper, d:der.damage*der.critDamage*inp.base.superDamage}
+    {p:(1-pCrit)*(1-pSuper), d:dmg},
+    {p:(1-pCrit)*pSuper, d:dmg*inp.base.superDamage},
+    {p:pCrit*(1-pSuper), d:dmg*cdmg},
+    {p:pCrit*pSuper, d:dmg*cdmg*inp.base.superDamage}
   ].map(o => ({p:o.p, d:Math.max(0, o.d - armor)})).filter(o => o.p > 0);
 
   const hitting = allOutcomes.filter(o => o.d > 0);
@@ -1966,56 +2082,85 @@ function randBlockTypeForFloor(floor, inp, rng=Math.random){
 function simulateOneRun(stats, inp, blocks, rng=Math.random){
   const der=getDerived(stats,inp);
   let stamina=der.stamina;
-  let ticksSpent=0;
-  let totalValue=0;
+  let ticksSpent=0, totalValue=0, timeSec=0;
   const channels=blankChannels();
   let floorReached=1;
+  const slot = spawnModel(inp)==="slotChance";
+  const atkSpeedBase = Math.max(0.01, inp.atkSpeed || 1);
+
+  // Ability scheduler: a cast buffs the next `charges` attacks, recast when the
+  // cooldown (real seconds) has elapsed. Auto-use only. Disabled abilities are
+  // skipped, so with all abilities off this reduces to plain attacks.
+  const A = inp.abilities || {};
+  const sched = {};
+  for(const k of ["enrage","flurry","quake"]){
+    const a = A[k] || {};
+    sched[k] = {on:!!a.on, charges:Math.max(0,a.charges||0), cooldown:Math.max(0.01,a.cooldown||1), nextAt:0, left:0, a};
+  }
+  function tryCast(){
+    for(const k of ["enrage","flurry","quake"]){
+      const s = sched[k];
+      if(s.on && timeSec >= s.nextAt){
+        s.left = s.charges;
+        s.nextAt = timeSec + s.cooldown;
+        if(k === "flurry") stamina += (s.a.staminaOnCast || 0);
+      }
+    }
+  }
+  function clearNode(node){
+    if(node.cleared) return;
+    node.cleared = true;
+    const xpMod = rng() < (inp.base.xpMod + stats.I*inp.inc.intXpModPct + stats.L*inp.inc.luckXpModPct) ? 3 : 1;
+    const lootMod = rng() < (inp.base.lootMod + stats.P*inp.inc.perLootModPct + stats.L*inp.inc.luckLootModPct) ? 3.8 : 1;
+    const xpGain = inp.base.xpGain + stats.I*inp.inc.intXpGain;
+    const fragGain = inp.base.fragGain + stats.P*inp.inc.perFragGain;
+    const xpValue = node.b.xp0 * xpGain * xpMod;
+    const lootValue = node.b.lootXpEq * fragGain * lootMod;
+    channels.xp += xpValue;
+    if(channels[node.type] !== undefined) channels[node.type] += lootValue;
+    totalValue += xpValue + lootValue;
+    if(rng()<der.staminaModChance) stamina += inp.inc.staminaModGain;
+  }
 
   for(let floor=1; floor<=inp.maxFloor && stamina>0; floor++){
     const activeNodeCount = rollNodeAttemptsForFloor(floor, inp, rng);
-    let clearedNodes=0;
-    for(let node=0; node<activeNodeCount && stamina>0; node++){
-      const type=randBlockTypeForFloor(floor, inp, rng);
-      if(!type){
-        if(spawnModel(inp)==="slotChance") clearedNodes++;
-        continue;
-      }
-      const b=blockForFloor(type,floor,blocks);
-      if(!b){
-        continue;
-      }
-
-      let hp=b.hp;
-      const armor=effectiveArmor(b.armor, der, inp);
-      while(hp>0 && stamina>0){
-        const crit=rng()<der.critChance;
-        const superCrit=rng()<inp.base.superChance;
-        const dmg=der.damage * (crit?der.critDamage:1) * (superCrit?inp.base.superDamage:1);
-        hp-=Math.max(0, dmg-armor);
-        stamina-=1;
-        ticksSpent+=1;
-      }
-
-      if(hp<=0){
-        const xpMod = rng() < (inp.base.xpMod + stats.I*inp.inc.intXpModPct + stats.L*inp.inc.luckXpModPct) ? 3 : 1;
-        const lootMod = rng() < (inp.base.lootMod + stats.P*inp.inc.perLootModPct + stats.L*inp.inc.luckLootModPct) ? 3.8 : 1;
-        const xpGain = inp.base.xpGain + stats.I*inp.inc.intXpGain;
-        const fragGain = inp.base.fragGain + stats.P*inp.inc.perFragGain;
-        const xpValue = b.xp0 * xpGain * xpMod;
-        const lootValue = b.lootXpEq * fragGain * lootMod;
-        channels.xp += xpValue;
-        if(channels[type] !== undefined) channels[type] += lootValue;
-        totalValue += xpValue + lootValue;
-
-        if(rng()<der.staminaModChance) stamina += inp.inc.staminaModGain;
-        clearedNodes++;
-      }
+    let clearedCount = 0;
+    // Pre-roll the floor's nodes so Quake can damage all of them at once.
+    const nodes = [];
+    for(let i=0;i<activeNodeCount;i++){
+      const type = randBlockTypeForFloor(floor, inp, rng);
+      if(!type){ if(slot) clearedCount++; continue; }
+      const b = blockForFloor(type, floor, blocks);
+      if(!b) continue;
+      nodes.push({type, b, hp:b.hp, armor:effectiveArmor(b.armor, der, inp), hasSpeed: der.speedChance>0 ? rng()<der.speedChance : false, cleared:false});
     }
-    if(stamina>0){
-      floorReached=floor+1;
-    } else {
-      floorReached=floor + (activeNodeCount > 0 ? clearedNodes/activeNodeCount : 0);
+    for(const node of nodes){
+      if(stamina<=0) break;
+      if(node.cleared) continue; // already cleared by a Quake AoE
+      while(node.hp>0 && stamina>0){
+        tryCast();
+        const enr = sched.enrage.left>0, flu = sched.flurry.left>0, qk = sched.quake.left>0;
+        let dmg = der.damage, cdmg = der.critDamage;
+        if(enr){ dmg *= 1 + (sched.enrage.a.dmgPct||0)/100; cdmg += (sched.enrage.a.critDmgPct||0)/100; }
+        const crit = rng()<der.critChance, superCrit = rng()<inp.base.superChance;
+        const hitDmg = dmg * (crit?cdmg:1) * (superCrit?inp.base.superDamage:1);
+        node.hp -= Math.max(0, hitDmg - node.armor);
+        if(qk){
+          const share = der.damage * ((sched.quake.a.dmgPct||0)/100); // % of base damage to all blocks
+          for(const o of nodes){ if(o!==node && !o.cleared){ o.hp -= share; if(o.hp<=0) clearNode(o); } }
+        }
+        const rate = atkSpeedBase * (flu ? 1+(sched.flurry.a.atkSpeedPct||0)/100 : 1) * (node.hasSpeed ? 2 : 1);
+        timeSec += 1/Math.max(0.01, rate);
+        if(enr) sched.enrage.left--;
+        if(flu) sched.flurry.left--;
+        if(qk) sched.quake.left--;
+        stamina-=1; ticksSpent+=1;
+      }
+      if(node.hp<=0) clearNode(node);
     }
+    clearedCount += nodes.reduce((c,nd)=>c+(nd.cleared?1:0),0);
+    if(stamina>0) floorReached = floor+1;
+    else floorReached = floor + (activeNodeCount>0 ? Math.min(1, clearedCount/activeNodeCount) : 0);
   }
 
   const usedTicks = Math.max(1,ticksSpent);
@@ -2024,6 +2169,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
     floorReached,
     totalValue,
     ticksSpent:usedTicks,
+    timeSec,
     channels,
     metrics,
     rewardHr:metrics.allRewards
@@ -2416,8 +2562,8 @@ function getSettingsInputElements(){
 function captureSettingsSnapshot(){
   const snap = {};
   getSettingsInputElements().forEach(el=>{
-    if(!el.id) return;
-    snap[el.id] = el.type === "checkbox" ? el.checked : el.value;
+    if(!el.id || el.type === "file") return;
+    snap[el.id] = (el.type === "checkbox" || el.type === "radio") ? el.checked : el.value;
   });
   return snap;
 }
@@ -2425,11 +2571,12 @@ function captureSettingsSnapshot(){
 function restoreSettingsSnapshot(){
   if(!settingsSnapshot) return;
   getSettingsInputElements().forEach(el=>{
-    if(!el.id || !(el.id in settingsSnapshot)) return;
-    if(el.type === "checkbox") el.checked = settingsSnapshot[el.id];
+    if(!el.id || el.type === "file" || !(el.id in settingsSnapshot)) return;
+    if(el.type === "checkbox" || el.type === "radio") el.checked = settingsSnapshot[el.id];
     else el.value = settingsSnapshot[el.id];
   });
   applyAscensionGating();
+  syncBaseStatMode();
   syncAllCardFields();
   renderNodes();
   scoreCurrent();
@@ -2478,22 +2625,40 @@ function closeSettings(){
 function countWorthless(){
   return ["Common","Rare","Epic","Legendary","Mythic","Divine"].filter(t=>document.getElementById("worthless"+t)?.checked).length;
 }
+const BASE_STAT_FIELD_IDS = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat"];
 function updateSettingsSummary(){
   const setText=(id,text)=>{ const el=document.getElementById(id); if(el) el.textContent=text; };
   updateInfernalEffectLabels();
   const asc = currentAscension();
-  setText("summaryAscension", asc === 0 ? "A0 · base blocks" : (asc === 1 ? "A1 · + divine" : "A2 · + divine & tier 4"));
-  setText("summaryLevel", `Level ${v("selectedLevel")} · Max floor ${v("maxFloor")}`);
-  setText("summarySpawnModel", (v("nodeSpawnModel") || "activeCount") === "slotChance" ? "24 slot chance" : "6–24 active count");
-  setText("summaryTarget", `Target floor ${v("targetFloor")}`);
-  const objective = v("objective") || "total";
-  const w=countWorthless();
-  setText("summaryLoot", w ? `${w} ignored tier${w===1?"":"s"}` : "All drops useful");
-  const primary = rewardFocusLabel(v("primaryGoal") || "allRewards");
-  const secondary = v("secondaryGoal") || "none";
-  const tol = primaryProtectionTolerance();
-  setText("summaryBuild", statString(n("curStr"), n("curAgi"), n("curPer"), n("curInt"), n("curLuck")));
-  setText("summaryBase", `Dmg ${v("baseDamage")} · Stam ${v("baseStamina")} · Crit ${v("baseCritChance")}%`);
+  // Run Scope value: verbose ascension descriptor.
+  setText("summaryAscension", asc === 0 ? "Ascension 0: Base blocks only"
+    : (asc === 1 ? "Ascension 1: + Divine blocks" : "Ascension 2: + Divine & Tier 4 blocks"));
+
+  // Resource values: how many drop tiers are ignored.
+  const w = countWorthless();
+  setText("summaryLoot", w ? `${w} drop tier${w===1?"":"s"} ignored` : "All kept");
+
+  // Base stats: count set, the chosen mode, and an imported flag.
+  const spent = baseStatModeSpent();
+  const setCount = BASE_STAT_FIELD_IDS.filter(id => String(document.getElementById(id)?.value || "").trim() !== "").length;
+  const modeTag = spent ? "spent pts" : "attrs 0";
+  setText("summaryBase", setCount ? `${setCount} set · ${modeTag}${statsImported ? " · imported" : ""}` : `Not set · ${modeTag}`);
+
+  // Base-mode note (live: also warns if spent mode is chosen but no points entered).
+  const note = document.getElementById("baseModeNote");
+  if(note){
+    note.classList.remove("warn-note");
+    if(spent && spentPointsSum() <= 0){
+      note.textContent = "⚠ You chose spent points but entered 0 — fill in your current attributes below.";
+      note.classList.add("warn-note");
+    }else if(spent){
+      note.textContent = "! Your base is calculated from the spent points below.";
+    }else{
+      note.textContent = "! Screenshot with attribute points unspent so imported stats are your base.";
+    }
+  }
+
+  // Card bonuses: count by rarity (only cards available at this ascension).
   const activeCards = ARCHAEOLOGY_CARD_KEYS
     .filter(c => cardAvailableAtAscension(c.key, asc))
     .map(c => document.getElementById(cardSettingId(c.key))?.value || "none")
@@ -2501,7 +2666,8 @@ function updateSettingsSummary(){
   const rarityCounts = activeCards.reduce((m,v)=>{ m[v]=(m[v]||0)+1; return m; }, {});
   const rarityLabel = {owned:"normal", gilded:"gilded", polychrome:"poly", infernal:"infernal"};
   const breakdown = ["owned","gilded","polychrome","infernal"].filter(r=>rarityCounts[r]).map(r=>`${rarityCounts[r]} ${rarityLabel[r]}`).join(" · ");
-  setText("summaryCards", activeCards.length ? `${activeCards.length} selected · ${breakdown}` : "No cards selected");
+  setText("summaryCards", breakdown || "No cards");
+
   const seedMode = (v("simSeedMode") || "random") === "fixed" ? `fixed seed ${v("simSeedValue") || "12345"}` : "random seed";
   setText("summaryMC", `${v("mcTopCount")} reward builds · ${seedMode}`);
 }
@@ -2738,7 +2904,13 @@ function normalizeOcrText(text){
     .replace(/[|]/g,"I")
     .replace(/[：]/g,":")
     .replace(/[％]/g,"%")
-    .replace(/[×]/g,"x");
+    .replace(/[×]/g,"x")
+    // The pixel font commonly reads 'C' as a bracket glyph.
+    .replace(/[(\[{]/g,"C")
+    // Everything else outside the meaningful set is a misread icon / artifact:
+    // drop it to a space so it can't block a label or be mistaken for a value.
+    // Kept: letters, digits, space, and . % / + : & § = , - (used by parsing).
+    .replace(/[^A-Za-z0-9 .%\/+:&§=,\-]/g," ");
 }
 
 function lineNumber(line){
@@ -2765,7 +2937,9 @@ function parseOcrNumericValue(raw, opts={}){
   s = s
     .replace(/[Oo]/g,"0")
     .replace(/[Il|]/g,"1")
+    .replace(/[Zz]/g,"2")
     .replace(/b/g,"6")
+    .replace(/G/g,"4")
     .replace(/B/g,"8")
     .replace(/S/g,"5")
     .replace(/[§]/g,".")
@@ -2792,6 +2966,9 @@ function cleanStatLine(rawLine){
     .replace(/\bBaim\b/gi,"Gain")
     .replace(/\bGaim\b/gi,"Gain")
     .replace(/\bRain\b/gi,"Gain")
+    .replace(/\bhain\b/gi,"Gain")
+    .replace(/\bHain\b/gi,"Gain")
+    .replace(/\bHod\b/gi,"Mod")
     .replace(/\bEzp\b/gi,"Exp")
     .replace(/\bXzP\b/gi,"Exp")
     .replace(/\bEXF\b/gi,"Exp")
@@ -2821,8 +2998,12 @@ function parseStatsFromOcr(rawText){
     .filter(Boolean);
 
   const found = {};
-  const val = "([0-9OIlSbB&§+.,\\s]{1,18})";
-  const gap = "[^0-9&§+.,-]*";
+  // Capture everything after the label, then take the FIRST number from it. The
+  // stat window has two columns that OCR often merges onto one line, so we must
+  // anchor on the label and read the value immediately next to it (never the
+  // last number on the line).
+  const val = "(.+)";
+  const gap = "[\\s:=]*";
   const take = (id, line, regex)=>{
     if(found[id] !== undefined) return;
     const v = valueAfterLabel(line, regex);
@@ -2830,64 +3011,176 @@ function parseStatsFromOcr(rawText){
   };
 
   for(const line of lines){
+    const lc = line.toLowerCase();
     // Left column.
     take("selectedLevel", line, new RegExp("Archaeol\\w*\\s+Level" + gap + val, "i"));
     take("baseStamina", line, new RegExp("Max\\s+Stamina" + gap + val, "i"));
-    take("baseDamage", line, new RegExp("(?:^|\\s)Damage" + gap + val, "i"));
-    take("baseCritChance", line, new RegExp("(?:^|\\s)Crit\\s+Chance" + gap + val, "i"));
-    take("baseCritDamage", line, new RegExp("(?:^|\\s)Crit\\s+Damage" + gap + val, "i"));
-    take("baseSuperChance", line, new RegExp("Super\\s+Crit\\s+Chance" + gap + val, "i"));
-    take("baseSuperDamage", line, new RegExp("Super\\s+Crit\\s+Damage" + gap + val, "i"));
+    // Super crit lines and plain crit lines share the word "Crit", so route by
+    // whether the line mentions "super" to avoid cross-contamination.
+    if(/super/.test(lc)){
+      take("baseSuperChance", line, new RegExp("Crit\\s+Chance" + gap + val, "i"));
+      take("baseSuperDamage", line, new RegExp("Crit\\s+Damage" + gap + val, "i"));
+    }else{
+      take("baseCritChance", line, new RegExp("Crit\\s+Chance" + gap + val, "i"));
+      take("baseCritDamage", line, new RegExp("Crit\\s+Damage" + gap + val, "i"));
+    }
+    if(!/crit|super/.test(lc)) take("baseDamage", line, new RegExp("(?:^|\\s)Damage" + gap + val, "i"));
+    take("baseArmorPenFlat", line, new RegExp("Armor\\s+Pen\\w*" + gap + val, "i"));
 
-    // Right column.
-    take("baseXpGain", line, new RegExp("(?:EXP|Exp|XP)\\s+Gain" + gap + val, "i"));
-    take("baseFragGain", line, new RegExp("Fragment\\s+Gain" + gap + val, "i"));
-    take("baseXpMod", line, new RegExp("(?:EXP|Exp|XP)\\s+(?:Exp\\s+)?Mod\\s+Chance" + gap + val, "i"));
+    // Right column (Mod Gain before Mod Chance before plain Gain so the more
+    // specific label wins).
     take("baseXpModGain", line, new RegExp("(?:EXP|Exp|XP)\\s+(?:Exp\\s+)?Mod\\s+Gain" + gap + val, "i"));
-    take("baseLootMod", line, new RegExp("Loot\\s+Mod\\s+Chance" + gap + val, "i"));
+    take("baseXpMod", line, new RegExp("(?:EXP|Exp|XP)\\s+(?:Exp\\s+)?Mod\\s+Chance" + gap + val, "i"));
+    if(!/mod/.test(lc)) take("baseXpGain", line, new RegExp("(?:EXP|Exp|XP)\\s+Gain" + gap + val, "i"));
+    take("baseFragGain", line, new RegExp("Fragment\\s+Gain" + gap + val, "i"));
     take("baseLootModGain", line, new RegExp("Loot\\s+Mod\\s+Gain" + gap + val, "i"));
+    take("baseLootMod", line, new RegExp("Loot\\s+Mod\\s+Chance" + gap + val, "i"));
     take("baseSpeedMod", line, new RegExp("Speed\\s+Mod\\s+Chance" + gap + val, "i"));
-    take("baseStaminaMod", line, new RegExp("Stamina\\s+Mod\\s+Chance" + gap + val, "i"));
     take("staminaModGain", line, new RegExp("Stamina\\s+Mod\\s+Gain" + gap + val, "i"));
+    take("baseStaminaMod", line, new RegExp("Stamina\\s+Mod\\s+Chance" + gap + val, "i"));
   }
 
-  // Fallback for labels with damaged punctuation. Prefer the last number on the line.
+  // Fallback for labels with damaged punctuation. Anchor on the label keyword
+  // and take the FIRST number after it (never the last on a merged two-column line).
   for(const line of lines){
     const lower = line.toLowerCase();
-    const get = ()=>parseOcrNumericValue(line, {preferLast:true});
+    const after = (kw)=>{ const i = lower.indexOf(kw); return parseOcrNumericValue(i>=0 ? line.slice(i+kw.length) : line); };
 
-    if(found.selectedLevel === undefined && /archaeol/.test(lower) && /level/.test(lower)) found.selectedLevel = get();
-    if(found.baseStamina === undefined && /max\s+stamina/.test(lower)) found.baseStamina = get();
-    if(found.baseDamage === undefined && /damage/.test(lower) && !/crit|super|mod|armor/.test(lower)) found.baseDamage = get();
+    if(found.selectedLevel === undefined && /archaeol/.test(lower) && /level/.test(lower)) found.selectedLevel = after("level");
+    if(found.baseStamina === undefined && /max\s+stamina/.test(lower)) found.baseStamina = after("stamina");
+    if(found.baseDamage === undefined && /damage/.test(lower) && !/crit|super/.test(lower)) found.baseDamage = after("damage");
 
-    if(found.baseCritChance === undefined && /crit\s+chance/.test(lower) && !/super/.test(lower)) found.baseCritChance = get();
-    if(found.baseCritDamage === undefined && /crit\s+damage/.test(lower) && !/super/.test(lower)) found.baseCritDamage = get();
+    if(found.baseCritChance === undefined && /crit\s+chance/.test(lower) && !/super/.test(lower)) found.baseCritChance = after("chance");
+    if(found.baseCritDamage === undefined && /crit\s+damage/.test(lower) && !/super/.test(lower)) found.baseCritDamage = after("damage");
 
-    if(found.baseSuperChance === undefined && /super/.test(lower) && /crit/.test(lower) && /chance/.test(lower)) found.baseSuperChance = get();
-    if(found.baseSuperDamage === undefined && /super/.test(lower) && /crit/.test(lower) && /damage/.test(lower)) found.baseSuperDamage = get();
+    if(found.baseSuperChance === undefined && /super/.test(lower) && /crit/.test(lower) && /chance/.test(lower)) found.baseSuperChance = after("chance");
+    if(found.baseSuperDamage === undefined && /super/.test(lower) && /crit/.test(lower) && /damage/.test(lower)) found.baseSuperDamage = after("damage");
 
-    if(found.baseXpGain === undefined && /(exp|xp)\s+gain/.test(lower) && !/mod/.test(lower)) found.baseXpGain = get();
-    if(found.baseFragGain === undefined && /fragment\s+gain/.test(lower)) found.baseFragGain = get();
+    if(found.baseXpGain === undefined && /(exp|xp)\s+gain/.test(lower) && !/mod/.test(lower)) found.baseXpGain = after("gain");
+    if(found.baseFragGain === undefined && /fragment\s+gain/.test(lower)) found.baseFragGain = after("gain");
 
-    if(found.baseXpMod === undefined && /(exp|xp).{0,8}mod\s+chance/.test(lower)) found.baseXpMod = get();
-    if(found.baseXpModGain === undefined && /(exp|xp).{0,8}mod\s+gain/.test(lower)) found.baseXpModGain = get();
-    if(found.baseLootMod === undefined && /loot\s+mod\s+chance/.test(lower)) found.baseLootMod = get();
-    if(found.baseLootModGain === undefined && /loot\s+mod\s+gain/.test(lower)) found.baseLootModGain = get();
-    if(found.baseSpeedMod === undefined && /speed\s+mod\s+chance/.test(lower)) found.baseSpeedMod = get();
-    if(found.baseStaminaMod === undefined && /stamina\s+mod\s+chance/.test(lower)) found.baseStaminaMod = get();
-    if(found.staminaModGain === undefined && /stamina\s+mod\s+gain/.test(lower)) found.staminaModGain = get();
+    if(found.baseXpMod === undefined && /(exp|xp).{0,8}mod\s+chance/.test(lower)) found.baseXpMod = after("chance");
+    if(found.baseXpModGain === undefined && /(exp|xp).{0,8}mod\s+gain/.test(lower)) found.baseXpModGain = after("gain");
+    if(found.baseLootMod === undefined && /loot\s+mod\s+chance/.test(lower)) found.baseLootMod = after("chance");
+    if(found.baseLootModGain === undefined && /loot\s+mod\s+gain/.test(lower)) found.baseLootModGain = after("gain");
+    if(found.baseSpeedMod === undefined && /speed\s+mod\s+chance/.test(lower)) found.baseSpeedMod = after("chance");
+    if(found.baseStaminaMod === undefined && /stamina\s+mod\s+chance/.test(lower)) found.baseStaminaMod = after("chance");
+    if(found.staminaModGain === undefined && /stamina\s+mod\s+gain/.test(lower)) found.staminaModGain = after("gain");
 
-    // Armor penetration: a "%" on the line means percent pen, otherwise flat.
-    if(/armor\s*pen/.test(lower)){
-      if(/%/.test(line)){
-        if(found.baseArmorPenPct === undefined) found.baseArmorPenPct = get();
-      }else if(found.baseArmorPenFlat === undefined) found.baseArmorPenFlat = get();
-    }
+    // Flat "Armor Penetration" is shown in the stat window; % armor pen is not a
+    // tracked base stat (it comes from attributes/upgrades), so only parse flat.
+    if(found.baseArmorPenFlat === undefined && /armor\s*pen/.test(lower) && !/%/.test(line)) found.baseArmorPenFlat = after("pen");
   }
 
   return found;
 }
 
+// Parse the Enrage/Flurry/Quake ability cards from a full-screen OCR. The three
+// cards sit side-by-side so OCR merges them, so we anchor on each effect's
+// UNIQUE phrase and read the number right next to it (a small window) rather
+// than trying to separate columns. Best-effort: cooldowns aren't read (their
+// title numbers are unreliable), so they stay at the editable defaults.
+function parseAbilitiesFromOcr(rawText){
+  const full = normalizeOcrText(rawText || "").replace(/\s+/g, " ");
+  // Restrict to the ability region (from the first ability name onward) so the
+  // stats text above — which also has "Crit Damage", "Atk Speed", "Stamina" —
+  // can't be mistaken for ability values.
+  const start = full.toLowerCase().search(/enrage|flurry|quake/);
+  if(start < 0) return {};
+  const text = full.slice(start);
+  const lower = text.toLowerCase();
+  const out = {};
+  const numIn = (str, last) => { const v = parseOcrNumericValue(str, {preferLast:!!last}); return v == null ? null : Number(v); };
+  const before = (kw, w=20) => { const i = lower.indexOf(kw); return i < 0 ? null : numIn(text.slice(Math.max(0,i-w), i), true); };
+  const after  = (kw, w=20) => { const i = lower.indexOf(kw); return i < 0 ? null : numIn(text.slice(i+kw.length, i+kw.length+w), false); };
+  const ok = (x,lo,hi) => x != null && x >= lo && x <= hi;
+
+  let v;
+  v = before("crit damage");  if(ok(v,1,1000)) out.enrageCritDmgPct = v;    // "+110% Crit Damage"
+  v = before("atk speed");    if(ok(v,1,1000)) out.flurryAtkSpeedPct = v;    // "+100% Atk Speed"
+  v = before("stamina on cast"); if(ok(v,1,100)) out.flurryStaminaOnCast = v; // "+7 Stamina On Cast" (anchor includes Stamina so its S->5 doesn't pollute)
+  v = after("deal");          if(ok(v,1,100))  out.quakeDmgPct = v;         // "deal 20% Damage To all Blocks"
+  v = after("next");          if(ok(v,1,50)){ out.enrageCharges = v; out.quakeCharges = v; } // "Next 5 Attacks"
+  // Enrage +damage%: first "N% Damage" that isn't "Crit Damage" and isn't the Quake value.
+  const m = [...lower.matchAll(/(\d{1,4})\s*%?\s*damage/g)].find(mm => !/crit\s*$/.test(lower.slice(Math.max(0,mm.index-6), mm.index)));
+  if(m){ const d = Number(parseOcrNumericValue(m[0])); if(ok(d,1,1000) && d !== out.quakeDmgPct) out.enrageDmgPct = d; }
+
+  // Title line per card reads "<name> <charges> <cooldown>" (icons stripped to
+  // spaces). Charges are small (1-50) and the cooldown is bigger (20-600), so
+  // pick the first cooldown-range number after the name rather than assuming a
+  // fixed position (the small charges number can come first or be doubled by
+  // the effect text's "Next N").
+  const numsAfterName = (name) => {
+    const i = lower.indexOf(name); if(i < 0) return [];
+    const seg = text.slice(i+name.length, i+name.length+16)
+      .replace(/[Oo]/g,"0").replace(/[Il|]/g,"1").replace(/[Zz]/g,"2").replace(/G/g,"4").replace(/b/g,"6").replace(/B/g,"8").replace(/S/g,"5");
+    return (seg.match(/\d+/g) || []).map(Number);
+  };
+  const enN = numsAfterName("enrage"); { const c = enN.find(x=>x>=20&&x<=600); if(c) out.enrageCooldown = c; }
+  const flN = numsAfterName("flurry"); { const c = flN.find(x=>x>=20&&x<=600); if(c) out.flurryCooldown = c; const h = flN.find(x=>x>=1&&x<=50); if(h) out.flurryCharges = h; }
+  const qkN = numsAfterName("quake");  { const c = qkN.find(x=>x>=20&&x<=600); if(c) out.quakeCooldown = c; }
+
+  out._detected = { enrage: lower.includes("enrage"), flurry: lower.includes("flurry"), quake: lower.includes("quake") };
+  return out;
+}
+
+
+// Shared apply step for any OCR engine: apply parsed stats, parse + apply
+// abilities from the full-screen text, enable detected abilities, update the
+// OCR-text box + preview, and re-render. Engine-agnostic (no OCR calls here).
+function finishImport(parsed, statsText, fullText){
+  const ocrText = document.getElementById("ocrText");
+  const status = document.getElementById("ocrStatus");
+  fullText = fullText || statsText;
+
+  let applied = 0;
+  for(const [id,val] of Object.entries(parsed)){ if(setFieldValue(id,val)) applied++; }
+  if(applied) statsImported = true;
+
+  try{
+    const ab = parseAbilitiesFromOcr(fullText);
+    const abIds = ["enrageDmgPct","enrageCritDmgPct","enrageCharges","enrageCooldown",
+                   "flurryAtkSpeedPct","flurryStaminaOnCast","flurryCharges","flurryCooldown",
+                   "quakeDmgPct","quakeCharges","quakeCooldown"];
+    for(const id of abIds){ if(ab[id] !== undefined) setFieldValue(id, ab[id]); }
+    const det = ab._detected || {};
+    const enableAbility = (present, id) => {
+      const el = document.getElementById(id);
+      if(present && el && !el.checked){ el.checked = true; el.dispatchEvent(new Event("change", {bubbles:true})); }
+    };
+    enableAbility(det.enrage, "enrageOn");
+    enableAbility(det.flurry, "flurryOn");
+    enableAbility(det.quake, "quakeOn");
+  }catch(_e){}
+
+  if(ocrText){
+    ocrText.textContent = (fullText && fullText !== statsText)
+      ? statsText + "\n\n===== full screen (skills pass) =====\n" + fullText
+      : statsText;
+  }
+
+  const preview = document.getElementById("ocrParsedPreview");
+  if(preview){
+    const labels = {
+      selectedLevel:"Level", baseDamage:"Damage", baseStamina:"Stamina", baseCritChance:"Crit %",
+      baseCritDamage:"Crit dmg", baseSuperChance:"Super crit %", baseSuperDamage:"Super crit dmg",
+      baseXpGain:"XP gain", baseFragGain:"Fragment gain", baseXpMod:"XP mod %", baseXpModGain:"XP mod gain",
+      baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %", baseStaminaMod:"Stamina mod %",
+      staminaModGain:"Stamina mod gain", baseArmorPenFlat:"Armor pen"
+    };
+    const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat"];
+    preview.textContent = Object.keys(parsed).length
+      ? "Parsed: " + order.filter(id=>parsed[id] !== undefined).map(id=>`${labels[id] || id} ${parsed[id]}`).join(" · ")
+      : "";
+  }
+
+  markOptimizerStale();
+  renderNodes();
+  scoreCurrent();
+  updateSettingsSummary();
+  if(status) status.textContent = applied ? `Imported ${applied} stat value${applied===1?"":"s"}.` : "OCR finished, but no stat values were imported.";
+  return applied;
+}
 
 async function importStatsFromScreenshot(file){
   const status = document.getElementById("ocrStatus");
@@ -2911,6 +3204,7 @@ async function importStatsFromScreenshot(file){
 
     let text = result?.data?.text || "";
     let parsed = parseStatsFromOcr(text);
+    let fullText = "";
 
     // If stamina mod OCR is only one decimal, run one alternate crop pass and
     // use it only if it gives a more precise stamina-mod value.
@@ -2932,7 +3226,7 @@ async function importStatsFromScreenshot(file){
       setOcrStatus("Reading full screenshot...");
       const fullProcessed = preprocessForOcr(baseCanvas);
       const fullResult = await recognizeWithTesseract(fullProcessed, "Reading full screenshot");
-      const fullText = fullResult?.data?.text || "";
+      fullText = fullResult?.data?.text || "";
       const fullParsed = parseStatsFromOcr(fullText);
       if(Object.keys(fullParsed).length >= Object.keys(parsed).length){
         text = fullText;
@@ -2944,34 +3238,16 @@ async function importStatsFromScreenshot(file){
       parsed.baseStaminaMod = "0.75";
     }
 
-    if(ocrText) ocrText.textContent = text;
-
-    let applied = 0;
-    for(const [id,val] of Object.entries(parsed)){
-      if(setFieldValue(id,val)) applied++;
+    // Ability cards live below the stats popup, outside the stats crop, so read
+    // the full screenshot (reuse the fallback pass if it already ran).
+    if(!fullText){
+      setOcrStatus("Reading skill cards...");
+      try{
+        const abilityResult = await recognizeWithTesseract(preprocessForOcr(baseCanvas), "Reading skill cards");
+        fullText = abilityResult?.data?.text || "";
+      }catch(_e){}
     }
-
-    const preview = document.getElementById("ocrParsedPreview");
-    if(preview){
-      const labels = {
-        selectedLevel:"Level", baseDamage:"Damage", baseStamina:"Stamina", baseCritChance:"Crit %",
-        baseCritDamage:"Crit dmg", baseSuperChance:"Super crit %", baseSuperDamage:"Super crit dmg",
-        baseXpGain:"XP gain", baseFragGain:"Fragment gain", baseXpMod:"XP mod %", baseXpModGain:"XP mod gain",
-        baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %", baseStaminaMod:"Stamina mod %",
-        staminaModGain:"Stamina mod gain", baseArmorPenFlat:"Armor pen", baseArmorPenPct:"Armor pen %"
-      };
-      const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat","baseArmorPenPct"];
-      preview.textContent = Object.keys(parsed).length
-        ? "Parsed: " + order.filter(id=>parsed[id] !== undefined).map(id=>`${labels[id] || id} ${parsed[id]}`).join(" · ")
-        : "";
-    }
-
-    markOptimizerStale();
-    renderNodes();
-    scoreCurrent();
-    updateSettingsSummary();
-
-    if(status) status.textContent = applied ? `Imported ${applied} stat value${applied===1?"":"s"} from screenshot.` : "OCR finished, but no stat values were imported.";
+    finishImport(parsed, text, fullText);
   }catch(err){
     console.error(err);
     setOcrStatus("Screenshot import failed: " + describeError(err));
@@ -2980,25 +3256,82 @@ async function importStatsFromScreenshot(file){
   }
 }
 
+/* Experimental: PaddleOCR (PP-OCR) in-browser via PaddleJS, loaded from CDN.
+   Feeds its text through the same parsers so we can compare it to Tesseract. */
+let paddleOcrModule = null;
+async function ensurePaddleOcr(){
+  if(paddleOcrModule) return paddleOcrModule;
+  setOcrStatus("Loading PaddleOCR (first run downloads models)...");
+  // PaddleJS expects a bundler; jsDelivr's /+esm leaves WASM globals undefined
+  // ("Module is not defined"). esm.sh polyfills browser/Node globals, so try it
+  // first and fall back to jsDelivr.
+  const sources = [
+    "https://esm.sh/@paddlejs-models/ocr",
+    "https://cdn.jsdelivr.net/npm/@paddlejs-models/ocr/+esm"
+  ];
+  let mod = null, lastErr = null;
+  for(const url of sources){
+    try{ mod = await import(/* @vite-ignore */ url); break; }
+    catch(e){ lastErr = e; }
+  }
+  if(!mod) throw (lastErr || new Error("Could not load PaddleOCR module"));
+  if(typeof mod.init === "function") await mod.init();
+  paddleOcrModule = mod;
+  return mod;
+}
+async function recognizeWithPaddle(imageEl){
+  const ocr = await ensurePaddleOcr();
+  const res = await ocr.recognize(imageEl);
+  if(Array.isArray(res?.text)) return res.text.join("\n");
+  if(typeof res?.text === "string") return res.text;
+  if(Array.isArray(res)) return res.join("\n");
+  return String(res || "");
+}
+async function importStatsWithPaddle(file){
+  const status = document.getElementById("ocrStatus");
+  const btn = document.getElementById("importPaddleBtn");
+  if(!file) return;
+  try{
+    if(btn) btn.disabled = true;
+    const img = await loadImageFromFile(file);
+    await ensurePaddleOcr();
+    setOcrStatus("Reading screenshot with PaddleOCR...");
+    const text = await recognizeWithPaddle(img);
+    const parsed = parseStatsFromOcr(text);
+    finishImport(parsed, text, text);
+  }catch(err){
+    console.error(err);
+    setOcrStatus("PaddleOCR failed: " + describeError(err) + " (check internet / model CDN)");
+  }finally{
+    if(btn) btn.disabled = false;
+  }
+}
+
 
 function resetAllSettings(){
+  statsImported = false;
   const blankIds = [
     "selectedLevel","targetFloor",
     "baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage",
     "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain",
-    "baseArmorPenFlat","baseArmorPenPct",
-    "curStr","curAgi","curPer","curInt","curLuck"
+    "baseArmorPenFlat",
+    "curStr","curAgi","curPer","curInt","curLuck",
+    "spentStr","spentAgi","spentPer","spentInt","spentLuck"
   ];
 
   for(const id of blankIds){
     const el = document.getElementById(id);
-    if(el) el.value = id.startsWith("cur") ? "0" : "";
+    if(el) el.value = (id.startsWith("cur") || id.startsWith("spent")) ? "0" : "";
   }
 
   const defaults = {
     maxFloor:"50",
     ascension:"0",
     archInfernalMult:"1",
+    baseAtkSpeed:"1",
+    enrageDmgPct:"20", enrageCritDmgPct:"100", enrageCharges:"5", enrageCooldown:"60",
+    flurryAtkSpeedPct:"100", flurryStaminaOnCast:"5", flurryCharges:"5", flurryCooldown:"120",
+    quakeDmgPct:"20", quakeCharges:"5", quakeCooldown:"180",
     nodeSpawnModel:"activeCount",
     primaryGoal:"allRewards",
     secondaryGoal:"none",
@@ -3016,15 +3349,17 @@ function resetAllSettings(){
   }
 
   document.getElementById("primaryProtectionStrict")?.click();
+  const baseModeZero=document.getElementById("baseStatModeZero"); if(baseModeZero) baseModeZero.checked=true;
 
-  ["worthlessCommon","worthlessRare","worthlessEpic","worthlessLegendary","worthlessMythic","worthlessDivine","polyUpgrade"].forEach(id=>{
+  ["worthlessCommon","worthlessRare","worthlessEpic","worthlessLegendary","worthlessMythic","worthlessDivine","polyUpgrade","enrageOn","flurryOn","quakeOn"].forEach(id=>{
     const el=document.getElementById(id); if(el) el.checked=false;
   });
 
   if(typeof ARCHAEOLOGY_CARD_KEYS !== "undefined"){
     ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
-      const el=document.getElementById(cardSettingId(c.key));
-      if(el) el.value="none";
+      const owned=document.querySelector(`input[name="card_state_${c.key}"][value="owned"]`);
+      if(owned) owned.checked=true;   // reset rarity back to Normal
+      setCardState(c.key, "none");     // uncheck the card + hidden value none + close radios
     });
   }
 
@@ -3041,6 +3376,7 @@ function resetAllSettings(){
   clearReachability?.();
   markOptimizerStale();
   applyAscensionGating();
+  syncBaseStatMode();
   syncSecondaryGoalOptions();
   syncPrimaryProtectionUI();
   updateGoalUI();
@@ -3146,6 +3482,11 @@ function bindStatScreenshotImport(){
   if(btn){
     btn.addEventListener("click", startSelectedScreenshotImport);
   }
+  document.getElementById("importPaddleBtn")?.addEventListener("click", ()=>{
+    const file = selectedStatScreenshotFile();
+    if(!file){ if(status) status.textContent = "Choose a screenshot first."; return; }
+    importStatsWithPaddle(file);
+  });
   document.getElementById("copyOcrTextBtn")?.addEventListener("click",copyOcrText);
 
   document.addEventListener("change",(e)=>{
@@ -3232,6 +3573,13 @@ document.getElementById("ascension")?.addEventListener("change",()=>{
   updateSettingsSummary();
 });
 document.querySelectorAll("[data-card-bulk]").forEach(btn=>btn.addEventListener("click",()=>applyCardBulk(btn.dataset.cardBulk)));
+document.querySelectorAll('input[name="baseStatMode"]').forEach(el=>el.addEventListener("change",()=>{
+  syncBaseStatMode();
+  markOptimizerStale();
+  renderNodes();
+  scoreCurrent();
+  updateSettingsSummary();
+}));
 
 document.addEventListener("keydown",(e)=>{
   if(e.key==="Escape" && document.getElementById("settingsModal")?.classList.contains("open")) cancelSettings();
@@ -3264,12 +3612,23 @@ try{
 }
 loadState();
 applyAscensionGating();
+syncBaseStatMode();
 syncSecondaryGoalOptions();
 syncPrimaryProtectionUI();
 updateGoalUI();
 renderNodes();
 scoreCurrent();
 updateSettingsSummary();
+</script>
+<script>
+/* Register the network-first service worker so the live site always serves the
+   freshest build. updateViaCache:"none" makes the browser re-fetch sw.js on each
+   load instead of trusting its HTTP cache. Guarded for non-secure contexts. */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
+  });
+}
 </script>
 </body>
 </html>

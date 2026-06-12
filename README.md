@@ -7,31 +7,23 @@ expected-value scoring plus Monte Carlo simulation to sanity-check it.
 
 The entire app is a single self-contained file: [`index.html`](index.html).
 
-## Test it in your browser
+## Open the app
 
-**Open the live app (no setup, current branch):**
+**Live site (GitHub Pages):**
 
-- ▶️ **[Open `index.html` (rendered)](https://htmlpreview.github.io/?https://github.com/caviarmy/archeology-optimizer/blob/claude/html-repo-modernization-dea9nv/index.html)**
+- ▶️ **https://caviarmy.github.io/archaeology-optimizer/**
 
-  This renders the file on the current development branch
-  (`claude/html-repo-modernization-dea9nv`). After each push, refresh to get the
-  latest version (you may need a hard refresh / cache bypass).
+  This serves the latest `main` and rebuilds automatically on every push/merge.
+  Share this link. If you just deployed and see an old version, hard-refresh
+  (Cmd/Ctrl+Shift+R) — GitHub purges its CDN on deploy, so first-time visitors
+  always get the current build.
 
-- 📄 [View the source on GitHub](https://github.com/caviarmy/archeology-optimizer/blob/claude/html-repo-modernization-dea9nv/index.html)
+- 📄 [View the source on GitHub](https://github.com/caviarmy/archaeology-optimizer/blob/main/index.html)
+- Rendered preview of any branch (fallback):
+  `https://htmlpreview.github.io/?https://github.com/caviarmy/archaeology-optimizer/blob/main/index.html`
 
 > Note: the plain `raw.githubusercontent.com` URL serves the file as text and
-> will show source code, not the app — use the rendered link above.
-
-### Durable URL via GitHub Pages (recommended)
-
-For a stable link that always serves the latest on a branch:
-
-1. Repo **Settings → Pages**.
-2. **Build and deployment → Source:** *Deploy from a branch*.
-3. Pick the branch (e.g. `main` or `claude/html-repo-modernization-dea9nv`) and
-   folder `/ (root)`, then **Save**.
-4. After it builds, the app is served at
-   **`https://caviarmy.github.io/archeology-optimizer/`**.
+> will show source code, not the app — use a link above.
 
 ## Run locally
 
