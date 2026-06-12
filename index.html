@@ -3271,5 +3271,15 @@ renderNodes();
 scoreCurrent();
 updateSettingsSummary();
 </script>
+<script>
+/* Register the network-first service worker so the live site always serves the
+   freshest build. updateViaCache:"none" makes the browser re-fetch sw.js on each
+   load instead of trusting its HTTP cache. Guarded for non-secure contexts. */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
+  });
+}
+</script>
 </body>
 </html>
