@@ -3103,6 +3103,22 @@ function parseAbilitiesFromOcr(rawText){
   // Enrage +damage%: first "N% Damage" that isn't "Crit Damage" and isn't the Quake value.
   const m = [...lower.matchAll(/(\d{1,4})\s*%?\s*damage/g)].find(mm => !/crit\s*$/.test(lower.slice(Math.max(0,mm.index-6), mm.index)));
   if(m){ const d = Number(parseOcrNumericValue(m[0])); if(ok(d,1,1000) && d !== out.quakeDmgPct) out.enrageDmgPct = d; }
+
+  // Title line per card reads "<name> <charges> <cooldown>" (icons stripped to
+  // spaces), so the first two numbers after the name are charges then cooldown.
+  const titleNums = (name) => {
+    const i = lower.indexOf(name); if(i < 0) return [];
+    const seg = text.slice(i+name.length, i+name.length+26)
+      .replace(/[Oo]/g,"0").replace(/[Il|]/g,"1").replace(/[Zz]/g,"2").replace(/G/g,"4").replace(/b/g,"6").replace(/B/g,"8").replace(/S/g,"5");
+    return (seg.match(/\d+(?:\.\d+)?/g) || []).map(Number);
+  };
+  const setCd = (key, x) => { if(x != null && x >= 5 && x <= 600) out[key] = x; };
+  const setCh = (key, x) => { if(x != null && x >= 1 && x <= 50) out[key] = x; };
+  const enT = titleNums("enrage"); setCd("enrageCooldown", enT[1]);
+  const flT = titleNums("flurry"); setCh("flurryCharges", flT[0]); setCd("flurryCooldown", flT[1]);
+  const qkT = titleNums("quake");  setCd("quakeCooldown", qkT[1]);
+
+  out._detected = { enrage: lower.includes("enrage"), flurry: lower.includes("flurry"), quake: lower.includes("quake") };
   return out;
 }
 
@@ -3180,8 +3196,19 @@ async function importStatsFromScreenshot(file){
         fullText = abilityResult?.data?.text || "";
       }
       const ab = parseAbilitiesFromOcr(fullText);
-      const abIds = ["enrageDmgPct","enrageCritDmgPct","enrageCharges","flurryAtkSpeedPct","flurryStaminaOnCast","quakeDmgPct","quakeCharges"];
+      const abIds = ["enrageDmgPct","enrageCritDmgPct","enrageCharges","enrageCooldown",
+                     "flurryAtkSpeedPct","flurryStaminaOnCast","flurryCharges","flurryCooldown",
+                     "quakeDmgPct","quakeCharges","quakeCooldown"];
       for(const id of abIds){ if(ab[id] !== undefined) setFieldValue(id, ab[id]); }
+      // A card being on screen means the player has the ability — enable it.
+      const det = ab._detected || {};
+      const enableAbility = (present, id) => {
+        const el = document.getElementById(id);
+        if(present && el && !el.checked){ el.checked = true; el.dispatchEvent(new Event("change", {bubbles:true})); }
+      };
+      enableAbility(det.enrage, "enrageOn");
+      enableAbility(det.flurry, "flurryOn");
+      enableAbility(det.quake, "quakeOn");
     }catch(_e){}
 
     const preview = document.getElementById("ocrParsedPreview");
