@@ -21,9 +21,10 @@ const FIELDS = [
   "quakeDmgPct","quakeCharges","quakeCooldown"
 ];
 
+// Gemini's responseSchema uses uppercase OpenAPI type enums (OBJECT/NUMBER).
 const SCHEMA = {
-  type: "object",
-  properties: Object.fromEntries(FIELDS.map(f => [f, { type: "number", nullable: true }]))
+  type: "OBJECT",
+  properties: Object.fromEntries(FIELDS.map(f => [f, { type: "NUMBER", nullable: true }]))
 };
 
 const PROMPT = `You are reading a screenshot from the idle game "Obelisk Miner": its Archaeology "Stats" panel, and (if visible) the three ability cards below it (Enrage, Flurry, Quake). Extract the values into the provided JSON schema.
@@ -108,7 +109,7 @@ export default {
     const model = env.GEMINI_MODEL || "gemini-2.0-flash-lite";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
     const payload = {
-      contents: [{ role: "user", parts: [{ text: PROMPT }, { inline_data: { mime_type: mimeType, data: b64 } }] }],
+      contents: [{ role: "user", parts: [{ text: PROMPT }, { inlineData: { mimeType, data: b64 } }] }],
       generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: SCHEMA }
     };
 
