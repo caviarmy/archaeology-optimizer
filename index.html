@@ -1655,6 +1655,21 @@ function visibleBlocks(inp){
   return blocks;
 }
 
+// Global per-stage block scaling (wiki: Block HP/Armor Multiplier by Stage).
+// Cumulative — each milestone multiplies on top of the previous — and applies
+// uniformly to every block. This replaces the old hard cap at floor 150 so deep
+// floors keep getting tougher (HP x2 every 50 stages, x4 at 300; armor x1.5,
+// x2.25 at 300). Verified to reproduce the old floor-100/150 values exactly.
+const STAGE_HP_MULT    = {100:2, 150:2, 200:2, 250:2, 300:4, 350:2, 400:2, 450:2, 500:2};
+const STAGE_ARMOR_MULT = {100:1.5, 150:1, 200:1.5, 250:1.5, 300:2.25, 350:1.5, 400:1.5, 450:1.5, 500:1.5};
+const STAGE_MILESTONES = [100, 150, 200, 250, 300, 350, 400, 450, 500];
+function stageScale(floor){
+  let hp = 1, armor = 1;
+  for(const s of STAGE_MILESTONES){ if(floor >= s){ hp *= STAGE_HP_MULT[s]; armor *= STAGE_ARMOR_MULT[s]; } }
+  if(floor > 500){ const extra = Math.floor((floor - 500) / 50); hp *= Math.pow(2, extra); armor *= Math.pow(1.5, extra); }
+  return {hp, armor};
+}
+
 function blockForFloor(type, floor, blocks){
   let best=null;
   for(const b of blocks){
@@ -1663,9 +1678,8 @@ function blockForFloor(type, floor, blocks){
     }
   }
   if(!best) return null;
-  const resolvedHp = floor >= 150 ? best.hp150 : (floor >= 100 ? best.hp100 : best.hp);
-  const resolvedArmor = floor >= 150 ? best.armor150 : (floor >= 100 ? best.armor100 : best.armor);
-  return {...best, hp: resolvedHp, armor: resolvedArmor};
+  const ss = stageScale(floor);
+  return {...best, hp: best.hp * ss.hp, armor: (best.armor || 0) * ss.armor};
 }
 
 function ratesForFloor(floor, inp){
