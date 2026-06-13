@@ -2101,6 +2101,25 @@ function fastSearch(inp, blocks, level){
       }
     }
   }
+
+  // 3) Local polish: a small full grid (±W in each dimension) around the best
+  // points found, to catch optima the greedy ±1 climb stepped past because they
+  // need a combined move (e.g. +1 P / +1 I / -2 L across a ridge).
+  const W = 2;
+  const polishSeeds = [];
+  for(const obj of objectives){
+    all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,3).forEach(c=>polishSeeds.push(c.stats));
+  }
+  for(const s of polishSeeds){
+    for(let dI=-W; dI<=W; dI++) for(let dP=-W; dP<=W; dP++)
+    for(let dL=-W; dL<=W; dL++) for(let dS=-W; dS<=W; dS++){
+      const I=s.I+dI, P=s.P+dP, L=s.L+dL, S=s.S+dS;
+      if(I<0||P<0||L<0||S<0||I>caps.I||P>caps.P||L>caps.L) continue;
+      const rem=level-I-P-L;
+      if(rem<0||S>rem) continue;
+      evalPt(S, rem-S, I, P, L);
+    }
+  }
   return all;
 }
 
