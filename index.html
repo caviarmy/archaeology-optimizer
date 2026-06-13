@@ -2804,15 +2804,11 @@ function setOcrRuntimeNote(){
   if(note) note.textContent = "";
 }
 
-// Letters this pixel font commonly emits in place of digits — used to catch
-// value tokens that came back with NO digit at all (e.g. 881 -> "HAL", 2x -> "lx").
-const DIGITISH = /^[0-9OolIiSsBbGgZzHALTtxX.,%+/\-]+$/;
-function isValueCandidate(text){
-  const t = (text || "").trim();
-  if(!t) return false;
-  if(/[0-9]/.test(t)) return true;                       // already has a digit
-  return t.length >= 2 && t.length <= 4 && DIGITISH.test(t); // short, digit-shaped
-}
+// A fully letterised value token whose letters are all digit-shaped misreads
+// (e.g. 881 -> "HAL", 2x -> "lx"). This is exactly where the digit pass uniquely
+// wins. Tokens that already contain digits are deliberately excluded: re-OCR
+// doesn't fix digit-shape confusions and can shift a correct-ish value laterally.
+const DIGITISH = /^[OolIiSsBbGgZzHALTtxX]{2,4}$/;
 
 function extractOcrWords(data){
   const out = [];
@@ -2866,8 +2862,9 @@ async function refineNumbersByDigitPass(processedCanvas, data){
   const note = document.getElementById("ocrRuntimeNote");
   if(!words.length){ if(note) note.textContent = "Value refinement skipped: OCR returned no word boxes."; return null; }
   const lines = groupWordsIntoLines(words);
-  const candidates = words.filter(w => isValueCandidate(w.text)
-      && (w.bbox.x1 - w.bbox.x0) >= 4 && (w.bbox.y1 - w.bbox.y0) >= 4).slice(0, 60);
+  const candidates = words.filter(w => DIGITISH.test((w.text||"").trim())
+      && (w.bbox.x1 - w.bbox.x0) >= 4 && (w.bbox.y1 - w.bbox.y0) >= 4).slice(0, 24);
+  if(!candidates.length){ if(note) note.textContent = "No letterised values needed refining."; return null; }
   let done = 0;
   for(const w of candidates){
     done++;
@@ -3172,6 +3169,8 @@ function cleanStatLine(rawLine){
     .replace(/\(/g,"C")
     .replace(/Archaeolo(?:g|s|e)y/gi,"Archaeology")
     .replace(/Archaeolosy/gi,"Archaeology")
+    .replace(/\b[hfHF]rcha[a-z]+y\b/gi,"Archaeology")
+    .replace(/\b[hHBb][rm]mor\b/gi,"Armor")
     .replace(/Fraement/gi,"Fragment")
     .replace(/Fras?ment/gi,"Fragment")
     .replace(/Fragment\s+Bain/gi,"Fragment Gain")
