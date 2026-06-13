@@ -12,8 +12,10 @@
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35}
-header{background:#101828;color:#fff;padding:16px 18px}
+header{background:#101828;color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 header h1{margin:0;font-size:20px;line-height:1.15}
+.help-link{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid #ffffff55;color:#fff;text-decoration:none;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px}
+.help-link:hover{background:#ffffff22}
 header p{margin:6px 0 0;color:#cbd5e1;max-width:1080px;font-size:13px}
 main{max-width:1280px;margin:0 auto;padding:12px}
 button,input,select{font:inherit}
@@ -299,6 +301,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 <body data-workflow="results" data-target-used="false" data-simulation-ready="false" data-ascension="0">
 <header>
   <h1>Obelisk Miner Archaeology Optimizer</h1>
+  <a class="help-link" href="about.html" target="_blank" rel="noopener" title="How this app works" aria-label="How this app works">?</a>
 </header>
 
 <main>
