@@ -401,7 +401,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <summary>Top candidate builds</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="topBuildsTable">
-            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>EV value per tick-hour</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
+            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>EV value per tick-hour</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -639,6 +639,9 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Base gold crosshair multi x</label><input id="baseGoldCrosshairMulti" type="number" step="0.001" value=""></div>
           <div><label>Base gleaming floor chance %</label><input id="baseGleamingChance" type="number" step="0.001" value=""></div>
           <div><label>Base gleaming floor multi x</label><input id="baseGleamingMulti" type="number" step="0.001" value=""></div>
+          <div><label>Crosshair spawn % / block</label><input id="crosshairSpawnPct" type="number" step="0.001" value="2.175"></div>
+          <div><label>Crosshair interval s</label><input id="crosshairInterval" type="number" step="0.001" value="1.005"></div>
+          <div><label>Crosshair fire delay s</label><input id="crosshairFireDelay" type="number" step="0.001" value="2"></div>
         </div>
         <h3>Skills (abilities)</h3>
         <div class="form-grid">
@@ -1383,6 +1386,11 @@ function getInputs(){
     archInfernalMult:Math.max(0, n("archInfernalMult") || 1),
     atkSpeed:Math.max(0.01, numOr("baseAtkSpeed", 1)),
     abilities:abilityInputs(),
+    crosshair:{
+      spawnPct: Math.max(0, pct("crosshairSpawnPct") || 0.02175),  // per block per interval
+      interval: Math.max(0.05, numOr("crosshairInterval", 1.005)), // real seconds
+      fireDelay: Math.max(0, numOr("crosshairFireDelay", 2))       // real seconds
+    },
     nodeSpawnModel:v("nodeSpawnModel") || "activeCount",
     speedModel:"none", // speed/ticks-per-second intentionally excluded from tick-efficiency optimization
     mcTopCount:Math.max(1, Math.min(100, Math.floor(n("mcTopCount") || 25))),
@@ -1586,7 +1594,8 @@ function getDerived(stats, inp){
   const chHit = damage * ((1-critChance) + critChance*critDamage*superUltra) * goldFactor;
   const chRatio = playerHit > 1e-9 ? chHit/playerHit : 0;
   const atkS = Math.max(0.01, inp.atkSpeed || 1);
-  const chFactorPerBlock = autoTapEff>0 ? (0.02175/1.005) * autoTapEff * chRatio / (2*atkS) : 0;
+  const chLambda = (inp.crosshair?.spawnPct ?? 0.02175) / (inp.crosshair?.interval || 1.005);
+  const chFactorPerBlock = autoTapEff>0 ? chLambda * autoTapEff * chRatio / (2*atkS) : 0;
   return {damage,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage,autoTapEff,chFactorPerBlock};
 }
 
@@ -2275,9 +2284,14 @@ function renderBest(best, top, count){
     const tr=document.createElement("tr");
     if(i===0) tr.className="best";
     const st=x.stats, der=x.der;
-    const cells=[i+1,st.S,st.A,st.P,st.I,st.L,fmt(x.rewardHr,1),fmt(x.floorReached,2),fmt(der.stamina,0),fmt(der.damage,1),fmt(der.critChance*100,1)];
+    const asc = inp.ascension ?? 0;
+    const cells=[{v:i+1},{v:st.S},{v:st.A},{v:st.P},{v:st.I},{v:st.L},
+      {v:st.D||0,req:1},{v:st.C||0,req:2},
+      {v:fmt(x.rewardHr,1)},{v:fmt(x.floorReached,2)},{v:fmt(der.stamina,0)},{v:fmt(der.damage,1)},{v:fmt(der.critChance*100,1)}];
     for(const c of cells){
-      const td=document.createElement("td"); td.textContent=c; tr.appendChild(td);
+      const td=document.createElement("td"); td.textContent=c.v;
+      if(c.req){ td.className = c.req===2?"req-a2":"req-a1"; if(asc < c.req) td.style.display="none"; }
+      tr.appendChild(td);
     }
     tbody.appendChild(tr);
   });
@@ -2462,7 +2476,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
   // fire for an idle player (manual ones are ignored); they fire ~2s later as one
   // regular hit (full reward if it kills the block), x gold multiplier if golden.
   // Divinity adds auto-tap %, Luck adds gold-crosshair %.
-  const CH_P = 0.02175, CH_INTERVAL = 1.005, CH_DELAY = 2;
+  const CH_P = inp.crosshair?.spawnPct ?? 0.02175, CH_INTERVAL = inp.crosshair?.interval || 1.005, CH_DELAY = inp.crosshair?.fireDelay ?? 2;
   const autoTapEff = clamp((inp.base.autoTap||0) + stats.D*(inp.inc.divAutoTapPct||0), 0, 1);
   const goldEff = clamp((inp.base.goldCrosshairChance||0) + stats.L*0.005, 0, 1);
   const goldMulti = inp.base.goldCrosshairMulti>0 ? inp.base.goldCrosshairMulti : 3;
@@ -3949,6 +3963,7 @@ function resetAllSettings(){
     enrageDmgPct:"20", enrageCritDmgPct:"100", enrageCharges:"5", enrageCooldown:"60",
     flurryAtkSpeedPct:"100", flurryStaminaOnCast:"5", flurryCharges:"5", flurryCooldown:"120",
     quakeDmgPct:"20", quakeCharges:"5", quakeCooldown:"180",
+    crosshairSpawnPct:"2.175", crosshairInterval:"1.005", crosshairFireDelay:"2",
     nodeSpawnModel:"activeCount",
     primaryGoal:"allRewards",
     secondaryGoal:"none",
