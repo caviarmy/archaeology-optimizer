@@ -1565,7 +1565,10 @@ function getDerived(stats, inp){
   const en = inp.abilities?.enrage;
   if(en && en.on){
     const atk = Math.max(0.01, inp.atkSpeed || 1);
-    const uptime = Math.min(1, (en.charges || 0) / Math.max(1e-9, atk * (en.cooldown || 1)));
+    // Instacharge shortens the effective cooldown (cooldown*(1-p)), raising uptime.
+    const ic = clamp(inp.base?.instacharge || 0, 0, 0.99);
+    const cd = Math.max(1e-9, (en.cooldown || 1) * (1 - ic));
+    const uptime = Math.min(1, (en.charges || 0) / Math.max(1e-9, atk * cd));
     evDamage = damage * (1 + uptime * ((en.dmgPct || 0) / 100));
     evCritDamage = critDamage + uptime * ((en.critDmgPct || 0) / 100);
   }
@@ -2385,9 +2388,12 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
   // skipped, so with all abilities off this reduces to plain attacks.
   const A = inp.abilities || {};
   const sched = {};
+  // Instacharge: each ability use has this chance to instantly refund its
+  // cooldown, so the effective cooldown is cooldown*(1-p) (more uptime).
+  const instacharge = clamp(inp.base?.instacharge || 0, 0, 0.99);
   for(const k of ["enrage","flurry","quake"]){
     const a = A[k] || {};
-    sched[k] = {on:!!a.on, charges:Math.max(0,a.charges||0), cooldown:Math.max(0.01,a.cooldown||1), nextAt:0, left:0, a};
+    sched[k] = {on:!!a.on, charges:Math.max(0,a.charges||0), cooldown:Math.max(0.01,(a.cooldown||1)*(1-instacharge)), nextAt:0, left:0, a};
   }
   function tryCast(){
     for(const k of ["enrage","flurry","quake"]){
