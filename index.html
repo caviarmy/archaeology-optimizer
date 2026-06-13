@@ -2184,10 +2184,23 @@ function fastSearch(inp, blocks, level){
     })(0, {...base});
   }
 
-  // 4) Basin-hopping: kick the current best a few points to random skills, then
-  // re-climb — escapes multi-skill ridges the ±1 climb / bounded polish can't
-  // cross in single steps (e.g. needing a simultaneous -3 L / +3 C move).
-  for(const obj of objectives){
+  // 4) Band-aware objective: when a secondary goal is set, the displayed best is
+  // the build with the best SECONDARY among those within tolerance of the max
+  // primary. Climb directly on that constrained objective (in-band -> rank by
+  // secondary; out-of-band -> push primary up toward the band).
+  const objsToHop = objectives.slice();
+  if(sk !== "none"){
+    const maxP = all.reduce((m,c)=>Math.max(m, metricValue(c,pk,inp)), -Infinity);
+    const tol = Math.max(0, (inp.goal?.tolerancePct||0)/100);
+    const threshold = maxP - Math.abs(maxP)*tol;
+    objsToHop.push(c=>{ const p=metricValue(c,pk,inp); return p >= threshold-1e-9 ? 1e12 + metricValue(c,sk,inp) : p; });
+  }
+
+  // 5) Hill-climb + basin-hopping on each objective: kick the current best a few
+  // points and re-climb, to escape multi-skill ridges the ±1 climb / bounded
+  // polish can't cross in single steps (e.g. a simultaneous -3 L / +3 C move).
+  for(const obj of objsToHop){
+    all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,6).forEach(c=>climb(c.stats, obj));
     for(let iter=0; iter<40; iter++){
       const top = all.slice().sort((a,b)=>obj(b)-obj(a))[0];
       const cur = {}; for(const k of keys) cur[k] = top.stats[k]||0;
