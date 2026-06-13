@@ -1501,9 +1501,17 @@ function getDerived(stats, inp){
   const damage = (b.damage + S*inc.strFlatDamage) * (1 + S*inc.strDamagePct);
   const critChance = clamp(b.critChance + A*inc.agiCritPct + L*inc.luckCritPct,0,0.995);
   const critDamage = b.critDamage + S*inc.strCritDamage;
-  const superAvg = 1 + b.superChance * (b.superDamage - 1);
-  const normalHit = damage * superAvg;
-  const critHit = damage * critDamage * superAvg;
+  // Crits are nested & conditional: super crit can only land on a crit, ultra
+  // crit only on a super crit. Defaults make missing layers no-ops.
+  const superChance = clamp(b.superChance || 0, 0, 0.995);
+  const superDamage = b.superDamage > 0 ? b.superDamage : 1;
+  const ultraChance = clamp(b.ultraChance || 0, 0, 0.995);
+  const ultraDamage = b.ultraDamage > 0 ? b.ultraDamage : 1;
+  // Gleaming floor: a floor is gleaming with chance gleamingChance and multiplies
+  // all its block rewards (mods included) by gleamingMulti. EV = 1 + p*(mult-1).
+  const gc = clamp(b.gleamingChance || 0, 0, 1);
+  const gm = b.gleamingMulti > 0 ? b.gleamingMulti : 1;
+  const gleamingMult = 1 + gc * (gm - 1);
   const xpProcBonus = Math.max(0, (b.xpModGain || 3) - 1);
   const lootProcBonus = Math.max(0, (b.lootModGain || 3.8) - 1);
   const xpMult = (b.xpGain + I*inc.intXpGain) * (1 + xpProcBonus*(b.xpMod + I*inc.intXpModPct + L*inc.luckXpModPct));
@@ -1530,7 +1538,7 @@ function getDerived(stats, inp){
     evDamage = damage * (1 + uptime * ((en.dmgPct || 0) / 100));
     evCritDamage = critDamage + uptime * ((en.critDmgPct || 0) / 100);
   }
-  return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage};
+  return {damage,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage};
 }
 
 // Effective block armor after the player's penetration. Percent armor pen buffs
@@ -1713,17 +1721,20 @@ function expectedHitsFull(hp, der, inp, armor=0){
   const cacheKey = Math.ceil(hp * 1000) + "|" + Math.round(armor * 100);
   if(der._hitCache.has(cacheKey)) return der._hitCache.get(cacheKey);
 
-  const pCrit = der.critChance;
-  const pSuper = inp.base.superChance;
+  const cc = der.critChance;                       // crit chance
+  const sc = der.superChance;                      // super crit chance (on a crit)
+  const uc = der.ultraChance;                      // ultra crit chance (on a super crit)
   const dmg = der.evDamage ?? der.damage;          // includes the Enrage EV uptime buff
-  const cdmg = der.evCritDamage ?? der.critDamage;
-  // Armor subtracts flat from each hit's damage (min 0). Keep every outcome's
-  // probability: a blocked hit (0 damage) is still a spent tick.
+  const cdmg = der.evCritDamage ?? der.critDamage; // crit damage multiplier
+  const sd = der.superDamage;                      // super crit damage multiplier
+  const ud = der.ultraDamage;                      // ultra crit damage multiplier
+  // Nested crit ladder: super requires a crit, ultra requires a super.
+  // Armor subtracts flat from each hit (min 0); a blocked hit is still a spent tick.
   const allOutcomes = [
-    {p:(1-pCrit)*(1-pSuper), d:dmg},
-    {p:(1-pCrit)*pSuper, d:dmg*inp.base.superDamage},
-    {p:pCrit*(1-pSuper), d:dmg*cdmg},
-    {p:pCrit*pSuper, d:dmg*cdmg*inp.base.superDamage}
+    {p:(1-cc),       d:dmg},                        // normal
+    {p:cc*(1-sc),    d:dmg*cdmg},                   // crit only
+    {p:cc*sc*(1-uc), d:dmg*cdmg*sd},                // super crit
+    {p:cc*sc*uc,     d:dmg*cdmg*sd*ud}              // ultra crit
   ].map(o => ({p:o.p, d:Math.max(0, o.d - armor)})).filter(o => o.p > 0);
 
   const hitting = allOutcomes.filter(o => o.d > 0);
@@ -1801,8 +1812,8 @@ function floorCostValue(floor, der, inp, blocks){
     if(!b) continue;
     const hits = expectedHitsFull(b.hp, der, inp, effectiveArmor(b.armor, der, inp));
     const costs = nodeCosts(hits, der, inp);
-    const xpValue = b.xp0 * der.xpMult;
-    const lootValue = b.lootXpEq * der.lootMult;
+    const xpValue = b.xp0 * der.xpMult * der.gleamingMult;
+    const lootValue = b.lootXpEq * der.lootMult * der.gleamingMult;
     staminaCost += expectedCount * costs.staminaCost;
     tickCost += expectedCount * costs.tickCost;
     channels.xp += expectedCount * xpValue;
@@ -1836,8 +1847,8 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
       if(!b) continue;
       const hits = expectedHitsFull(b.hp, der, inp, effectiveArmor(b.armor, der, inp));
       const costs = nodeCosts(hits, der, inp);
-      const xpValue = b.xp0 * der.xpMult;
-      const lootValue = b.lootXpEq * der.lootMult;
+      const xpValue = b.xp0 * der.xpMult * der.gleamingMult;
+      const lootValue = b.lootXpEq * der.lootMult * der.gleamingMult;
       nodeGross += p * hits;
       nodeNet += p * costs.staminaCost;
       nodeTick += p * costs.tickCost;
