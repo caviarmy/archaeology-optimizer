@@ -3513,16 +3513,37 @@ async function importStatsFromScreenshot(file){
     const dataUrl = await fileToImageDataUrl(file);
 
     setOcrStatus("Reading screenshot with AI...");
-    const res = await fetch(workerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: dataUrl })
-    });
-    const payload = await res.json().catch(() => null);
-    if(ocrText && payload) ocrText.textContent = JSON.stringify(payload, null, 2);
+    const openResponseBox = () => { const d = ocrText?.closest("details"); if(d) d.open = true; };
+    let res;
+    try{
+      res = await fetch(workerUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataUrl })
+      });
+    }catch(netErr){
+      // fetch threw -> no response reached the page (network / CORS / DNS / offline).
+      if(ocrText) ocrText.textContent =
+        "NETWORK / CORS ERROR — the request never got a response.\n" +
+        "worker URL: " + workerUrl + "\n" +
+        "this page's origin: " + location.origin + "\n" +
+        "error: " + (netErr ? (netErr.name + ": " + netErr.message) : "unknown") + "\n\n" +
+        "Most likely: the worker's ALLOWED_ORIGINS does not include exactly:\n  " + location.origin + "\n" +
+        "(other causes: wrong worker URL, worker not deployed, or offline)";
+      openResponseBox();
+      setOcrStatus("AI OCR network/CORS error — see AI response box.");
+      return;
+    }
+
+    const rawText = await res.text();
+    let payload = null;
+    try{ payload = JSON.parse(rawText); }catch(_e){}
+    if(ocrText) ocrText.textContent =
+      "HTTP " + res.status + "\nthis page's origin: " + location.origin + "\n\n" + (rawText || "(empty body)");
 
     if(!res.ok || !payload || payload.error){
-      setOcrStatus("AI OCR failed: " + (payload?.error || ("HTTP " + res.status)));
+      openResponseBox();
+      setOcrStatus("AI OCR failed: " + (payload?.error || ("HTTP " + res.status)) + " — see AI response box.");
       return;
     }
 
@@ -3530,6 +3551,7 @@ async function importStatsFromScreenshot(file){
     setOcrStatus(applied ? `Imported ${applied} value${applied===1?"":"s"} from AI.` : "AI returned no usable values.");
   }catch(err){
     console.error(err);
+    if(ocrText){ ocrText.textContent = "UNEXPECTED ERROR\n" + (err ? (err.name + ": " + err.message) : "unknown") + "\n\n" + (err && err.stack || ""); ocrText.closest("details")?.setAttribute("open",""); }
     setOcrStatus("AI OCR error: " + describeError(err));
   }finally{
     if(btn) btn.disabled = false;
