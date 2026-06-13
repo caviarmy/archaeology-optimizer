@@ -26,7 +26,7 @@ const ascOpts = opts("ascension");
   let pass=0, fail=0; const fails=[];
   for(let i=0;i<N;i++){
     // randomize a scenario
-    const lvl = rndi(35,70), mf = rndi(20,45);
+    const lvl = rndi(22,34), mf = rndi(12,22);
     set("selectedLevel", lvl); set("maxFloor", mf);
     set("ascension", pick(ascOpts));
     set("primaryGoal", pick(primaryOpts));
@@ -65,8 +65,9 @@ const ascOpts = opts("ascension");
       const es=mv(exact,sk), fsv=mv(fastBest,sk);
       if(es > fsv + eps(es)){ ok=false; why=`secondary ${sk}: exact ${es.toFixed(3)} > fast ${fsv.toFixed(3)}`; }
     }
-    if(ok) pass++; else { fail++; const s=exact.stats, f=fastBest.stats;
-      fails.push(`#${i} lvl${level} mf${inp.maxFloor} pk=${pk} sk=${sk}: ${why} | exact ${s.S}/${s.A}/${s.P}/${s.I}/${s.L} vs fast ${f.S}/${f.A}/${f.P}/${f.I}/${f.L}`); }
+    const s=exact.stats, f=fastBest.stats;
+    if(ok){ pass++; console.log(`#${i} PASS lvl${level} mf${inp.maxFloor} pk=${pk} sk=${sk}`); }
+    else { fail++; const msg=`#${i} FAIL lvl${level} mf${inp.maxFloor} pk=${pk} sk=${sk}: ${why} | exact ${s.S}/${s.A}/${s.P}/${s.I}/${s.L} vs fast ${f.S}/${f.A}/${f.P}/${f.I}/${f.L}`; console.log(msg); fails.push(msg); }
   }
   console.log(`\n=== fast vs exhaustive: ${pass}/${N} matched ===`);
   if(fails.length) console.log("MISMATCHES:\n"+fails.join("\n"));
