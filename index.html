@@ -404,7 +404,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <summary>Top candidate builds</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="topBuildsTable">
-            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>EV value per tick-hour</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
+            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>EV value per stamina</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -425,7 +425,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <summary>Detailed simulation table</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="monteRerankTable">
-            <thead><tr><th>Sim Rank</th><th>EV Rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Sim all rewards/tick-hour</th><th>Sim avg floor</th><th>Target hit %</th><th>P10 floor</th><th>P50 floor</th><th>P90 floor</th><th>EV primary score</th><th>EV expected floor</th></tr></thead>
+            <thead><tr><th>Sim Rank</th><th>EV Rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Sim all rewards/stamina</th><th>Sim avg floor</th><th>Target hit %</th><th>P10 floor</th><th>P50 floor</th><th>P90 floor</th><th>EV primary score</th><th>EV expected floor</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -930,7 +930,7 @@ function updateGoalUI(){
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
   const label = document.getElementById("bestValueLabel");
-  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(getInputs()))}/tick-hour`;
+  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(getInputs()))}/stamina`;
   const modeLabel = document.getElementById("bestModeLabel");
   if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(getInputs()));
 }
@@ -1762,7 +1762,8 @@ function addChannels(target, source, multiplier=1){
   for(const k of Object.keys(target)) target[k] += (source[k] || 0) * multiplier;
 }
 function finalizeMetrics(channels, used){
-  const scale = 3600 / Math.max(1, used);
+  // `used` is stamina consumed (net of refunds), so metrics are reward per stamina.
+  const scale = 1 / Math.max(1, used);
   const metrics = {};
   for(const k of Object.keys(channels)) metrics[k] = channels[k] * scale;
   metrics.allLoot = metrics.common + metrics.rare + metrics.epic + metrics.legendary + metrics.mythic + metrics.divine;
@@ -1878,14 +1879,14 @@ function scoreBuild(stats, inp, blocks){
       remaining -= fv.staminaCost;
       totalValue += fv.value;
       addChannels(channels, fv.channels);
-      used += fv.tickCost;
+      used += fv.staminaCost;
       totalNodes += fv.nodes;
       floorReached = floor + 1;
     } else {
       const pv = partialFloorCostValue(floor, der, inp, blocks, remaining);
       totalValue += pv.value;
       addChannels(channels, pv.channels);
-      used += pv.tickCost;
+      used += pv.staminaCost;
       totalNodes += pv.nodes;
       floorReached = floor + pv.floorFrac;
       remaining = 0;
@@ -2146,9 +2147,11 @@ function fastSearch(inp, blocks, level){
   // points and re-climb, to escape multi-skill ridges the ±1 climb / bounded
   // polish can't cross in single steps (e.g. a simultaneous -3 L / +3 C move).
   for(const obj of objsToHop){
-    all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,6).forEach(c=>climb(c.stats, obj));
-    for(let iter=0; iter<40; iter++){
-      const top = all.slice().sort((a,b)=>obj(b)-obj(a))[0];
+    all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,10).forEach(c=>climb(c.stats, obj));
+    for(let iter=0; iter<80; iter++){
+      // kick from one of the current top builds (not just the best) for diversity
+      const pool = all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,5);
+      const top = pool[Math.random()*pool.length|0];
       const cur = {}; for(const k of keys) cur[k] = top.stats[k]||0;
       const kicks = 2 + (Math.random()*6|0);
       for(let q=0;q<kicks;q++){
@@ -2180,7 +2183,7 @@ function renderBest(best, top, count){
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
   const valueLabel = document.getElementById("bestValueLabel");
-  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))}/tick-hour`;
+  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))}/stamina`;
   document.getElementById("candidateCount").textContent = count.toLocaleString();
   const bandEl = document.getElementById("primaryBandFloor");
   if(bandEl && top.length){
@@ -2380,12 +2383,15 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
     else floorReached = floor + (activeNodeCount>0 ? Math.min(1, clearedCount/activeNodeCount) : 0);
   }
 
-  const usedTicks = Math.max(1,ticksSpent);
-  const metrics = finalizeMetrics(channels, usedTicks);
+  // Score is reward per stamina consumed (net of refunds), to match the optimizer.
+  // Ticks are still tracked, but only for real-time effects (crosshairs, abilities).
+  const usedStamina = Math.max(1, der.stamina - stamina);
+  const metrics = finalizeMetrics(channels, usedStamina);
   const out = {
     floorReached,
     totalValue,
-    ticksSpent:usedTicks,
+    ticksSpent:Math.max(1,ticksSpent),
+    staminaUsed:usedStamina,
     timeSec,
     channels,
     metrics,
@@ -2425,14 +2431,14 @@ async function runMonteRerank(){
   for(let b=0; b<builds.length; b++){
     const det=builds[b];
     const stats=det.stats;
-    let sumValue=0, sumTicks=0, sumFloor=0, hitTarget=0;
+    let sumValue=0, sumStamina=0, sumFloor=0, hitTarget=0;
     const floors=[];
     const simChannels=blankChannels();
 
     for(let r=0; r<runs; r++){
       const sim=simulateOneRun(stats, inp, blocks, rng);
       sumValue += sim.totalValue;
-      sumTicks += sim.ticksSpent;
+      sumStamina += sim.staminaUsed;
       sumFloor += sim.floorReached;
       addChannels(simChannels, sim.channels);
       floors.push(sim.floorReached);
@@ -2442,7 +2448,7 @@ async function runMonteRerank(){
     floors.sort((a,b)=>a-b);
     const pct = p => floors[Math.max(0, Math.min(floors.length-1, Math.floor((floors.length-1)*p)))];
     const mcAvgFloor = sumFloor/runs;
-    const mcMetrics = finalizeMetrics(simChannels, Math.max(1,sumTicks));
+    const mcMetrics = finalizeMetrics(simChannels, Math.max(1,sumStamina));
     const mcAggregate = {metrics:mcMetrics, floorReached:mcAvgFloor};
     const row={
       detRank:det.detRank || (b+1),
@@ -2473,7 +2479,7 @@ async function runMonteRerank(){
   if(bestSim){
     const s = bestSim.stats;
     document.getElementById("simBestBuild").textContent = buildLabel(s);
-    document.getElementById("simPrimaryLabel").textContent = primaryFocusKey(inp)==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(inp))}/tick-hour`;
+    document.getElementById("simPrimaryLabel").textContent = primaryFocusKey(inp)==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(inp))}/stamina`;
     document.getElementById("simPrimaryScore").textContent = primaryFocusKey(inp)==="target" ? fmt(bestSim.targetPct,1)+"%" : fmt(bestSim.primaryMetric,1);
     document.getElementById("simAvgFloor").textContent = fmt(bestSim.mcAvgFloor,2);
     document.getElementById("simTargetChance").textContent = fmt(bestSim.targetPct,1)+"%";
