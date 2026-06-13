@@ -430,82 +430,9 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
     </div>
   </section>
 
-  <section id="target" class="panel" style="display:none">
-    <div class="card">
-      <span class="pill-note">Goal: reach a floor</span>
-      <h2>Best floor-push build</h2>
-      <div class="actionbar">
-        <button id="runReachability">Find floor-push build</button>
-        <button id="clearReachability" class="clear-chip">Clear floor results</button>
-      </div>
-      <div class="metrics">
-        <div class="metric good"><div class="k">Best build</div><div class="v" id="reachBestBuild">—</div></div>
-        <div class="metric"><div class="k">Target hit chance</div><div class="v" id="reachTargetPct">—</div></div>
-        <div class="metric"><div class="k">Best avg floor</div><div class="v" id="reachAvgFloor">—</div></div>
-        <div class="metric"><div class="k">Highest observed floor</div><div class="v" id="reachMaxObserved">—</div></div>
-        <div class="metric warn"><div class="k">Highest floor at 10%+</div><div class="v" id="reachFloor10">—</div></div>
-      </div>
-      <details>
-        <summary>Floor-push candidates</summary>
-        <div class="table-wrap" style="margin-top:8px">
-          <table id="reachabilityTable">
-            <thead><tr><th>Rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Target hit %</th><th>Avg floor</th><th>Highest observed</th><th>Floor ≥50%</th><th>Floor ≥25%</th><th>Floor ≥10%</th><th>Floor ≥5%</th><th>Floor ≥1%</th><th>P10</th><th>P50</th><th>P90</th><th>EV expected floor</th><th>EV primary score</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </details>
-    </div>
-  </section>
 
-  <section id="nextpoint" class="panel">
-    <div class="card">
-      <span class="pill-note">Goal: evaluate next stat point</span>
-      <h2>Manual build and next stat point</h2>
-      <div class="actionbar">
-        <button id="scoreCurrent">Score manual build</button>
-        <button id="runMonte" class="ghost">Simulation target chance for current build</button>
-      </div>
-      <div class="metrics">
-        <div class="metric"><div class="k">Manual build</div><div class="v" id="curBuildLabel">—</div></div>
-        <div class="metric"><div class="k">EV value per tick-hour</div><div class="v" id="curRph">—</div></div>
-        <div class="metric"><div class="k">Expected floor</div><div class="v" id="curFloor">—</div></div>
-        <div class="metric"><div class="k">Target Simulation chance</div><div class="v" id="monteChance">—</div></div>
-        <div class="metric"><div class="k">Avg Simulation floor</div><div class="v" id="monteFloor">—</div></div>
-      </div>
-      <div class="table-wrap">
-        <table id="nextPointTable">
-          <thead><tr><th>Candidate</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Value per tick-hour</th><th>Δ reward</th><th>Δ %</th><th>Expected floor</th><th>Δ floor</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
 
-  <section id="greedy" class="panel">
-    <div class="card">
-      <span class="pill-note">Goal: build a level path</span>
-      <h2>Level 0–100 path</h2>
-      <div class="actionbar"><button id="runGreedy">Build level path</button></div>
-      <div class="table-wrap">
-        <table id="greedyTable">
-          <thead><tr><th>Level</th><th>Added</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Value per tick-hour</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
 
-  <section id="nodes" class="panel">
-    <div class="card">
-      <h2>Node values</h2>
-      <div class="table-wrap">
-        <table id="nodeTable">
-          <thead><tr><th>Tier</th><th>Type</th><th>Floor min</th><th>Floor max</th><th>HP</th><th>Armor</th><th>XP0</th><th>Loot0</th><th>Loot XP-equivalent</th><th>Worthless?</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
 </main>
 
 <div id="status" class="status-toast"></div>
@@ -558,17 +485,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         </div>
       </section>
 
-      <section id="settings-current" class="settings-section" style="display:none">
-        <div class="form-grid">
-          <div><label>STR</label><input id="curStr" type="number" min="0" value="0"></div>
-          <div><label>AGI</label><input id="curAgi" type="number" min="0" value="0"></div>
-          <div><label>PER</label><input id="curPer" type="number" min="0" max="25" value="0"></div>
-          <div><label>INT</label><input id="curInt" type="number" min="0" max="25" value="0"></div>
-          <div><label>Luck</label><input id="curLuck" type="number" min="0" max="25" value="0"></div>
-          <div class="req-a1"><label>Divinity</label><input id="curDivinity" type="number" min="0" max="10" value="0"></div>
-          <div class="req-a2"><label>Corruption</label><input id="curCorruption" type="number" min="0" max="10" value="0"></div>
-        </div>
-      </section>
 
       <section id="settings-base" class="settings-section">
         <div class="helper" id="baseModeNote"></div>
@@ -731,8 +647,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <div class="form-grid">
           <div><label>Top reward builds to rerank</label><input id="mcTopCount" type="number" min="1" max="100" value="25"></div>
           <div><label>Runs per reward build</label><input id="mcRunsPerBuild" type="number" min="100" max="20000" value="1000"></div>
-          <div><label>Top floor-push builds to simulate</label><input id="reachTopCount" type="number" min="1" max="200" value="75"></div>
-          <div><label>Runs per floor-push build</label><input id="reachRunsPerBuild" type="number" min="100" max="20000" value="1000"></div>
           <div><label>Simulation seed mode</label><select id="simSeedMode"><option value="random" selected>Random each run</option><option value="fixed">Fixed seed</option></select></div>
           <div><label>Fixed simulation seed</label><input id="simSeedValue" type="text" value="12345"></div>
         </div>
@@ -1199,13 +1113,11 @@ function populateCardSettings(){
     const radios = Array.from(document.querySelectorAll(`input[name="card_state_${c.key}"]`));
     cb?.addEventListener("change", ()=>{
       syncCardField(c.key);
-      markOptimizerStale();
-      renderNodes(); scoreCurrent(); updateSettingsSummary();
+      markOptimizerStale(); updateSettingsSummary();
     });
     radios.forEach(r=>r.addEventListener("change", ()=>{
       syncCardField(c.key);
-      markOptimizerStale();
-      renderNodes(); scoreCurrent(); updateSettingsSummary();
+      markOptimizerStale(); updateSettingsSummary();
     }));
     syncCardField(c.key);
   });
@@ -1248,8 +1160,6 @@ function applyCardBulk(scope){
   });
 
   markOptimizerStale();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
   scheduleSave();
   showStatus(scope === "clear"
@@ -1395,8 +1305,6 @@ function getInputs(){
     speedModel:"none", // speed/ticks-per-second intentionally excluded from tick-efficiency optimization
     mcTopCount:Math.max(1, Math.min(100, Math.floor(n("mcTopCount") || 25))),
     mcRunsPerBuild:Math.max(100, Math.min(20000, Math.floor(n("mcRunsPerBuild") || 1000))),
-    reachTopCount:Math.max(1, Math.min(200, Math.floor(n("reachTopCount") || 75))),
-    reachRunsPerBuild:Math.max(100, Math.min(20000, Math.floor(n("reachRunsPerBuild") || 1000))),
     simSeedMode:v("simSeedMode") || "random",
     simSeedValue:String(v("simSeedValue") || "12345"),
     worthless:{
@@ -2297,100 +2205,6 @@ function renderBest(best, top, count){
   });
 }
 
-function scoreCurrent(){
-  const inp=getInputs(), blocks=visibleBlocks(inp);
-  const stats={
-    S:Math.max(0,Math.floor(n("curStr"))),
-    A:Math.max(0,Math.floor(n("curAgi"))),
-    I:clamp(Math.floor(n("curInt")),0,25),
-    P:clamp(Math.floor(n("curPer")),0,25),
-    L:clamp(Math.floor(n("curLuck")),0,25),
-    D:clamp(Math.floor(n("curDivinity")),0,10),
-    C:clamp(Math.floor(n("curCorruption")),0,10)
-  };
-  const base=scoreBuild(stats,inp,blocks);
-  document.getElementById("curBuildLabel").textContent=buildLabel(stats);
-  document.getElementById("curRph").textContent=fmt(base.rewardHr,1);
-  document.getElementById("curFloor").textContent=fmt(base.floorReached,2);
-
-  const candidates=[
-    ["Current", stats],
-    ["+1 STR", {...stats,S:stats.S+1}],
-    ["+1 AGI", {...stats,A:stats.A+1}],
-    ["+1 PER", {...stats,P:Math.min(25,stats.P+1)}],
-    ["+1 INT", {...stats,I:Math.min(25,stats.I+1)}],
-    ["+1 Luck", {...stats,L:Math.min(25,stats.L+1)}]
-  ];
-  const tbody=document.querySelector("#nextPointTable tbody");
-  tbody.innerHTML="";
-  let rows=candidates.map(([name,st])=>({name,sc:scoreBuild(st,inp,blocks)}));
-  const bestDelta = Math.max(...rows.slice(1).map(r=>r.sc.rewardHr-base.rewardHr));
-  rows.forEach((r,idx)=>{
-    const tr=document.createElement("tr");
-    if(idx>0 && Math.abs((r.sc.rewardHr-base.rewardHr)-bestDelta)<1e-7) tr.className="best";
-    const st=r.sc.stats;
-    const delta=r.sc.rewardHr-base.rewardHr;
-    const pctDelta=base.rewardHr?delta/base.rewardHr*100:0;
-    const floorDelta=r.sc.floorReached-base.floorReached;
-    const cells=[r.name,st.S,st.A,st.P,st.I,st.L,fmt(r.sc.rewardHr,1),fmt(delta,2),fmt(pctDelta,2)+"%",fmt(r.sc.floorReached,2),fmt(floorDelta,3)];
-    for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
-    tbody.appendChild(tr);
-  });
-}
-
-async function runGreedy(){
-  const inp=getInputs(), blocks=visibleBlocks(inp);
-  const tbody=document.querySelector("#greedyTable tbody");
-  tbody.innerHTML="";
-  const status=document.getElementById("status");
-  const btn=document.getElementById("runGreedy");
-  btn.disabled=true;
-  let stats={S:0,A:0,I:0,P:0,L:0};
-  const maxLevel=100;
-  for(let level=0; level<=maxLevel; level++){
-    const sc=scoreBuild(stats,inp,blocks);
-    const der=sc.der;
-    const tr=document.createElement("tr");
-    const cells=[level, level===0?"—":stats.added, stats.S,stats.A,stats.P,stats.I,stats.L,fmt(sc.rewardHr,1),fmt(sc.floorReached,2),fmt(der.stamina,0),fmt(der.damage,1),fmt(der.critChance*100,1)];
-    for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
-    tbody.appendChild(tr);
-
-    if(level < maxLevel){
-      const options=[
-        ["STR",{...stats,S:stats.S+1}],
-        ["AGI",{...stats,A:stats.A+1}],
-        ["PER",{...stats,P:stats.P<25?stats.P+1:stats.P}],
-        ["INT",{...stats,I:stats.I<25?stats.I+1:stats.I}],
-        ["Luck",{...stats,L:stats.L<25?stats.L+1:stats.L}]
-      ].filter(o => JSON.stringify(o[1]) !== JSON.stringify(stats));
-      let best=null, bestName="";
-      for(const [name,st] of options){
-        const opt=scoreBuild(st,inp,blocks);
-        if(isBetter(opt,best,inp)){ best=opt; bestName=name; }
-      }
-      stats={...best.stats, added:bestName};
-    }
-    if(level%10===0){
-      showStatus(`Building greedy path... level ${level}/100`, 30000);
-      await new Promise(r=>setTimeout(r,0));
-    }
-  }
-  showStatus("Greedy path complete.", 5000);
-  btn.disabled=false;
-}
-
-function renderNodes(){
-  const inp=getInputs();
-  const blocks=visibleBlocks(inp);
-  const tbody=document.querySelector("#nodeTable tbody");
-  tbody.innerHTML="";
-  for(const b of blocks){
-    const tr=document.createElement("tr");
-    const cells=[b.tier,b.type,b.floorMin,b.floorMax===999?"∞":b.floorMax,fmt(b.hp,0),b.armor>0?fmt(b.armor,2):"—",fmt(b.xp0,3),fmt(b.loot0,3),fmt(b.lootXpEq,3),b.isWorthless?"Yes":"No"];
-    for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
-    tbody.appendChild(tr);
-  }
-}
 
 /* Simulation uses exact randomized node slots and crits. It is intentionally separate from optimizer. */
 function randBlockTypeForFloor(floor, inp, rng=Math.random){
@@ -2578,39 +2392,6 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
   return out;
 }
 
-async function runMonte(){
-  const inp=getInputs(), blocks=visibleBlocks(inp);
-  const stats={
-    S:Math.max(0,Math.floor(n("curStr"))),
-    A:Math.max(0,Math.floor(n("curAgi"))),
-    I:clamp(Math.floor(n("curInt")),0,25),
-    P:clamp(Math.floor(n("curPer")),0,25),
-    L:clamp(Math.floor(n("curLuck")),0,25),
-    D:clamp(Math.floor(n("curDivinity")),0,10),
-    C:clamp(Math.floor(n("curCorruption")),0,10)
-  };
-  const runs=3000;
-  const simRng=createSimulationRng(inp);
-  const rng=simRng.random;
-  let hit=0, sumFloor=0;
-  const status=document.getElementById("status");
-  const btn=document.getElementById("runMonte");
-  btn.disabled=true;
-  for(let i=0;i<runs;i++){
-    const r=simulateOneRun(stats,inp,blocks,rng);
-    if(r.floorReached>=inp.targetFloor) hit++;
-    sumFloor+=r.floorReached;
-    if(i%250===0){
-      showStatus(`Simulation ${i}/${runs}...`, 30000);
-      await new Promise(res=>setTimeout(res,0));
-    }
-  }
-  document.getElementById("monteChance").textContent=fmt(hit/runs*100,1)+"%";
-  document.getElementById("monteFloor").textContent=fmt(sumFloor/runs,2);
-  showStatus(`Simulation complete: ${runs.toLocaleString()} runs.`, 5000);
-  const seedEl=document.getElementById("simSeedUsed"); if(seedEl) seedEl.textContent=simRng.seed;
-  btn.disabled=false;
-}
 
 
 async function runMonteRerank(){
@@ -2739,162 +2520,6 @@ function clearMonteRerank(silent=false){
 
 
 
-function topInsertByFloor(arr, item, max=75){
-  arr.push(item);
-  arr.sort((a,b)=>{
-    if(Math.abs(b.floorReached-a.floorReached)>1e-9) return b.floorReached-a.floorReached;
-    return b.rewardHr-a.rewardHr;
-  });
-  if(arr.length>max) arr.pop();
-}
-
-function floorAtChance(sortedFloorsAsc, chancePct){
-  // Highest floor reached in at least chancePct of runs.
-  // If 10% chance requested, use the 90th-percentile-from-bottom threshold.
-  if(!sortedFloorsAsc.length) return 0;
-  const p = Math.max(0, Math.min(1, 1 - chancePct/100));
-  const idx = Math.max(0, Math.min(sortedFloorsAsc.length-1, Math.floor((sortedFloorsAsc.length-1)*p)));
-  return sortedFloorsAsc[idx];
-}
-
-async function runReachability(){
-  const inp=getInputs(), blocks=visibleBlocks(inp);
-  const status=document.getElementById("status");
-  const btn=document.getElementById("runReachability");
-  const tbody=document.querySelector("#reachabilityTable tbody");
-  const level=inp.selectedLevel;
-  btn.disabled=true;
-  tbody.innerHTML="";
-  document.getElementById("reachBestBuild").textContent="—";
-  document.getElementById("reachTargetPct").textContent="—";
-  document.getElementById("reachAvgFloor").textContent="—";
-  document.getElementById("reachMaxObserved").textContent="—";
-  document.getElementById("reachFloor10").textContent="—";
-
-  const top=[];
-  let count=0;
-  const start=performance.now();
-  const maxI=Math.min(25, level);
-
-  for(let I=0; I<=maxI; I++){
-    const maxP=Math.min(25, level-I);
-    for(let P=0; P<=maxP; P++){
-      const maxL=Math.min(25, level-I-P);
-      for(let L=0; L<=maxL; L++){
-        const rem=level-I-P-L;
-        for(let S=0; S<=rem; S++){
-          const A=rem-S;
-          const sc=scoreBuild({S,A,I,P,L}, inp, blocks);
-          count++;
-          topInsertByFloor(top, sc, inp.reachTopCount);
-        }
-      }
-    }
-    if(I % 2 === 0){
-      showStatus(`Searching floor-push builds... I=${I}/${maxI}, candidates ${count.toLocaleString()}`, 30000);
-      await new Promise(r=>setTimeout(r,0));
-    }
-  }
-
-  const runs=inp.reachRunsPerBuild;
-  const simRng=createSimulationRng(inp);
-  const rng=simRng.random;
-  const results=[];
-  let globalMaxFloor=0;
-
-  for(let b=0; b<top.length; b++){
-    const det=top[b];
-    const stats=det.stats;
-    let sumValue=0, sumTicks=0, sumFloor=0, hitTarget=0, maxFloorSeen=0;
-    const floors=[];
-
-    for(let r=0; r<runs; r++){
-      const sim=simulateOneRun(stats, inp, blocks, rng);
-      sumValue += sim.totalValue;
-      sumTicks += sim.ticksSpent;
-      sumFloor += sim.floorReached;
-      floors.push(sim.floorReached);
-      if(sim.floorReached >= inp.targetFloor) hitTarget++;
-      if(sim.floorReached > maxFloorSeen) maxFloorSeen=sim.floorReached;
-      if(sim.floorReached > globalMaxFloor) globalMaxFloor=sim.floorReached;
-    }
-
-    floors.sort((a,b)=>a-b);
-    const pct = p => floors[Math.max(0, Math.min(floors.length-1, Math.floor((floors.length-1)*p)))];
-    const row={
-      stats:{...stats},
-      targetPct:hitTarget/runs*100,
-      avgFloor:sumFloor/runs,
-      maxObserved:maxFloorSeen,
-      floor50:floorAtChance(floors,50),
-      floor25:floorAtChance(floors,25),
-      floor10:floorAtChance(floors,10),
-      floor5:floorAtChance(floors,5),
-      floor1:floorAtChance(floors,1),
-      p10:pct(0.10),
-      p50:pct(0.50),
-      p90:pct(0.90),
-      mcRewardHr:3600*sumValue/Math.max(1,sumTicks),
-      detRewardHr:det.rewardHr,
-      detFloor:det.floorReached
-    };
-    results.push(row);
-
-    showStatus(`Reachability Sim ${b+1}/${top.length}; ${runs.toLocaleString()} runs/build.`, 30000);
-    await new Promise(r=>setTimeout(r,0));
-  }
-
-  // Sort primarily by target success chance, then average floor, then reward.
-  results.sort((a,b)=>{
-    if(Math.abs(b.targetPct-a.targetPct)>1e-9) return b.targetPct-a.targetPct;
-    if(Math.abs(b.avgFloor-a.avgFloor)>1e-9) return b.avgFloor-a.avgFloor;
-    return b.mcRewardHr-a.mcRewardHr;
-  });
-
-  if(results.length){
-    const best=results[0], s=best.stats;
-    document.getElementById("reachBestBuild").textContent=buildLabel(s);
-    document.getElementById("reachTargetPct").textContent=fmt(best.targetPct,1)+"%";
-    document.getElementById("reachAvgFloor").textContent=fmt(best.avgFloor,2);
-    document.getElementById("reachMaxObserved").textContent=fmt(globalMaxFloor,2);
-    document.getElementById("reachFloor10").textContent=fmt(Math.max(...results.map(x=>x.floor10)),2);
-  }
-
-  results.forEach((r,i)=>{
-    const tr=document.createElement("tr");
-    if(i===0) tr.className="best";
-    const s=r.stats;
-    const cells=[
-      i+1,s.S,s.A,s.P,s.I,s.L,
-      fmt(r.targetPct,1)+"%",fmt(r.avgFloor,2),fmt(r.maxObserved,2),
-      fmt(r.floor50,2),fmt(r.floor25,2),fmt(r.floor10,2),fmt(r.floor5,2),fmt(r.floor1,2),
-      fmt(r.p10,2),fmt(r.p50,2),fmt(r.p90,2),
-      fmt(r.detFloor,2),fmt(r.detRewardHr,1)
-    ];
-    for(const c of cells){
-      const td=document.createElement("td");
-      td.textContent=c;
-      tr.appendChild(td);
-    }
-    tbody.appendChild(tr);
-  });
-
-  showStatus(`Floor-push search complete in ${((performance.now()-start)/1000).toFixed(2)}s. Candidate builds checked: ${count.toLocaleString()}.`, 5000);
-  const clearBtn=document.getElementById("clearReachability"); if(clearBtn) clearBtn.style.display="inline-flex";
-  btn.disabled=false;
-}
-
-function clearReachability(){
-  const tbody=document.querySelector("#reachabilityTable tbody");
-  if(tbody) tbody.innerHTML="";
-  document.getElementById("reachBestBuild").textContent="—";
-  document.getElementById("reachTargetPct").textContent="—";
-  document.getElementById("reachAvgFloor").textContent="—";
-  document.getElementById("reachMaxObserved").textContent="—";
-  document.getElementById("reachFloor10").textContent="—";
-  const clearBtn=document.getElementById("clearReachability"); if(clearBtn) clearBtn.style.display="none";
-  document.getElementById("status").textContent="Floor results cleared.";
-}
 
 
 
@@ -2979,8 +2604,6 @@ function restoreSettingsSnapshot(){
   applyAscensionGating();
   syncBaseStatMode();
   syncAllCardFields();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
   scheduleSave();
 }
@@ -3805,8 +3428,6 @@ function finishImport(parsed, statsText, fullText){
   }
 
   markOptimizerStale();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
   if(status) status.textContent = applied ? `Imported ${applied} stat value${applied===1?"":"s"}.` : "OCR finished, but no stat values were imported.";
   return applied;
@@ -3868,8 +3489,6 @@ function applyAiStats(stats){
   if(preview) preview.textContent = shown.length ? "Parsed: " + shown.join(" · ") : "";
 
   markOptimizerStale();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
   return applied;
 }
@@ -3946,7 +3565,6 @@ function resetAllSettings(){
     "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain",
     "baseArmorPenFlat",
     "baseUltraChance","baseUltraDamage","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti","baseGleamingChance","baseGleamingMulti",
-    "curStr","curAgi","curPer","curInt","curLuck","curDivinity","curCorruption",
     "spentStr","spentAgi","spentPer","spentInt","spentLuck","spentDivinity","spentCorruption"
   ];
 
@@ -3970,8 +3588,6 @@ function resetAllSettings(){
     primaryToleranceValue:"2",
     mcTopCount:"25",
     mcRunsPerBuild:"1000",
-    reachTopCount:"75",
-    reachRunsPerBuild:"1000",
     simSeedMode:"random",
     simSeedValue:"12345"
   };
@@ -4005,15 +3621,12 @@ function resetAllSettings(){
   if(ocrPreview) ocrPreview.textContent="";
 
   clearMonteRerank(true);
-  clearReachability?.();
   markOptimizerStale();
   applyAscensionGating();
   syncBaseStatMode();
   syncSecondaryGoalOptions();
   syncPrimaryProtectionUI();
   updateGoalUI();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
   scheduleSave();
 }
@@ -4130,61 +3743,42 @@ function bindGoalSelector(){
   document.getElementById("primaryGoal")?.addEventListener("change",()=>{
     syncSecondaryGoalOptions();
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
   document.getElementById("secondaryGoal")?.addEventListener("change",()=>{
     syncSecondaryGoalOptions();
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
   document.querySelectorAll('input[name="primaryProtectionMode"]').forEach(el=>el.addEventListener("change",()=>{
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   }));
   document.getElementById("primaryToleranceValue")?.addEventListener("input",()=>{
     validatePrimaryTolerance();
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
   document.getElementById("primaryToleranceValue")?.addEventListener("change",()=>{
     validatePrimaryTolerance();
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
   document.getElementById("targetFloor")?.addEventListener("input",()=>{
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
   document.getElementById("targetFloor")?.addEventListener("change",()=>{
     validateTargetFloor();
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
 }
 document.getElementById("runExact").addEventListener("click",runExact);
-document.getElementById("runGreedy")?.addEventListener("click",runGreedy);
-document.getElementById("scoreCurrent")?.addEventListener("click",()=>{scoreCurrent(); renderNodes();});
-document.getElementById("runMonte")?.addEventListener("click",runMonte);
 document.getElementById("runMonteRerank").addEventListener("click",runMonteRerank);
 document.getElementById("clearMonteRerank").addEventListener("click",clearMonteRerank);
-document.getElementById("runReachability").addEventListener("click",runReachability);
-document.getElementById("clearReachability").addEventListener("click",clearReachability);
 document.getElementById("resetAllSettings")?.addEventListener("click",resetAllSettings);
-document.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{updateGoalUI(); markOptimizerStale(); renderNodes(); scoreCurrent(); updateSettingsSummary();}));
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{updateGoalUI(); markOptimizerStale(); updateSettingsSummary();}));
 document.querySelectorAll("[data-open-settings]").forEach(el=>el.addEventListener("click",()=>openSettings(el.dataset.openSettings)));
 document.querySelectorAll("[data-close-settings]").forEach(el=>el.addEventListener("click",confirmSettings));
 document.querySelectorAll("[data-confirm-settings]").forEach(el=>el.addEventListener("click",confirmSettings));
@@ -4195,16 +3789,12 @@ document.getElementById("ascension")?.addEventListener("change",()=>{
   applyAscensionGating();
   markOptimizerStale();
   updateGoalUI();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
 });
 document.querySelectorAll("[data-card-bulk]").forEach(btn=>btn.addEventListener("click",()=>applyCardBulk(btn.dataset.cardBulk)));
 document.querySelectorAll('input[name="baseStatMode"]').forEach(el=>el.addEventListener("change",()=>{
   syncBaseStatMode();
   markOptimizerStale();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
 }));
 
@@ -4216,8 +3806,8 @@ populateCardSettings();
 
 populateCardSettings();
 document.querySelectorAll("input, select").forEach(el=>{
-  el.addEventListener("input",()=>{ markOptimizerStale(); renderNodes(); scoreCurrent(); updateSettingsSummary(); });
-  el.addEventListener("change",()=>{ markOptimizerStale(); renderNodes(); scoreCurrent(); updateSettingsSummary(); });
+  el.addEventListener("input",()=>{ markOptimizerStale(); updateSettingsSummary(); });
+  el.addEventListener("change",()=>{ markOptimizerStale(); updateSettingsSummary(); });
 });
 // v58: persist any user edit (debounced). Document-level so it also catches
 // the dynamically-created card inputs.
@@ -4243,8 +3833,6 @@ syncBaseStatMode();
 syncSecondaryGoalOptions();
 syncPrimaryProtectionUI();
 updateGoalUI();
-renderNodes();
-scoreCurrent();
 updateSettingsSummary();
 </script>
 <script>
