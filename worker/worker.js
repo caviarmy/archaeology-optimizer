@@ -33,6 +33,7 @@ Formatting rules:
 - Percentages: number only, drop the % (e.g. "66.25%" -> 66.25).
 - Multipliers: number only, drop the x (e.g. "4.21x" -> 4.21).
 - Flat/integer stats: the integer (e.g. "Damage: 1396" -> 1396; "+30" -> 30; "2/sec" -> 2).
+- Read every value straight from its OWN row's printed digits. Never copy or reuse a number from another field — neighbouring rows like "Exp Mod Gain" and "Loot Mod Gain" are independent and usually DIFFER. Transcribe exactly what is shown on each line.
 - If a field is NOT visible in the image, set it to null. Never guess or infer.
 
 Stat panel mapping (label -> key):
