@@ -295,7 +295,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .asc-note{display:inline-block;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;margin-left:6px}
 
 </style>
-<script id="tesseractCdnScript" src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body data-workflow="results" data-target-used="false" data-simulation-ready="false" data-ascension="0">
 <header>
@@ -585,10 +584,13 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           </div>
         </div>
         <div class="import-box">
-          <h3>Import stats from screenshot</h3>
+          <h3>Import stats from screenshot (AI)</h3>
+          <div class="form-grid" style="margin-bottom:8px">
+            <div style="grid-column:1/-1"><label>AI OCR worker URL</label><input id="aiOcrWorkerUrl" type="url" inputmode="url" placeholder="https://your-worker.workers.dev" value=""></div>
+          </div>
           <details style="margin-bottom:8px">
-            <summary>? Example screenshot</summary>
-            <div class="small" style="margin:6px 0">Open the Stats popup so the stat panel and the Enrage / Flurry / Quake cards are both visible, then screenshot the whole screen. Stats and skill values are read together.</div>
+            <summary>? Setup &amp; example</summary>
+            <div class="small" style="margin:6px 0">Screenshots are read by Gemini through your own Cloudflare worker (see <code>worker/README.md</code> in the repo). Paste the worker URL above once. Then open the Stats popup so the stat panel and the Enrage / Flurry / Quake cards are both visible and screenshot the whole screen — stats and skills are read together.</div>
             <img src="stat-skill-example.jpg" alt="Example: stats popup with ability cards visible" style="max-width:100%;border:1px solid var(--line);border-radius:8px">
           </details>
           <div class="import-actions">
@@ -599,7 +601,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div id="ocrRuntimeNote" class="ocr-status small"></div>
           <div id="ocrParsedPreview" class="ocr-status small"></div>
           <details style="margin-top:8px">
-            <summary>OCR text</summary>
+            <summary>AI response</summary>
             <button id="copyOcrTextBtn" type="button" class="ghost-btn icon-btn" style="margin:8px 0" title="Copy" aria-label="Copy" onclick="copyOcrText(event)">📋</button>
             <pre id="ocrText" class="ocr-output"></pre>
           </details>
@@ -3435,93 +3437,102 @@ function finishImport(parsed, statsText, fullText){
   return applied;
 }
 
+// Downscale + JPEG-encode the screenshot so the worker payload stays small.
+async function fileToImageDataUrl(file, maxDim=1600, quality=0.85){
+  const img = await loadImageFromFile(file);
+  const canvas = canvasFromImage(img, maxDim);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+// Field IDs the worker can return, with friendly labels for the parsed preview.
+const AI_FIELD_LABELS = {
+  selectedLevel:"Level", baseDamage:"Damage", baseStamina:"Stamina", baseCritChance:"Crit %",
+  baseCritDamage:"Crit dmg", baseSuperChance:"Super crit %", baseSuperDamage:"Super crit dmg",
+  baseUltraChance:"Ultra crit %", baseUltraDamage:"Ultra crit dmg", baseAtkSpeed:"Atk speed",
+  baseArmorPenFlat:"Armor pen", baseInstacharge:"Instacharge %", baseAutoTap:"Auto-tap %",
+  baseGoldCrosshairChance:"Gold crosshair %", baseGoldCrosshairMulti:"Gold crosshair x",
+  baseGleamingChance:"Gleaming floor %", baseGleamingMulti:"Gleaming floor x",
+  baseXpGain:"XP gain", baseFragGain:"Fragment gain", baseXpMod:"XP mod %", baseXpModGain:"XP mod gain",
+  baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %",
+  baseSpeedModGain:"Speed mod gain", baseSpeedModAtkRate:"Speed mod atk rate",
+  baseStaminaMod:"Stamina mod %", staminaModGain:"Stamina mod gain",
+  enrageDmgPct:"Enrage dmg %", enrageCritDmgPct:"Enrage crit dmg %", enrageCharges:"Enrage charges", enrageCooldown:"Enrage cd",
+  flurryAtkSpeedPct:"Flurry atk spd %", flurryStaminaOnCast:"Flurry stamina", flurryCharges:"Flurry charges", flurryCooldown:"Flurry cd",
+  quakeDmgPct:"Quake dmg %", quakeCharges:"Quake charges", quakeCooldown:"Quake cd"
+};
+
+// Apply the worker's structured JSON to the form. Keys match input IDs, so this
+// is a direct fill; ability checkboxes are enabled when their fields come back.
+function applyAiStats(stats){
+  let applied = 0;
+  const shown = [];
+  for(const [id, val] of Object.entries(stats || {})){
+    if(val === null || val === undefined || val === "") continue;
+    if(document.getElementById(id) && setFieldValue(id, val)){
+      applied++;
+      if(AI_FIELD_LABELS[id]) shown.push(`${AI_FIELD_LABELS[id]} ${val}`);
+    }
+  }
+  if(applied) statsImported = true;
+
+  const enable = (flag, ids) => {
+    if(ids.some(id => stats[id] !== null && stats[id] !== undefined)){
+      const el = document.getElementById(flag);
+      if(el && !el.checked){ el.checked = true; el.dispatchEvent(new Event("change", {bubbles:true})); }
+    }
+  };
+  enable("enrageOn", ["enrageDmgPct","enrageCritDmgPct","enrageCharges","enrageCooldown"]);
+  enable("flurryOn", ["flurryAtkSpeedPct","flurryStaminaOnCast","flurryCharges","flurryCooldown"]);
+  enable("quakeOn", ["quakeDmgPct","quakeCharges","quakeCooldown"]);
+
+  const preview = document.getElementById("ocrParsedPreview");
+  if(preview) preview.textContent = shown.length ? "Parsed: " + shown.join(" · ") : "";
+
+  markOptimizerStale();
+  renderNodes();
+  scoreCurrent();
+  updateSettingsSummary();
+  return applied;
+}
+
 async function importStatsFromScreenshot(file){
-  const status = document.getElementById("ocrStatus");
   const ocrText = document.getElementById("ocrText");
   const btn = document.getElementById("importStatScreenshotBtn");
+  const note = document.getElementById("ocrRuntimeNote");
   if(!file) return;
+
+  const workerUrl = (document.getElementById("aiOcrWorkerUrl")?.value || "").trim();
+  if(!workerUrl){
+    setOcrStatus("Set the AI OCR worker URL above first (see worker/README.md).");
+    return;
+  }
 
   try{
     if(btn) btn.disabled = true;
-    await ensureTesseractLoaded(status);
-    setOcrStatus("Loading screenshot...");
+    if(note) note.textContent = "";
     if(ocrText) ocrText.textContent = "";
-    const img = await loadImageFromFile(file);
-    // Detect the panel on a fast downscaled copy, then map the box back to the
-    // original image and crop full-resolution pixels (keeps stat-text detail).
-    const detectCanvas = canvasFromImage(img, 1400);
-    const rect = detectStatsPanelRect(detectCanvas);
-    const k = img.naturalWidth / detectCanvas.width;
-    const rectFull = {x:rect.x*k, y:rect.y*k, w:rect.w*k, h:rect.h*k};
-    const cropped = cropImageRegion(img, rectFull);
-    const processed = preprocessForOcr(cropped, 3, 2200, true, true);
+    setOcrStatus("Preparing image...");
+    const dataUrl = await fileToImageDataUrl(file);
 
-    setOcrStatus("Reading screenshot...");
-    const result = await recognizeWithTesseract(processed, "Reading screenshot");
+    setOcrStatus("Reading screenshot with AI...");
+    const res = await fetch(workerUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: dataUrl })
+    });
+    const payload = await res.json().catch(() => null);
+    if(ocrText && payload) ocrText.textContent = JSON.stringify(payload, null, 2);
 
-    let text = result?.data?.text || "";
-    let parsed = parseStatsFromOcr(text);
-    let fullText = "";
-
-    // Re-read each value's box with a digits-only whitelist and merge the cleaner
-    // numbers over the first-pass parse (labels stay; only values are swapped).
-    try{
-      const refinedText = await refineNumbersByDigitPass(processed, result.data);
-      if(refinedText){
-        const refined = parseStatsFromOcr(refinedText);
-        for(const key in refined) parsed[key] = refined[key];
-        text = text + "\n\n===== digit-refined values =====\n" + refinedText;
-      }
-    }catch(_e){}
-
-    // If stamina mod OCR is only one decimal, run one alternate crop pass and
-    // use it only if it gives a more precise stamina-mod value.
-    if(parsed.baseStaminaMod !== undefined && parsedValuePrecision(parsed.baseStaminaMod) < 2){
-      try{
-        const altResult = await recognizeWithTesseract(preprocessForOcrAlt(cropped, true, true), "Reading stamina mod");
-        const altText = altResult?.data?.text || "";
-        const altParsed = parseStatsFromOcr(altText);
-        parsed = mergeParsedSingleField(parsed, altParsed, "baseStaminaMod");
-        if(parsedValuePrecision(parsed.baseStaminaMod) < 2 && /Stamina\s+Mod\s+Chance[^\n]*0\.7%%/i.test(text)){
-          parsed.baseStaminaMod = "0.75";
-        }
-      }catch(_err){}
+    if(!res.ok || !payload || payload.error){
+      setOcrStatus("AI OCR failed: " + (payload?.error || ("HTTP " + res.status)));
+      return;
     }
 
-    // Some crops are worse than the full image. If too few labels are found,
-    // retry against the full screenshot before applying values.
-    if(Object.keys(parsed).length < 5){
-      setOcrStatus("Reading full screenshot...");
-      const fullCanvas = canvasFromImage(img, 1800);
-      const fullProcessed = preprocessForOcr(fullCanvas, 3, 2200, true, true);
-      const fullResult = await recognizeWithTesseract(fullProcessed, "Reading full screenshot", FULL_CHAR_WHITELIST, "3");
-      fullText = fullResult?.data?.text || "";
-      const fullParsed = parseStatsFromOcr(fullText);
-      if(Object.keys(fullParsed).length >= Object.keys(parsed).length){
-        text = fullText;
-        parsed = fullParsed;
-      }
-    }
-
-    if(parsed.baseStaminaMod !== undefined && parsedValuePrecision(parsed.baseStaminaMod) < 2 && /Stamina\s+Mod\s+Chance[^\n]*0\.7%%/i.test(text)){
-      parsed.baseStaminaMod = "0.75";
-    }
-
-    // Ability cards live below the stats panel. Crop just that lower region
-    // (anchored to the detected stats panel) and upscale it hard so the small
-    // card text — especially cooldowns — survives OCR.
-    let abilityText = "";
-    try{
-      setOcrStatus("Reading skill cards...");
-      const abRectFull = abilityRegionRect({width:img.naturalWidth, height:img.naturalHeight}, rectFull);
-      const abCrop = cropImageRegion(img, abRectFull, 1800);
-      const abResult = await recognizeWithTesseract(preprocessForOcr(abCrop, 4, 3000), "Reading skill cards", FULL_CHAR_WHITELIST, "3");
-      abilityText = abResult?.data?.text || "";
-    }catch(_e){}
-    finishImport(parsed, text, abilityText || fullText || text);
+    const applied = applyAiStats(payload.stats || {});
+    setOcrStatus(applied ? `Imported ${applied} value${applied===1?"":"s"} from AI.` : "AI returned no usable values.");
   }catch(err){
     console.error(err);
-    setOcrStatus("Screenshot import failed: " + describeError(err));
+    setOcrStatus("AI OCR error: " + describeError(err));
   }finally{
     if(btn) btn.disabled = false;
   }
