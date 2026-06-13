@@ -113,9 +113,10 @@ damage to the block per hit = max(0, hit_damage - effective armor)</pre>
 <p>A hit that cannot beat the armor does nothing but still costs a swing. A block that no hit can beat is unbreakable, and the tool skips it.</p>
 
 <h2 id="hits">6. Breaking a block</h2>
-<p>On average, the hits to break a block are its HP divided by the average damage per hit. The one wrinkle is armor: a hit that fails to beat the armor is a wasted swing, and the average has to allow for that. The exact version, where each hit deals one of the crit results minus armor:</p>
+<p>The tool counts whole hits. Starting from the block's full HP, it takes one hit (which lands one of the crit results, minus armor), subtracts it, and repeats until the HP is gone. Averaged over every possible run of crits and non-crits, that is the expected number of hits:</p>
 <pre>E(h) = ( 1 + sum over the hitting results of p * E(h - d) ) / (1 - p0)</pre>
-<p>Here each result has a chance <code>p</code> and a damage <code>d</code> after armor, and <code>p0</code> is the chance a hit is fully blocked. For blocks that take many hits the tool uses the quick version, HP divided by average damage, which already allows for wasted hits.</p>
+<p>Each result has a chance <code>p</code> and a damage <code>d</code> after armor, and <code>p0</code> is the chance a hit is fully blocked by armor (a wasted swing that deals nothing but still counts).</p>
+<p>Counting whole hits is what keeps this right when a hit overkills the block. A crit that deals 300 to a block with 50 HP left still counts as one hit, and the extra is simply dropped, the same as in game. A tempting shortcut, HP divided by average damage per hit, reads a little low because it assumes no damage is ever wasted on overkill. The tool uses that shortcut only for very tanky blocks, the ones that take more than 80 hits, where the overkill is under one hit in eighty and does not matter. Every block below that uses the exact count above.</p>
 
 <h2 id="rewards">7. Rewards and mods</h2>
 <p>Every block gives experience. Blocks above dirt also drop loot. A goal like "all rewards" has to add experience and loot together, so the tool needs both on one scale.</p>
