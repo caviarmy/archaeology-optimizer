@@ -2374,6 +2374,17 @@ function randBlockTypeForFloor(floor, inp, rng=Math.random){
   return null;
 }
 
+// One hit's damage multiplier under the nested crit ladder: crit -> (super only
+// on a crit) -> (ultra only on a super). Shared by normal hits and crosshairs.
+function rollCritMult(rng, cc, cd, sc, sd, uc, ud){
+  if(rng() < cc){
+    let m = cd;
+    if(rng() < sc){ m *= sd; if(rng() < uc) m *= ud; }
+    return m;
+  }
+  return 1;
+}
+
 function simulateOneRun(stats, inp, blocks, rng=Math.random){
   const der=getDerived(stats,inp);
   let stamina=der.stamina;
@@ -2420,9 +2431,47 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
     if(rng()<der.staminaModChance) stamina += inp.inc.staminaModGain;
   }
 
+  // Crosshairs: each live block independently has ~2.175% chance every ~1.005s
+  // (real time, speed-independent) to spawn a crosshair. Only auto-tap crosshairs
+  // fire for an idle player (manual ones are ignored); they fire ~2s later as one
+  // regular hit (full reward if it kills the block), x gold multiplier if golden.
+  // Divinity adds auto-tap %, Luck adds gold-crosshair %.
+  const CH_P = 0.02175, CH_INTERVAL = 1.005, CH_DELAY = 2;
+  const autoTapEff = clamp((inp.base.autoTap||0) + stats.D*(inp.inc.divAutoTapPct||0), 0, 1);
+  const goldEff = clamp((inp.base.goldCrosshairChance||0) + stats.L*0.005, 0, 1);
+  const goldMulti = inp.base.goldCrosshairMulti>0 ? inp.base.goldCrosshairMulti : 3;
+  const crosshairsActive = autoTapEff > 0;
+  let chNextCheck = CH_INTERVAL;
+  let chQueue = [];
+  function crosshairHit(node){
+    const mult = rollCritMult(rng, der.critChance, der.critDamage, der.superChance, der.superDamage, der.ultraChance, der.ultraDamage);
+    let dmg = der.damage * mult;
+    if(rng() < goldEff) dmg *= goldMulti;
+    node.hp -= Math.max(0, dmg - node.armor);
+    if(node.hp<=0) clearNode(node);
+  }
+  function processCrosshairs(nodes){
+    if(!crosshairsActive) return;
+    while(timeSec >= chNextCheck){
+      for(const nd of nodes){
+        if(nd.cleared) continue;
+        if(rng() < CH_P && rng() < autoTapEff) chQueue.push({target:nd, fireAt:chNextCheck + CH_DELAY});
+      }
+      chNextCheck += CH_INTERVAL;
+    }
+    for(let i=chQueue.length-1;i>=0;i--){
+      if(chQueue[i].fireAt <= timeSec){
+        const c = chQueue[i];
+        if(!c.target.cleared) crosshairHit(c.target);
+        chQueue.splice(i,1);
+      }
+    }
+  }
+
   for(let floor=1; floor<=inp.maxFloor && stamina>0; floor++){
     const activeNodeCount = rollNodeAttemptsForFloor(floor, inp, rng);
     let clearedCount = 0;
+    chQueue.length = 0; // new floor: crosshairs from the previous floor are gone
     // Pre-roll the floor's nodes so Quake can damage all of them at once.
     const nodes = [];
     for(let i=0;i<activeNodeCount;i++){
@@ -2440,8 +2489,8 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
         const enr = sched.enrage.left>0, flu = sched.flurry.left>0, qk = sched.quake.left>0;
         let dmg = der.damage, cdmg = der.critDamage;
         if(enr){ dmg *= 1 + (sched.enrage.a.dmgPct||0)/100; cdmg += (sched.enrage.a.critDmgPct||0)/100; }
-        const crit = rng()<der.critChance, superCrit = rng()<inp.base.superChance;
-        const hitDmg = dmg * (crit?cdmg:1) * (superCrit?inp.base.superDamage:1);
+        // Nested crit ladder (crit -> super -> ultra), matching the EV model.
+        const hitDmg = dmg * rollCritMult(rng, der.critChance, cdmg, der.superChance, der.superDamage, der.ultraChance, der.ultraDamage);
         node.hp -= Math.max(0, hitDmg - node.armor);
         if(qk){
           const share = der.damage * ((sched.quake.a.dmgPct||0)/100); // % of base damage to all blocks
@@ -2449,6 +2498,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
         }
         const rate = atkSpeedBase * (flu ? 1+(sched.flurry.a.atkSpeedPct||0)/100 : 1) * (node.hasSpeed ? 2 : 1);
         timeSec += 1/Math.max(0.01, rate);
+        processCrosshairs(nodes); // real-time crosshair spawns/fires as time advances
         if(enr) sched.enrage.left--;
         if(flu) sched.flurry.left--;
         if(qk) sched.quake.left--;
