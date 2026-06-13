@@ -122,10 +122,11 @@ damage to block per hit = max(0, hit_damage - a)</pre>
 <h2 id="rewards">7. Rewards and mods</h2>
 <p>Every block gives experience. Non dirt blocks also give loot. The goals can mix experience and loot, so the model needs both on one scale and a fair value per block.</p>
 <h3>Putting XP and loot on one scale</h3>
-<p>The baseline is the dirt block of the same tier. Dirt gives experience but no loot, so it sets the experience for simply breaking a block at that tier. Any block that gives more experience than its tier's dirt is treated as carrying that surplus as loot:</p>
-<pre>loot value (xp equivalent) = max(0, block_xp - same_tier_dirt_xp)</pre>
-<p>A Tier 2 common is measured against Tier 2 dirt, a Tier 2 rare against Tier 2 dirt, and so on, never against another tier. Legendary and divine use the same rule; they give far more experience than dirt, so their loot value is large. The block still pays its full experience to the experience total, and the surplus is added to the loot total for its rarity. Marking a rarity worthless in settings raises the baseline to the highest worthless rarity below the block, which drops loot you do not value.</p>
-<p>This is deliberate. The tool does not decide what loot is worth to you. It measures reward against effort: clearing a block costs hits set by its HP, and the reward is what the game pays above the plain-dirt baseline for that block. HP, experience, and loot then sit in one effort-based currency, and you steer the result with goals and block preferences rather than the model picking loot's value for you. (The fragment count is the same for every rarity in a tier, so it could not separate common from epic loot in any case.) Gain stats scale each total, Intellect for experience and Perception for loot.</p>
+<p>Dirt blocks give experience and no loot, and in the game data they always turn health into experience at the same flat rate, <code>0.0005 experience per 1 HP</code>, in every tier. That rate is the effort line: the experience you earn just for breaking HP.</p>
+<p>A loot block gives more experience than the line, because it also drops loot. The amount above the line is counted as the loot, measured in experience:</p>
+<pre>loot value = block_experience - 0.0005 * block_HP</pre>
+<p>Example: a Tier 1 common has 250 HP and gives 0.15 experience. Its HP alone is worth <code>0.0005 * 250 = 0.125</code>, so the loot is the remaining <code>0.025</code>. Rarer blocks sit further above the line, so their loot is worth more. The block still pays its full experience to the experience total; only this surplus is added to the loot total for its rarity.</p>
+<p>Why this way: the tool does not guess what loot is worth to you. It measures reward against effort, where effort is the HP you break, and puts HP, experience, and loot in one currency. You set the bias yourself through goals and block preferences. Marking a rarity worthless sets its loot to zero. Gain stats then scale each total, Intellect for experience and Perception for loot.</p>
 <h3>Mods</h3>
 <p>When a floor loads, every block rolls its mods and keeps them. A block can carry more than one. A mod adds its multiplier to the block reward only when it rolls, so the expected reward uses the mod chance:</p>
 <pre>chance:   xp mod   = base + 0.003*INT + 0.002*LUCK
@@ -212,7 +213,7 @@ hc, hp = expected crosshair hit and player hit damage (hc includes the gold fact
 
 <h3>Our modeling choices</h3>
 <ul>
-<li><strong>Effort, not stored value.</strong> The score is reward per attack tick, and tick cost follows a block's HP. We do not assign loot a value. Loot is measured as the experience a block pays above its tier's dirt, so HP, experience, and loot share one effort-based currency. You add bias with goals and block preferences. One detail: the baseline subtracted is dirt's own experience, not an HP-scaled version of it, so it is a surplus over dirt rather than a strict per-HP figure.</li>
+<li><strong>Effort, not stored value.</strong> The score is reward per attack tick, and tick cost follows a block's HP. We do not assign loot a value. Loot is measured as the experience a block pays above the dirt rate for its HP (0.0005 per HP), so HP, experience, and loot share one effort-based currency. You add bias with goals and block preferences.</li>
 <li><strong>Speed is left out of efficiency.</strong> Attack speed changes attacks per second, not reward per stamina, so it only enters through the real-time crosshair and ability terms.</li>
 <li><strong>Averages for the search, exact replay for the simulation.</strong> Expected hits, ability uptime, and the crosshair term are averages so the search can score many builds quickly. The simulation runs the exact rules and is the better number when the two disagree.</li>
 <li><strong>The guided search is a search, not a proof.</strong> It matched the full search on every tested case; use Thorough for a guarantee on one case.</li>
