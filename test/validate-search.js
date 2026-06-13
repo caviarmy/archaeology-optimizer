@@ -10,6 +10,9 @@ const dom = new JSDOM(html, { runScripts: "dangerously", pretendToBeVisual: true
 const { window } = dom; const W = window; const doc = window.document;
 window.performance = window.performance || { now: () => Date.now() };
 
+// seeded RNG for reproducibility (override Math.random)
+let _seed = (Number(process.argv[3]||12345))>>>0;
+Math.random = ()=>{ _seed = (_seed + 0x6D2B79F5)|0; let t = Math.imul(_seed ^ _seed>>>15, 1|_seed); t = (t + Math.imul(t ^ t>>>7, 61|t)) ^ t; return ((t ^ t>>>14)>>>0)/4294967296; }; // mulberry32
 const N = Number(process.argv[2] || 40);
 const set = (id,v)=>{ const el=doc.getElementById(id); if(el) el.value=String(v); };
 const setChecked = (id,v)=>{ const el=doc.getElementById(id); if(el) el.checked=!!v; };
