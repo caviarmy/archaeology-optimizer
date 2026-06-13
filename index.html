@@ -1609,27 +1609,27 @@ function visibleBlocks(inp){
       armor100:b.armor100 ?? b.armor ?? 0,
       armor150:b.armor150 ?? b.armor100 ?? b.armor ?? 0,
       xp0,
-      loot0
+      loot0,
+      xpRaw:b.xp,
+      healthRaw:b.health,
+      rewardMult:cardBonus.rewardMult
     };
   });
-  // compute loot XP-equivalent from highest lower worthless baseline
+  // Loot value (xp-equivalent) is the reward a block pays above the effort line:
+  // the experience its HP would earn as plain dirt. Dirt is exactly 0.0005 xp per
+  // hp in the game data (same for every tier), so loot = xp - rate*hp, on the
+  // block's base values. A rarity marked worthless is set to zero.
+  const dirtRate = {};
+  for(const d of baseBlocks){ if(d.type==="dirt") dirtRate[d.tier] = d.xp / d.health; }
   for(const b of blocks){
     if(b.type==="dirt" || b.loot0<=0 || inp.worthless[b.type]){
       b.lootXpEq = 0;
       b.isWorthless = true;
       continue;
     }
-    const idx = rarityOrder.indexOf(b.type);
-    let baselineType = "dirt";
-    for(let j=1;j<idx;j++){
-      const t = rarityOrder[j];
-      if(inp.worthless[t]) baselineType = t;
-    }
-    const baseline = blocks
-      .filter(x => x.tier===b.tier && x.type===baselineType)
-      .sort((a,bb)=>bb.floorMin-a.floorMin)[0];
-    const baselineXp = baseline ? baseline.xp0 : 0;
-    b.lootXpEq = Math.max(0, b.xp0 - baselineXp);
+    const rate = dirtRate[b.tier] || 0.0005;
+    const lootRaw = Math.max(0, b.xpRaw - rate * b.healthRaw);
+    b.lootXpEq = lootRaw * XP_DISPLAY_SCALE * b.rewardMult;
     b.isWorthless = false;
   }
   return blocks;
