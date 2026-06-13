@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How the Archaeology Optimizer works</title>
+<style>
+  :root{--ink:#172033;--muted:#5b6577;--line:#d8dee9;--soft:#f6f8fc;--accent:#0050A9}
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--ink);font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5}
+  header{background:#101828;color:#fff;padding:16px 20px}
+  header h1{margin:0;font-size:20px}
+  header a{color:#9dc3ff;font-size:13px}
+  main{max-width:860px;margin:0 auto;padding:22px 20px 80px}
+  h2{font-size:19px;margin:34px 0 8px;padding-top:10px;border-top:1px solid var(--line)}
+  h3{font-size:15px;margin:16px 0 4px}
+  p{margin:8px 0}
+  code{background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:13px}
+  pre{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;font-size:13px;line-height:1.45;margin:10px 0}
+  table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:var(--soft)}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+  .toc ol{margin:6px 0 0;padding-left:22px;columns:2;column-gap:26px}
+  .toc a{color:var(--accent);text-decoration:none}
+  .lead{color:var(--muted)}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>How the Archaeology Optimizer works</h1>
+  <a href="index.html">Back to the app</a>
+</header>
+<main>
+
+<p class="lead">This page explains how the tool decides which build is best: what it measures, the formula behind each piece, the data it relies on, and the choices it makes where the game gives no exact answer. Read the parts you care about from the contents below. Each section builds on the ones before it.</p>
+
+<div class="toc">
+<strong>Contents</strong>
+<ol>
+  <li><a href="#goal">What it optimizes</a></li>
+  <li><a href="#glossary">Glossary</a></li>
+  <li><a href="#skills">Stats</a></li>
+  <li><a href="#damage">Damage per hit</a></li>
+  <li><a href="#armor">Armor and penetration</a></li>
+  <li><a href="#hits">Breaking a block</a></li>
+  <li><a href="#rewards">Rewards and mods</a></li>
+  <li><a href="#stamina">Stamina and run length</a></li>
+  <li><a href="#time">Two clocks: ticks and real time</a></li>
+  <li><a href="#abilities">Abilities and Instacharge</a></li>
+  <li><a href="#crosshairs">Crosshairs</a></li>
+  <li><a href="#optimizer">The optimizer</a></li>
+  <li><a href="#sim">The simulation</a></li>
+  <li><a href="#sources">Sources</a></li>
+  <li><a href="#assumptions">Sourced, method, or estimated</a></li>
+</ol>
+</div>
+
+<h2 id="goal">1. What it optimizes</h2>
+<p>You choose a goal: one kind of reward, all rewards together, or reaching a target floor. The tool works out how to spend your Archaeology Level points across your stats to do best at that goal. It scores many builds and shows the top ones, then a separate simulation replays the best builds to check the scores.</p>
+<p>The number it maximizes is <strong>reward per stamina spent</strong>. A dig ends when stamina runs out, so the build that earns the most from each point of stamina wins. Earning the same reward for less stamina is better, the same way 1000 coins for 200 effort beats 1000 coins for 300. Two things stretch a point of stamina further: stamina refunds, where some blocks hand a little stamina back, and auto-crosshairs, free hits that cost no stamina. Both are explained below. Attack speed does not change this number; see <a href="#time">Two clocks</a>.</p>
+
+<h2 id="glossary">2. Glossary</h2>
+<table>
+<tr><th>Term</th><th>Meaning</th></tr>
+<tr><td>Tick</td><td>One attack swing. It costs one stamina and deals one hit.</td></tr>
+<tr><td>Stamina</td><td>The budget for a dig. Each tick spends one. Some blocks give a little back (a stamina mod).</td></tr>
+<tr><td>Floor</td><td>A screen of blocks. Clearing a floor moves you to the next.</td></tr>
+<tr><td>Block (node)</td><td>One destructible object with HP, armor, and a reward.</td></tr>
+<tr><td>Mod</td><td>A bonus rolled onto a block when the floor loads: extra experience, loot, speed, or returned stamina. A block can have more than one.</td></tr>
+<tr><td>Crit, super crit, ultra crit</td><td>Damage multipliers that stack in order. Each one can only happen on top of the one below it.</td></tr>
+<tr><td>Crosshair</td><td>A marker that appears on a block by itself. An auto one fires a free hit; a manual one waits for a tap, which an idle player never gives.</td></tr>
+<tr><td>Ascension</td><td>A prestige level. Ascension 1 unlocks Divinity, Ascension 2 unlocks Corruption and tier 4 blocks.</td></tr>
+</table>
+
+<h2 id="skills">3. Stats</h2>
+<p>These are the seven things you spend points on. Points come from your Archaeology Level and are shared across all of them, and each stat has a cap. Divinity needs Ascension 1, Corruption needs Ascension 2. The effect of one point:</p>
+<table>
+<tr><th>Stat</th><th>Per point</th><th>Cap</th></tr>
+<tr><td>Strength</td><td>+1 flat damage, +1% damage, +3% crit damage</td><td>50</td></tr>
+<tr><td>Agility</td><td>+5 max stamina, +1% crit chance, +0.20% speed mod chance</td><td>50</td></tr>
+<tr><td>Perception</td><td>+4% fragment gain, +0.30% loot mod chance, +2 armor penetration</td><td>25</td></tr>
+<tr><td>Intellect</td><td>+5% experience gain, +0.30% experience mod chance, +3% armor penetration</td><td>25</td></tr>
+<tr><td>Luck</td><td>+2% crit chance, +0.20% to all mod chances, +0.50% gold crosshair chance</td><td>25</td></tr>
+<tr><td>Divinity (A1)</td><td>+2 flat damage, +2% super crit chance, +2% crosshair auto-tap</td><td>10</td></tr>
+<tr><td>Corruption (A2)</td><td>+6% damage, -3% max stamina, +1% to all mod multipliers</td><td>10</td></tr>
+</table>
+<p>Source: the in-game stat panel and the Archaeology wiki (see <a href="#sources">Sources</a>).</p>
+
+<h2 id="damage">4. Damage per hit</h2>
+<p>Damage per hit starts from a base, adds flat bonuses, then multiplies by percent bonuses:</p>
+<pre>damage = (base + 1*STR + 2*DIV) * (1 + 0.01*STR + 0.06*COR)</pre>
+<p>Crits multiply that damage and stack in a fixed order: a hit can crit, only a crit can become a super crit, and only a super crit can become an ultra crit. Each tier multiplies the one below it. The chances and multipliers:</p>
+<pre>cc = base_cc + 0.01*AGI + 0.02*LUCK   (capped at 99.5%)
+cd = base_cd + 0.03*STR
+sc = base_sc + 0.02*DIV
+sd, uc, ud come from your stats</pre>
+<p>Because the tiers stack, a hit has four possible results: no crit, crit only, crit and super, or crit and super and ultra. The average damage of a hit weighs each result by how often it happens:</p>
+<pre>m = (1-cc)
+  + cc*(1-sc)*cd
+  + cc*sc*(1-uc)*cd*sd
+  + cc*sc*uc*cd*sd*ud
+
+average hit damage = damage * m   (before armor)</pre>
+<p>For example, with crit 66.25%, super 60.75%, ultra 22.5% and multipliers 4.21x, 3.11x, 4.84x, an ultra crit lands on <code>0.6625 * 0.6075 * 0.225 = 9.05%</code> of hits and does <code>4.21 * 3.11 * 4.84 = 63.4</code> times normal damage.</p>
+
+<h2 id="armor">5. Armor and penetration</h2>
+<p>Armor lowers every hit by a flat amount. Perception adds flat penetration, and Intellect adds percent penetration that scales the flat amount:</p>
+<pre>pen = (base_pen + 2*PER) * (1 + 0.03*INT)
+effective armor = max(0, block_armor - pen)
+damage to the block per hit = max(0, hit_damage - effective armor)</pre>
+<p>A hit that cannot beat the armor does nothing but still costs a swing. A block that no hit can beat is unbreakable, and the tool skips it.</p>
+
+<h2 id="hits">6. Breaking a block</h2>
+<p>On average, the hits to break a block are its HP divided by the average damage per hit. The one wrinkle is armor: a hit that fails to beat the armor is a wasted swing, and the average has to allow for that. The exact version, where each hit deals one of the crit results minus armor:</p>
+<pre>E(h) = ( 1 + sum over the hitting results of p * E(h - d) ) / (1 - p0)</pre>
+<p>Here each result has a chance <code>p</code> and a damage <code>d</code> after armor, and <code>p0</code> is the chance a hit is fully blocked. For blocks that take many hits the tool uses the quick version, HP divided by average damage, which already allows for wasted hits.</p>
+
+<h2 id="rewards">7. Rewards and mods</h2>
+<p>Every block gives experience. Blocks above dirt also drop loot. A goal like "all rewards" has to add experience and loot together, so the tool needs both on one scale.</p>
+<h3>Putting experience and loot on one scale</h3>
+<p>Experience and loot fragments are different currencies, and the game never states an exchange rate between them. Setting that rate takes two decisions, and the game answers the first.</p>
+<ul>
+<li><strong>How rarities compare.</strong> Every block already carries an experience reward, and that number reflects how much the game values each rarity: a mythic block gives about 50 times a common's experience. The tool reuses that scaling for loot, so the worth of a mythic fragment against a common one comes from the game, not a guess.</li>
+<li><strong>Loot against experience overall.</strong> With no rate given, the only choice that favors neither side is equal weight: value a block's loot at the same experience the game paired with it.</li>
+</ul>
+<pre>loot value of a block = its experience   (times a loot weight, default 1)</pre>
+<p>A Tier 1 common gives 0.15 experience and a fragment, so its loot is also valued at 0.15. A mythic at 7.5 experience has loot worth 7.5. Dirt drops no loot, so it adds only experience. Each block pays its full experience to the experience total and an equal amount to the loot total for its rarity.</p>
+<p>This treats a block's two rewards as equal partners, so a block that drops both is worth twice one that drops only experience, because you walk away with two rewards instead of one. The one judgment call, equal weight, is a single setting (Loot value vs XP, default 1): leave it at 1 for a neutral mix, raise it if loot matters more to you, lower it if less. Marking a rarity worthless sets its loot to zero. Intellect then scales the experience total and Perception scales the loot total.</p>
+<h3>Mods</h3>
+<p>When a floor loads, each block rolls its mods and keeps them, and a block can carry more than one. A mod multiplies the block's reward only when it rolls, so the average reward uses the mod's chance:</p>
+<pre>chance:  experience mod = base + 0.003*INT + 0.002*LUCK
+         loot mod       = base + 0.003*PER + 0.002*LUCK
+gain:    the multiplier when it rolls, raised by Corruption: gain * (1 + 0.01*COR)
+
+average block reward = base_value * gain_stat * (1 + (mod_gain - 1) * mod_chance)</pre>
+<p>Because each block fixes its mods when the floor loads, a block destroyed by a crosshair pays the same reward as one you break yourself.</p>
+<h3>Gleaming floors</h3>
+<p>A floor can be gleaming, with a set chance, which multiplies all of that floor's rewards, mods included:</p>
+<pre>reward factor = 1 + gleaming_chance * (gleaming_multiplier - 1)</pre>
+
+<h2 id="stamina">8. Stamina and run length</h2>
+<p>Your maximum stamina, after Agility and the Corruption penalty:</p>
+<pre>stamina = (base + 5*AGI) * (1 - 0.03*COR)</pre>
+<p>A dig spends stamina block by block. A block costs its average hits in stamina, minus any stamina a stamina mod gives back, so refunds make blocks cheaper and let the dig reach further. When stamina cannot cover the next floor, the dig stops partway through it. The score is total reward divided by total stamina spent, so a build that earns the same reward for less stamina scores higher.</p>
+
+<h2 id="time">9. Two clocks: ticks and real time</h2>
+<p>The tool tracks two clocks at once, and keeping them apart matters.</p>
+<table>
+<tr><th>Tick clock</th><th>Real-time clock</th></tr>
+<tr><td>Your attacks, stamina spent, and damage to blocks.</td><td>Crosshairs appearing, the 2 second crosshair delay, ability cooldowns.</td></tr>
+<tr><td>One tick is one swing, one stamina, one hit.</td><td>Plain seconds, the same for everyone.</td></tr>
+</table>
+<p>Attack speed sets how many ticks happen per second. It does not change reward per stamina: the same build clears the same blocks for the same stamina whether it swings fast or slow. What speed changes is how your swings line up against the real-time clock. A faster dig finishes in fewer seconds, so fewer crosshairs appear and abilities come off cooldown fewer times during it. That is why attack speed is left out of the main score and only affects the crosshair and ability parts.</p>
+
+<h2 id="abilities">10. Abilities and Instacharge</h2>
+<p>Three abilities fire on their own when off cooldown:</p>
+<ul>
+<li><strong>Enrage</strong>: the next several swings gain damage and crit damage.</li>
+<li><strong>Flurry</strong>: gives back stamina when cast and doubles attack speed for its swings.</li>
+<li><strong>Quake</strong>: the next several swings also deal a share of their damage to every block on the floor.</li>
+</ul>
+<p>Cooldowns run on the real-time clock, so attack speed does not change how often an ability is ready. The buffed swings happen on the tick clock, so faster speed uses up the fixed number of buffed swings sooner. Instacharge is a chance to refund a cooldown when you use an ability, which the tool treats as a shorter cooldown:</p>
+<pre>effective cooldown = cooldown * (1 - instacharge_chance)</pre>
+
+<h2 id="crosshairs">11. Crosshairs</h2>
+<p>A crosshair is a marker that appears on a block by itself. Tapping it lands a free hit. The tool assumes you are idle, so it only counts crosshairs that fire on their own (auto-tap); ones that wait for a manual tap are left alone.</p>
+<p>Crosshairs appear on the real-time clock, not per swing. Each block on the floor has about a <strong>2.175% chance every 1.005 seconds</strong> to get one, so more blocks on screen means more crosshairs. Only blocks that actually spawned on the current floor can get one: not empty spots, not blocks already destroyed, and not blocks on floors you have not reached yet. A block holds one crosshair at a time.</p>
+<p>An auto crosshair fires one normal hit about 2 seconds after it appears, with full reward if that hit destroys the block, and a gold crosshair multiplies the hit. Once it fires, the block can get another. A manual crosshair, which you never tap, stays on its block and stops new crosshairs there until you break the block yourself.</p>
+<pre>gold chance = base + 0.005*LUCK
+a gold crosshair multiplies its hit by the gold multiplier</pre>
+<p>A crosshair hit uses the same crit rules as a normal hit. Because these hits are free, they clear blocks without spending stamina, which raises reward per stamina and helps the dig reach deeper. For the quick score, the tool estimates that boost per floor:</p>
+<pre>M = 1 + ( (N + 1) / (2 * v) ) * lambda * t * (hc / hp)
+
+N      = blocks on the floor
+v      = attacks per second
+lambda = 0.02175 / 1.005   (crosshairs per block per second)
+t      = auto-tap fraction (base + 0.02*DIV)
+hc, hp = average crosshair hit and player hit damage (hc includes gold)</pre>
+<p>The floor's stamina cost is divided by M. The simulation does not estimate; it plays out each crosshair with its 2 second delay and counts the ones wasted on blocks that died first, so it is the more accurate of the two.</p>
+
+<h2 id="optimizer">12. The optimizer</h2>
+<p>The hard part is size. Level points can be split across seven stats under their caps (Strength and Agility 50, Perception, Intellect and Luck 25, Divinity and Corruption 10). At high levels that is millions of possible builds, too many to score one by one on a phone. So the tool uses a guided search by default and keeps a full search as a check.</p>
+<h3>Guided search (default)</h3>
+<p>It starts from a handful of sensible builds (all points in one stat, an even split, a few random splits) and scores them. Then it repeatedly tries moving a single point from one stat to another and keeps any move that scores higher, until no single move helps. It does this from each starting build, and now and then jumps to a fresh random build so it does not get stuck on a build that is good but not the best. This finds the top build while scoring a few thousand builds instead of millions.</p>
+<h3>Full search (the Thorough toggle)</h3>
+<p>This scores every legal build, so it is guaranteed to find the best one. It runs only when the number of builds is small enough to finish quickly, and otherwise hands off to the guided search.</p>
+<h3>Checking the guided search</h3>
+<p>The guided search was compared against the full search on 40 random setups, every one with a goal reachable at its level, across all ascensions and tolerance settings. It returned the same best build in all 40. For a guarantee on one specific case, turn on Thorough and compare.</p>
+<h3>Goals and tolerance</h3>
+<p>With a secondary goal and a tolerance, the tool first keeps every build within the tolerance of the best primary score, then ranks those by the secondary goal. That is how it picks, for example, the build with the most experience among the builds that come close to the best loot.</p>
+
+<h2 id="sim">13. The simulation</h2>
+<p>The simulation replays a build many times with random crits, mod rolls, block layouts, abilities, and crosshairs. It re-ranks the top builds from the search and reports, for each: average reward per stamina, how deep it reached (the 10th, 50th, and 90th percentile floors), and, for a target floor goal, how often it reached the target. It uses the exact rules, so it is the tie breaker when two builds score close.</p>
+
+<h2 id="sources">14. Sources</h2>
+<ul>
+<li>Idle Obelisk Miner wiki, Archaeology page: stat effects, caps, block HP, armor, and reward data.</li>
+<li>In-game stats panel: stat names and the example values used for testing.</li>
+<li>Community Discord: the crosshair spawn rate, measured at about 2.175% per block every 1.005 seconds and not affected by attack speed.</li>
+</ul>
+<p>Numbers from the wiki and the game panel are treated as exact. The crosshair spawn rate is a community measurement, and the tool exposes it as an editable setting so it can be corrected.</p>
+
+<h2 id="assumptions">15. Sourced, method, or estimated</h2>
+<p>Three kinds of input feed the tool. They are separated here so you can weigh each on its own.</p>
+
+<h3>Grounded in game data</h3>
+<ul>
+<li>Block HP, armor, experience, fragment counts, floor ranges, per-floor spawn rates, and boss floors, from the wiki.</li>
+<li>Stat effects and caps, from the stat panel and the wiki.</li>
+<li>The damage formula, the crit, super, and ultra ladder, armor and penetration, stamina, stamina refunds, and the gleaming multiplier. These are game mechanics, with standard probability on top.</li>
+<li>Mods roll when a floor loads and stay on the block, so who lands the kill does not change the reward.</li>
+</ul>
+
+<h3>Our method where the game gives no answer</h3>
+<ul>
+<li><strong>One neutral bridge between experience and loot.</strong> With no rate given, the tool values a block's loot at the block's own experience (equal weight, default 1), takes the rarity scaling from the game's experience numbers, and exposes the experience-to-loot weight as one setting. Reward is scored per stamina spent, after stamina refunds.</li>
+<li><strong>Speed is left out of efficiency.</strong> Attack speed changes attacks per second, not reward per stamina, so it only enters through the crosshair and ability parts.</li>
+<li><strong>Averages for the search, exact replay for the simulation.</strong> Average hits, ability uptime, and the crosshair boost are estimates so the search can score many builds fast. The simulation runs the exact rules and is the better number when the two disagree.</li>
+<li><strong>The guided search is a search, not a proof.</strong> It matched the full search on every reachable-goal test, but it has no guarantee of being best in every case. Use Thorough when you want certainty.</li>
+<li><strong>Idle play.</strong> Only auto-tap crosshairs count; manual ones are left alone.</li>
+</ul>
+
+<h3>Estimated or unconfirmed</h3>
+<ul>
+<li><strong>Crosshair spawn rate</strong> (about 2.175% per block every 1.005 seconds) is a community measurement, not an official figure. It drives how much crosshairs are worth, so it is an editable setting. The 2 second fire delay is observed.</li>
+<li><strong>Crosshair details.</strong> The tool assumes auto crosshairs do not use up ability charges. The gold multiplier comes from your stats, and its starting value is a placeholder.</li>
+<li><strong>The crosshair boost in the quick score</strong> stacks several estimates (blocks per floor, every crosshair hit fully used, armor left out of the damage compare, and manual crosshairs not blocking blocks) on top of the estimated spawn rate. It is the least certain number that can change which build is recommended, so when the quick score and the simulation disagree about crosshairs, trust the simulation.</li>
+<li><strong>Polychrome and infernal cards</strong> can be recorded but are treated as neutral until their multipliers are confirmed.</li>
+</ul>
+
+<p style="margin-top:34px"><a href="index.html">Back to the app</a></p>
+</main>
+</body>
+</html>

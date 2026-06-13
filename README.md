@@ -5,7 +5,9 @@ Pick a goal, enter your current stats (manually or via screenshot OCR), and it
 finds the strongest STR / AGI / PER / INT / Luck build for that goal, with
 expected-value scoring plus Monte Carlo simulation to sanity-check it.
 
-The entire app is a single self-contained file: [`index.html`](index.html).
+The app is one self-contained file, [`index.html`](index.html). A second page,
+[`about.html`](about.html), is the "How it works" writeup (every formula, the data
+sources, and the assumptions); the **?** at the top right of the app opens it.
 
 ## Open the app
 
@@ -56,10 +58,11 @@ Or simply download `index.html` and double-click it.
 
 ## Notes
 
-- Optimization is in **tick-efficiency** terms (reward per attack tick); speed
-  is intentionally excluded until a dedicated real-time mode is added.
-- Loot is converted to an XP-equivalent value so mixed-reward goals share one
-  score. Worthless-loot toggles change that baseline.
+- Optimization is **reward per stamina spent** (net of stamina-mod refunds), so a
+  build that earns more for less stamina wins. Attack speed is excluded from this
+  number; it only affects the real-time crosshair and ability terms.
+- Loot is valued at its block's own XP (a neutral 1:1, adjustable with the loot
+  weight) so mixed-reward goals share one scale. Worthless-loot toggles zero a rarity.
 - Settings (stats, cards, ascension, goals) are saved to your browser's
   `localStorage` and restored on reload. Use **Reset all** to clear them. In
   sandboxed previews or private-browsing mode storage may be blocked; the app
