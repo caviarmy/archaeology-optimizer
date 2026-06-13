@@ -75,16 +75,16 @@
 </table>
 
 <h2 id="skills">3. Stats</h2>
-<p>These are the seven things you spend points on. Points come from your Archaeology Level and are shared across all of them, and each stat has a cap. Divinity needs Ascension 1, Corruption needs Ascension 2. The effect of one point:</p>
+<p>These are the seven things you spend points on. Points come from your Archaeology Level and are shared across all of them, and each stat has a cap. The caps shown include the +5 from the All Stat Point Caps idol; without that idol each cap is 5 lower (50 / 25 / 10). Divinity needs Ascension 1, Corruption needs Ascension 2. The effect of one point:</p>
 <table>
 <tr><th>Stat</th><th>Per point</th><th>Cap</th></tr>
-<tr><td>Strength</td><td>+1 flat damage, +1% damage, +3% crit damage</td><td>50</td></tr>
-<tr><td>Agility</td><td>+5 max stamina, +1% crit chance, +0.20% speed mod chance</td><td>50</td></tr>
-<tr><td>Perception</td><td>+4% fragment gain, +0.30% loot mod chance, +2 armor penetration</td><td>25</td></tr>
-<tr><td>Intellect</td><td>+5% experience gain, +0.30% experience mod chance, +3% armor penetration</td><td>25</td></tr>
-<tr><td>Luck</td><td>+2% crit chance, +0.20% to all mod chances, +0.50% gold crosshair chance</td><td>25</td></tr>
-<tr><td>Divinity (A1)</td><td>+2 flat damage, +2% super crit chance, +2% crosshair auto-tap</td><td>10</td></tr>
-<tr><td>Corruption (A2)</td><td>+6% damage, -3% max stamina, +1% to all mod multipliers</td><td>10</td></tr>
+<tr><td>Strength</td><td>+1 flat damage, +1% damage, +3% crit damage</td><td>55</td></tr>
+<tr><td>Agility</td><td>+5 max stamina, +1% crit chance, +0.20% speed mod chance</td><td>55</td></tr>
+<tr><td>Perception</td><td>+4% fragment gain, +0.30% loot mod chance, +2 armor penetration</td><td>30</td></tr>
+<tr><td>Intellect</td><td>+5% experience gain, +0.30% experience mod chance, +3% armor penetration</td><td>30</td></tr>
+<tr><td>Luck</td><td>+2% crit chance, +0.20% to all mod chances, +0.50% gold crosshair chance</td><td>30</td></tr>
+<tr><td>Divinity (A1)</td><td>+2 flat damage, +2% super crit chance, +2% crosshair auto-tap</td><td>15</td></tr>
+<tr><td>Corruption (A2)</td><td>+6% damage, -3% max stamina, +1% to all mod multipliers</td><td>15</td></tr>
 </table>
 <p>Source: the in-game stat panel and the Archaeology wiki (see <a href="#sources">Sources</a>).</p>
 
@@ -182,7 +182,7 @@ hc, hp = average crosshair hit and player hit damage (hc includes gold)</pre>
 <p>The floor's stamina cost is divided by M. The simulation does not estimate; it plays out each crosshair with its 2 second delay and counts the ones wasted on blocks that died first, so it is the more accurate of the two.</p>
 
 <h2 id="optimizer">12. The optimizer</h2>
-<p>The hard part is size. Level points can be split across seven stats under their caps (Strength and Agility 50, Perception, Intellect and Luck 25, Divinity and Corruption 10). At high levels that is millions of possible builds, too many to score one by one on a phone. So the tool uses a guided search by default and keeps a full search as a check.</p>
+<p>The hard part is size. Level points can be split across seven stats under their caps (Strength and Agility 55, Perception, Intellect and Luck 30, Divinity and Corruption 15). At high levels that is millions of possible builds, too many to score one by one on a phone. So the tool uses a guided search by default and keeps a full search as a check.</p>
 <h3>Guided search (default)</h3>
 <p>It starts from a handful of sensible builds (all points in one stat, an even split, a few random splits) and scores them. Then it repeatedly tries moving a single point from one stat to another and keeps any move that scores higher, until no single move helps. It does this from each starting build, and now and then jumps to a fresh random build so it does not get stuck on a build that is good but not the best. This finds the top build while scoring a few thousand builds instead of millions.</p>
 <h3>Full search (the Thorough toggle)</h3>
