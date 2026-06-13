@@ -43,7 +43,7 @@
 <ol>
   <li><a href="#goal">What it optimizes</a></li>
   <li><a href="#glossary">Glossary</a></li>
-  <li><a href="#skills">Stats and skills</a></li>
+  <li><a href="#skills">Stats</a></li>
   <li><a href="#damage">Damage per hit</a></li>
   <li><a href="#armor">Armor and penetration</a></li>
   <li><a href="#hits">Breaking a block</a></li>
@@ -60,7 +60,7 @@
 </div>
 
 <h2 id="goal">1. What it optimizes</h2>
-<p>You pick a goal (a reward type, all rewards, or a target floor). The optimizer searches how to spend your Archaeology Level points across the skills and returns the allocation with the best expected value for that goal. A separate simulation then replays top builds to check the estimate.</p>
+<p>You pick a goal (a reward type, all rewards, or a target floor). The optimizer searches how to spend your Archaeology Level points across the stats and returns the allocation with the best expected value for that goal. A separate simulation then replays top builds to check the estimate.</p>
 <p>The core measure is <strong>reward per attack tick</strong>, called tick efficiency. A run ends when stamina runs out, not when a timer expires, so value per stamina (equivalently, value per tick) is what decides how good a build is. Attack speed is deliberately kept out of this measure; see <a href="#time">Ticks versus real time</a>.</p>
 
 <h2 id="glossary">2. Glossary</h2>
@@ -76,10 +76,10 @@
 <tr><td>Ascension</td><td>A prestige level. A1 unlocks Divinity, A2 unlocks Corruption and tier 4 blocks.</td></tr>
 </table>
 
-<h2 id="skills">3. Stats and skills</h2>
-<p>Points come from your Archaeology Level and are shared across all skills. Each skill has a cap. Divinity needs Ascension 1, Corruption needs Ascension 2. Per point effects:</p>
+<h2 id="skills">3. Stats</h2>
+<p>These are the seven things you spend points on (Strength, Agility, and so on). Points come from your Archaeology Level and are shared across all of them. Each stat has a cap. Divinity needs Ascension 1, Corruption needs Ascension 2. Per point effects:</p>
 <table>
-<tr><th>Skill</th><th>Per point</th><th>Cap</th></tr>
+<tr><th>Stat</th><th>Per point</th><th>Cap</th></tr>
 <tr><td>Strength</td><td>+1 flat damage, +1% damage, +3% crit damage</td><td>50</td></tr>
 <tr><td>Agility</td><td>+5 max stamina, +1% crit chance, +0.20% speed mod chance</td><td>50</td></tr>
 <tr><td>Perception</td><td>+4% fragment gain, +0.30% loot mod chance, +2 armor penetration</td><td>25</td></tr>
@@ -88,7 +88,7 @@
 <tr><td>Divinity (A1)</td><td>+2 flat damage, +2% super crit chance, +2% crosshair auto-tap</td><td>10</td></tr>
 <tr><td>Corruption (A2)</td><td>+6% damage, -3% max stamina, +1% to all mod multipliers</td><td>10</td></tr>
 </table>
-<p>Source: the in-game Archaeology skill table (see <a href="#sources">Sources</a>). One earlier version of this tool also gave Agility a stamina mod chance; the table above is correct, Agility does not affect stamina mod chance.</p>
+<p>Source: the in-game stat panel and the Archaeology wiki (see <a href="#sources">Sources</a>).</p>
 
 <h2 id="damage">4. Damage per hit</h2>
 <p>Flat bonuses are added first, then the percent multipliers:</p>
@@ -105,7 +105,7 @@ sd, uc, ud come from your stats</pre>
   + cc*sc*uc*cd*sd*ud
 
 expected hit damage = damage * m   (before armor)</pre>
-<p>Example with crit 66.25%, super 60.75%, ultra 22.5% and multipliers 4.21x, 3.11x, 4.84x: the ultra branch alone is <code>0.6625*0.6075*0.225 = 9.05%</code> of hits dealing <code>4.21*3.11*4.84 = 63.4x</code> damage. Leaving ultra out understates a hit by about 40%, so it is modeled in full.</p>
+<p>Worked example: with crit 66.25%, super 60.75%, ultra 22.5% and multipliers 4.21x, 3.11x, 4.84x, an ultra crit lands on <code>0.6625*0.6075*0.225 = 9.05%</code> of hits and deals <code>4.21*3.11*4.84 = 63.4x</code> damage.</p>
 
 <h2 id="armor">5. Armor and penetration</h2>
 <p>Armor subtracts a flat amount from every hit. Perception adds flat penetration, Intellect adds percent penetration that scales the flat value:</p>
@@ -120,9 +120,12 @@ damage to block per hit = max(0, hit_damage - a)</pre>
 <p>where <code>d_i</code> and <code>p_i</code> are the post-armor damage and probability of each hitting outcome, and <code>p0</code> is the chance a hit is fully blocked. For blocks that take many hits the tool uses the fast estimate <code>E(h) = h / average hit damage</code>, which already discounts blocked ticks.</p>
 
 <h2 id="rewards">7. Rewards and mods</h2>
-<p>Each block has a base experience value and a base loot value. Loot is converted to an experience equivalent so that mixed goals share one number. Gain stats scale the base:</p>
-<pre>xp value   = base_xp   * (exp_gain + 0.05*INT per point applied to the gain stat)
-loot value = base_loot * (frag_gain + 0.04*PER per point applied to the gain stat)</pre>
+<p>Every block gives experience. Non dirt blocks also give loot. The goals can mix experience and loot, so the model needs both on one scale and a fair value per block.</p>
+<h3>Putting XP and loot on one scale</h3>
+<p>The baseline is the dirt block of the same tier. Dirt gives experience but no loot, so it sets the experience for simply breaking a block at that tier. Any block that gives more experience than its tier's dirt is treated as carrying that surplus as loot:</p>
+<pre>loot value (xp equivalent) = max(0, block_xp - same_tier_dirt_xp)</pre>
+<p>A Tier 2 common is measured against Tier 2 dirt, a Tier 2 rare against Tier 2 dirt, and so on, never against another tier. Legendary and divine use the same rule; they give far more experience than dirt, so their loot value is large. The block still pays its full experience to the experience total, and the surplus is added to the loot total for its rarity. Marking a rarity worthless in settings raises the baseline to the highest worthless rarity below the block, which drops loot you do not value.</p>
+<p>One consequence: the raw fragment count is the same for every rarity in a tier, so it cannot tell common loot from epic loot. The experience surplus is used as the stand-in for loot quality instead. Gain stats then scale each total, Intellect for experience and Perception for loot.</p>
 <h3>Mods</h3>
 <p>When a floor loads, every block rolls its mods and keeps them. A block can carry more than one. A mod adds its multiplier to the block reward only when it rolls, so the expected reward uses the mod chance:</p>
 <pre>chance:   xp mod   = base + 0.003*INT + 0.002*LUCK
@@ -175,20 +178,23 @@ hc, hp = expected crosshair hit and player hit damage (hc includes the gold fact
 <p>Attack speed sets how many ticks happen per real second. It does not change stamina efficiency: a build clears the same blocks for the same stamina at any speed. Speed only changes how crosshairs and ability cooldowns line up against ticks, because a faster run spends less real time and so sees fewer crosshair spawns. For this reason attack speed is excluded from the tick efficiency score and only matters inside the crosshair and ability terms.</p>
 
 <h2 id="optimizer">12. The optimizer</h2>
-<p>Points are allocated across the active skills under their caps (Strength and Agility 50, Perception, Intellect and Luck 25, Divinity and Corruption 10). Two search modes exist:</p>
-<ul>
-<li><strong>Smart search</strong> (default): seeds several allocations, then hill climbs by moving one point between skills, with basin hopping and a local grid to cross ridges. Fast, and matched the exact search on every one of 40 random tests across all ascensions.</li>
-<li><strong>Thorough</strong>: enumerates every legal allocation. Exact, but only runs when the count is small enough; otherwise it falls back to the smart search.</li>
-</ul>
-<p>When you set a secondary goal with a tolerance, the optimizer keeps every build within tolerance of the best primary value, then ranks those by the secondary goal.</p>
+<p>The problem is its size. Level points can be split across seven stats under their caps (Strength and Agility 50, Perception, Intellect and Luck 25, Divinity and Corruption 10). At high levels that is millions of possible builds, too many to score one by one on a phone. So the tool uses a guided search by default and keeps a full search as a check.</p>
+<h3>Guided search (default)</h3>
+<p>It begins from a handful of sensible builds (all points in one stat, an even split, and a few random splits) and scores them. Then it repeatedly tries moving a single point from one stat to another and keeps any move that scores higher, until no single move helps. It runs this from each starting build, and now and then jumps to a fresh random build, so it does not settle on a build that is good but not the best. This reaches the top build while scoring only a few thousand builds instead of millions.</p>
+<h3>Full search (the "Thorough" toggle)</h3>
+<p>This scores every legal build, so it is guaranteed to find the best one. It runs only when the count is small enough to finish quickly; otherwise it hands off to the guided search.</p>
+<h3>How we know the guided search is right</h3>
+<p>It was checked against the full search on 40 random setups covering every ascension, goal, and tolerance setting. The guided search returned the same best build in all 40. For a hard guarantee on one small case, switch on Thorough and compare.</p>
+<h3>Goals and tolerance</h3>
+<p>With a secondary goal and a tolerance, the tool first keeps every build within the tolerance of the best primary score, then ranks those by the secondary goal. This is how, for example, it picks the build with the most experience among the builds that reach close to the best loot.</p>
 
 <h2 id="sim">13. The simulation</h2>
 <p>The simulation replays a build many times with random crits, mod rolls, block layouts, abilities, and crosshairs. It re-ranks the top builds from the search and reports, per build: average reward per tick, the floor distribution (10th, 50th and 90th percentile), and, for a target floor goal, the percent of runs that reach it. It is the exact model and the right tie breaker when two builds score close.</p>
 
 <h2 id="sources">14. Sources</h2>
 <ul>
-<li>Idle Obelisk Miner Wiki, Archaeology page: skill effects, skill caps, block HP, armor, and reward data.</li>
-<li>In-game stats and skills panel: stat names and the example values used for testing.</li>
+<li>Idle Obelisk Miner Wiki, Archaeology page: stat effects, caps, block HP, armor, and reward data.</li>
+<li>In-game stats panel: stat names and the example values used for testing.</li>
 <li>Community Discord: the crosshair spawn rate, measured at about 2.175% per block every 1.005 seconds and independent of attack speed.</li>
 </ul>
 <p>Numbers from the wiki and the game panel are treated as exact. The crosshair spawn rate is a community measurement and is exposed as an editable setting so it can be refined.</p>
@@ -196,11 +202,11 @@ hc, hp = expected crosshair hit and player hit damage (hc includes the gold fact
 <h2 id="assumptions">15. Assumptions and limits</h2>
 <ul>
 <li><strong>Tick efficiency, not real time.</strong> The score is reward per stamina tick. Attack speed enters only through the crosshair and ability terms.</li>
-<li><strong>Loot as experience equivalent.</strong> Loot is converted to one comparable value so mixed goals share a score. The worthless-loot settings change that baseline.</li>
+<li><strong>Loot valued by experience surplus.</strong> A block's loot is valued as the experience it gives above its tier's dirt block, not by its fragment count (which is identical for every rarity in a tier). This assumes the experience scaling tracks loot quality. The worthless-loot settings move the baseline.</li>
 <li><strong>Crosshair score is an average.</strong> The optimizer's crosshair term assumes crosshair damage is fully used and ignores overkill and per-block armor in the damage ratio. The simulation handles these exactly, so trust the simulation when the two differ.</li>
 <li><strong>Idle player.</strong> Only auto-tap crosshairs are counted. Manual taps are ignored.</li>
 <li><strong>Mods roll at spawn.</strong> Each block fixes its mods when the floor loads, so the killer (player or crosshair) does not change the reward.</li>
-<li><strong>Smart search is a heuristic.</strong> It matched the exact search on all tested cases, but for a hard guarantee on a small problem use Thorough.</li>
+<li><strong>The guided search is a search, not a proof.</strong> It matched the full search on all tested cases, but for a hard guarantee on one case use Thorough.</li>
 <li><strong>Some card multipliers are neutral.</strong> Polychrome and infernal card values are recordable but treated as neutral until confirmed.</li>
 </ul>
 
