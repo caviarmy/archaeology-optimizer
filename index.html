@@ -1918,9 +1918,10 @@ function topInsert(arr, item, inp, max=10){
 // Divinity unlocks at Ascension 1, Corruption at Ascension 2; all share the pool.
 function activeSkillSpec(inp){
   const asc = inp.ascension ?? 0;
-  const spec = [["S",50],["A",50],["P",25],["I",25],["L",25]];
-  if(asc >= 1) spec.push(["D",10]);
-  if(asc >= 2) spec.push(["C",10]);
+  // Caps include the +5 from the "All Stat Point Caps" idol (base is 50/25/10).
+  const spec = [["S",55],["A",55],["P",30],["I",30],["L",30]];
+  if(asc >= 1) spec.push(["D",15]);
+  if(asc >= 2) spec.push(["C",15]);
   return spec;
 }
 function fullStats(obj){
