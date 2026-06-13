@@ -1967,21 +1967,19 @@ function topInsert(arr, item, inp, max=10){
   if(arr.length>max) arr.pop();
 }
 
-// Total number of full point allocations the exact search will evaluate, used to
-// pre-size the typed arrays. Mirrors the runExact loop bounds exactly.
-function countCandidates(level){
-  let n = 0;
-  const maxI = Math.min(25, level);
-  for(let I=0; I<=maxI; I++){
-    const maxP = Math.min(25, level-I);
-    for(let P=0; P<=maxP; P++){
-      const maxL = Math.min(25, level-I-P);
-      for(let L=0; L<=maxL; L++){
-        n += (level-I-P-L) + 1; // S = 0..rem
-      }
-    }
-  }
-  return n;
+// Skills the optimizer allocates Archaeology-Level points across, with caps.
+// Divinity unlocks at Ascension 1, Corruption at Ascension 2; all share the pool.
+function activeSkillSpec(inp){
+  const asc = inp.ascension ?? 0;
+  const spec = [["S",50],["A",50],["P",25],["I",25],["L",25]];
+  if(asc >= 1) spec.push(["D",10]);
+  if(asc >= 2) spec.push(["C",10]);
+  return spec;
+}
+function fullStats(obj){
+  const o = {S:0,A:0,I:0,P:0,L:0,D:0,C:0};
+  for(const k in o) if(obj && obj[k] != null) o[k] = obj[k];
+  return o;
 }
 
 async function runExact(){
@@ -1992,20 +1990,25 @@ async function runExact(){
   const blocks = visibleBlocks(inp);
   const status = document.getElementById("status");
   const btn = document.getElementById("runExact");
-  const thorough = !!document.getElementById("thoroughSearch")?.checked;
+  let thorough = !!document.getElementById("thoroughSearch")?.checked;
   btn.disabled = true;
-  status.textContent = thorough ? "Searching every build..." : "Searching builds...";
-  status.classList.add("show");
+  showStatus(thorough ? "Searching every build..." : "Searching builds...", 30000);
   await new Promise(r=>setTimeout(r,20));
 
   clearMonteRerank();
   const topLimit = Math.max(10, inp.mcTopCount);
   const start = performance.now();
 
-  let topBuilds, count;
+  let topBuilds, count, extra="";
   if(thorough){
     const res = await exhaustiveSearch(inp, blocks, level, topLimit, status);
-    topBuilds = res.topBuilds; count = res.count;
+    if(res.bailed){
+      const all = fastSearch(inp, blocks, level);
+      count = all.length; topBuilds = rankCandidates(all, inp).slice(0, topLimit);
+      thorough = false; extra = " — too many combinations for exact, used smart search";
+    }else{
+      topBuilds = res.topBuilds; count = res.count;
+    }
   }else{
     const all = fastSearch(inp, blocks, level);
     count = all.length;
@@ -2016,82 +2019,79 @@ async function runExact(){
   lastExactTopBuilds = topBuilds.map((x, i2) => ({...x, detRank: i2 + 1}));
   lastExactSignature = exactSignature;
   renderBest(best, topBuilds.slice(0, 10), count);
-  status.textContent = `Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s (${count.toLocaleString()} build${count===1?"":"s"}${thorough?"":", smart search"}).`;
-  status.classList.add("show");
-  setTimeout(()=>{ status.classList.remove("show"); }, 5000);
+  showStatus(`Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s (${count.toLocaleString()} build${count===1?"":"s"}${thorough?"":", smart search"})${extra}.`, 5000);
   btn.disabled = false;
   isRunningExact = false;
 }
 
-// Exhaustive: evaluate every full point allocation (provably the best of all of
-// them), storing only compact per-candidate metrics in typed arrays so 1M+
-// candidates fit in memory. Slow at high levels — behind the "Thorough" toggle.
+// Exact search: enumerate every valid allocation of points across the active
+// skills (respecting caps), keeping compact per-candidate metrics. Bails to the
+// caller (fast search) if the combination count exceeds LIMIT. Behind "Thorough".
 async function exhaustiveSearch(inp, blocks, level, topLimit, status){
-  const pk = primaryFocusKey(inp);
-  const sk = secondaryFocusKey(inp);
+  const spec = activeSkillSpec(inp);
+  const keys = spec.map(s=>s[0]);
+  const caps = spec.map(s=>s[1]);
+  const target = Math.min(level, caps.reduce((a,b)=>a+b,0));
+  const pk = primaryFocusKey(inp), sk = secondaryFocusKey(inp);
   const tol = Math.max(0, (inp.goal?.tolerancePct || 0) / 100);
-  const N = countCandidates(level);
-  const primaryArr = new Float64Array(N);
-  const secondaryArr = new Float64Array(N);
-  const allRewardsArr = new Float64Array(N);
-  const floorArr = new Float64Array(N);
-  const sArr = new Uint8Array(N), aArr = new Uint8Array(N), iArr = new Uint8Array(N), pArr = new Uint8Array(N), lArr = new Uint8Array(N);
+  const LIMIT = 400000;
 
-  let idx = 0, bestPrimary = -Infinity, nextYield = 40000;
-  const maxI = Math.min(25, level);
-  for(let I=0; I<=maxI; I++){
-    const maxP = Math.min(25, level-I);
-    for(let P=0; P<=maxP; P++){
-      const maxL = Math.min(25, level-I-P);
-      for(let L=0; L<=maxL; L++){
-        const rem = level-I-P-L;
-        for(let S=0; S<=rem; S++){
-          const sc = scoreBuild({S,A:rem-S,I,P,L}, inp, blocks);
-          primaryArr[idx] = sc.primaryMetric;
-          secondaryArr[idx] = sc.secondaryMetric;
-          allRewardsArr[idx] = metricValue(sc, "allRewards", inp);
-          floorArr[idx] = sc.floorReached;
-          sArr[idx]=S; aArr[idx]=rem-S; iArr[idx]=I; pArr[idx]=P; lArr[idx]=L;
-          if(sc.primaryMetric > bestPrimary) bestPrimary = sc.primaryMetric;
-          idx++;
-        }
+  // restCap[i] = sum of caps after position i, to prune impossible branches.
+  const restCap = new Array(keys.length).fill(0);
+  for(let i=keys.length-2;i>=0;i--) restCap[i] = restCap[i+1] + caps[i+1];
+
+  // Count first (no scoring) so we can bail before heavy work.
+  let total = 0, over = false;
+  (function cnt(i, rem){
+    if(over) return;
+    if(i === keys.length-1){ if(rem<=caps[i]){ if(++total>LIMIT) over=true; } return; }
+    const lo = Math.max(0, rem-restCap[i]), hi = Math.min(caps[i], rem);
+    for(let v=lo; v<=hi && !over; v++) cnt(i+1, rem-v);
+  })(0, target);
+  if(over) return {bailed:true, count:total};
+
+  const recs = []; let bestPrimary = -Infinity;
+  const acc = new Array(keys.length).fill(0);
+  (function rec(i, rem){
+    if(i === keys.length-1){
+      if(rem<=caps[i]){
+        acc[i]=rem;
+        const st={S:0,A:0,I:0,P:0,L:0,D:0,C:0};
+        for(let j=0;j<keys.length;j++) st[keys[j]]=acc[j];
+        const sc=scoreBuild(st, inp, blocks);
+        recs.push({a:acc.slice(), pm:sc.primaryMetric, sm:sc.secondaryMetric, ar:metricValue(sc,"allRewards",inp), fr:sc.floorReached});
+        if(sc.primaryMetric>bestPrimary) bestPrimary=sc.primaryMetric;
       }
+      return;
     }
-    if(idx >= nextYield){
-      nextYield = idx + 40000;
-      if(status) status.textContent = `Searching every build... ${N?Math.round(idx/N*100):100}% (${idx.toLocaleString()} of ${N.toLocaleString()})`;
-      await new Promise(r=>setTimeout(r,0));
-    }
-  }
-  if(status){ status.textContent = `Ranking ${idx.toLocaleString()} builds...`; await new Promise(r=>setTimeout(r,0)); }
+    const lo=Math.max(0,rem-restCap[i]), hi=Math.min(caps[i],rem);
+    for(let v=lo; v<=hi; v++){ acc[i]=v; rec(i+1, rem-v); }
+  })(0, target);
+
+  if(status){ showStatus(`Ranking ${recs.length.toLocaleString()} builds...`, 30000); await new Promise(r=>setTimeout(r,0)); }
 
   const threshold = bestPrimary - Math.abs(bestPrimary) * tol;
-  const order = new Array(idx);
-  for(let k=0;k<idx;k++) order[k]=k;
-  order.sort((x,y)=>{
-    const pax=primaryArr[x], pay=primaryArr[y];
-    const ax = pax >= threshold - 1e-9, ay = pay >= threshold - 1e-9;
+  recs.sort((x,y)=>{
+    const ax = x.pm >= threshold-1e-9, ay = y.pm >= threshold-1e-9;
     if(ax!==ay) return ax ? -1 : 1;
     if(ax && ay && sk!=="none"){
-      const sax=secondaryArr[x], say=secondaryArr[y];
-      if(Math.abs(say-sax)>1e-9) return say-sax;
-      if(Math.abs(pay-pax)>1e-9) return pay-pax;
+      if(Math.abs(y.sm-x.sm)>1e-9) return y.sm-x.sm;
+      if(Math.abs(y.pm-x.pm)>1e-9) return y.pm-x.pm;
     }else{
-      if(Math.abs(pay-pax)>1e-9) return pay-pax;
+      if(Math.abs(y.pm-x.pm)>1e-9) return y.pm-x.pm;
     }
-    const arx=allRewardsArr[x], ary=allRewardsArr[y];
-    if(Math.abs(ary-arx)>1e-9) return ary-arx;
-    if(Math.abs(floorArr[y]-floorArr[x])>1e-9) return floorArr[y]-floorArr[x];
-    return (sArr[y]-sArr[x])||(aArr[y]-aArr[x])||(pArr[y]-pArr[x])||(iArr[y]-iArr[x])||(lArr[y]-lArr[x]);
+    if(Math.abs(y.ar-x.ar)>1e-9) return y.ar-x.ar;
+    if(Math.abs(y.fr-x.fr)>1e-9) return y.fr-x.fr;
+    for(let i=0;i<x.a.length;i++){ if(y.a[i]!==x.a[i]) return y.a[i]-x.a[i]; }
+    return 0;
   });
 
-  const topN = Math.min(topLimit, idx);
-  const topBuilds = [];
-  for(let r=0;r<topN;r++){
-    const k = order[r];
-    topBuilds.push(scoreBuild({S:sArr[k],A:aArr[k],I:iArr[k],P:pArr[k],L:lArr[k]}, inp, blocks));
-  }
-  return {topBuilds, count: idx};
+  const topBuilds = recs.slice(0, topLimit).map(r=>{
+    const st={S:0,A:0,I:0,P:0,L:0,D:0,C:0};
+    for(let j=0;j<keys.length;j++) st[keys[j]]=r.a[j];
+    return scoreBuild(st, inp, blocks);
+  });
+  return {topBuilds, count: recs.length};
 }
 
 // Fast: a coarse grid over the allocation, then multi-start hill-climbing (move
@@ -2100,92 +2100,103 @@ async function exhaustiveSearch(inp, blocks, level, topLimit, status){
 // same rankCandidates() as the exhaustive path. Thousands of evals vs millions.
 // Validated against exhaustiveSearch via test/validate-search.js.
 function fastSearch(inp, blocks, level){
-  const caps = {S:Infinity, A:Infinity, I:25, P:25, L:25};
+  const spec = activeSkillSpec(inp);
+  const keys = spec.map(s=>s[0]);
+  const caps = Object.fromEntries(spec);
+  const target = Math.min(level, spec.reduce((a,[,c])=>a+c,0));
   const cache = new Map();
   const all = [];
-  const evalPt = (S,A,I,P,L)=>{
-    const key = S+","+A+","+I+","+P+","+L;
+  const evalA = (a)=>{
+    const st={S:0,A:0,I:0,P:0,L:0,D:0,C:0};
+    for(const k of keys) st[k]=a[k]||0;
+    const key = keys.map(k=>st[k]).join(",");
     let sc = cache.get(key);
-    if(sc === undefined){
-      sc = scoreBuild({S,A,I,P,L}, inp, blocks);
-      cache.set(key, sc);
-      all.push(sc);
-    }
+    if(sc === undefined){ sc = scoreBuild(st, inp, blocks); cache.set(key, sc); all.push(sc); }
     return sc;
   };
+  // Greedy-fill `target` points across skills in a priority order, respecting caps.
+  const fill = (order)=>{
+    const a = {}; for(const k of keys) a[k]=0;
+    let rem = target;
+    for(const k of order){ const put=Math.min(caps[k], rem); a[k]=put; rem-=put; if(rem<=0) break; }
+    return a;
+  };
 
-  // 1) Coarse grid (stride scales with level), always including the endpoints.
-  const g = Math.max(1, Math.round(level/20));
-  const steps = (max)=>{ const v=[]; for(let x=0;x<=max;x+=g) v.push(x); if(!v.length || v[v.length-1]!==max) v.push(max); return v; };
-  const maxI = Math.min(caps.I, level);
-  for(const I of steps(maxI)){
-    const maxP = Math.min(caps.P, level-I);
-    for(const P of steps(maxP)){
-      const maxL = Math.min(caps.L, level-I-P);
-      for(const L of steps(maxL)){
-        const rem = level-I-P-L;
-        for(const S of steps(rem)){ evalPt(S, rem-S, I, P, L); }
-      }
-    }
-  }
+  // 1) Diverse seeds: each skill prioritised first, an even split, and randoms.
+  const seeds = [];
+  for(const k of keys) seeds.push(fill([k, ...keys.filter(x=>x!==k)]));
+  { const a={}; for(const k of keys) a[k]=0; let rem=target,i=0;
+    while(rem>0 && i<100000){ const k=keys[i%keys.length]; if(a[k]<caps[k]){a[k]++;rem--;} i++; } seeds.push(a); }
+  for(let r=0;r<8;r++) seeds.push(fill(keys.slice().sort(()=>Math.random()-0.5)));
+  for(const s of seeds) evalA(s);
 
-  // 2) Hill-climb from the best coarse points on each relevant objective. A move
-  // shifts one point between two stats (sum stays = level), respecting the caps.
   const pk = primaryFocusKey(inp), sk = secondaryFocusKey(inp);
   const objectives = sk !== "none"
     ? [c=>metricValue(c, pk, inp), c=>metricValue(c, sk, inp)]
     : [c=>metricValue(c, pk, inp)];
-  const keys = ["S","A","I","P","L"];
-  for(const obj of objectives){
-    const seeds = all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0, 8).map(c=>({...c.stats}));
-    for(const seed of seeds){
-      let cur = seed;
-      let curV = obj(evalPt(cur.S,cur.A,cur.I,cur.P,cur.L));
-      let guard = 0;
-      for(;;){
-        if(guard++ > 4000) break;
-        let bestV = curV, bestStats = null;
-        for(const f of keys){
-          if(cur[f] <= 0) continue;
-          for(const t of keys){
-            if(f===t) continue;
-            const ns = {...cur}; ns[f]-=1; ns[t]+=1;
-            if(ns[t] > caps[t]) continue;
-            const v = obj(evalPt(ns.S, ns.A, ns.I, ns.P, ns.L));
-            if(v > bestV + 1e-12){ bestV = v; bestStats = ns; }
-          }
+
+  // 2) Multi-start hill-climb: shift one point between two skills (sum stays
+  // = target), respecting caps, taking the best improving move until none.
+  const climb = (seed, obj)=>{
+    let cur = {}; for(const k of keys) cur[k]=seed[k]||0;
+    let curV = obj(evalA(cur)), guard=0;
+    for(;;){
+      if(guard++ > 6000) break;
+      let bestV=curV, bestA=null;
+      for(const f of keys){
+        if(cur[f] <= 0) continue;
+        for(const t of keys){
+          if(f===t || (cur[t]||0) >= caps[t]) continue;
+          const ns={...cur}; ns[f]-=1; ns[t]+=1;
+          const v=obj(evalA(ns));
+          if(v > bestV+1e-12){ bestV=v; bestA=ns; }
         }
-        if(!bestStats) break;
-        cur = bestStats; curV = bestV;
       }
+      if(!bestA) break; cur=bestA; curV=bestV;
     }
+  };
+  for(const obj of objectives){
+    all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,10).forEach(c=>climb(c.stats, obj));
   }
 
-  // 3) Local polish: a small full grid (±W in each dimension) around the best
-  // points found, to catch optima the greedy ±1 climb stepped past because they
-  // need a combined move (e.g. +1 P / +1 I / -2 L across a ridge).
-  const W = 2;
+  // 3) Local polish: a ±W grid around the best builds over the top free skills
+  // (AGI is the slack), to catch ridge optima the greedy climb stepped past.
+  const freeKeys = keys.filter(k=>k!=="A");
+  const W = freeKeys.length <= 5 ? 2 : 1;
   const polishSeeds = [];
-  for(const obj of objectives){
-    all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,3).forEach(c=>polishSeeds.push(c.stats));
-  }
+  for(const obj of objectives) all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,3).forEach(c=>polishSeeds.push(c.stats));
   for(const s of polishSeeds){
-    for(let dI=-W; dI<=W; dI++) for(let dP=-W; dP<=W; dP++)
-    for(let dL=-W; dL<=W; dL++) for(let dS=-W; dS<=W; dS++){
-      const I=s.I+dI, P=s.P+dP, L=s.L+dL, S=s.S+dS;
-      if(I<0||P<0||L<0||S<0||I>caps.I||P>caps.P||L>caps.L) continue;
-      const rem=level-I-P-L;
-      if(rem<0||S>rem) continue;
-      evalPt(S, rem-S, I, P, L);
-    }
+    const dims = freeKeys.slice().sort((x,y)=>(s[y]||0)-(s[x]||0)).slice(0,5);
+    const base = {}; for(const k of keys) base[k]=s[k]||0;
+    (function grid(di, cur){
+      if(di === dims.length){
+        let sum=0; for(const k of keys) if(k!=="A") sum += cur[k]||0;
+        const a = target - sum;
+        if(a < 0 || a > caps.A) return;
+        cur.A = a; evalA(cur); return;
+      }
+      const k = dims[di];
+      for(let d=-W; d<=W; d++){
+        const v = (s[k]||0)+d;
+        if(v<0 || v>caps[k]) continue;
+        cur[k]=v; grid(di+1, cur);
+      }
+    })(0, {...base});
   }
   return all;
+}
+
+// Build label "S/A/P/I/L" (+"/D/C" once Divinity/Corruption are allocated).
+function buildLabel(s){
+  let lbl = `${s.S||0}/${s.A||0}/${s.P||0}/${s.I||0}/${s.L||0}`;
+  if((s.D||0) > 0 || (s.C||0) > 0) lbl += `/${s.D||0}/${s.C||0}`;
+  return lbl;
 }
 
 function renderBest(best, top, count){
   if(!best) return;
   const s=best.stats, d=best.der;
-  document.getElementById("bestBuild").textContent = `${s.S}/${s.A}/${s.P}/${s.I}/${s.L}`;
+  document.getElementById("bestBuild").textContent = buildLabel(s);
   document.getElementById("bestRph").textContent = fmt(best.rewardHr,1);
   document.getElementById("bestFloor").textContent = fmt(best.floorReached,2);
   const inp = getInputs();
@@ -2230,7 +2241,7 @@ function scoreCurrent(){
     C:clamp(Math.floor(n("curCorruption")),0,10)
   };
   const base=scoreBuild(stats,inp,blocks);
-  document.getElementById("curBuildLabel").textContent=`${stats.S}/${stats.A}/${stats.P}/${stats.I}/${stats.L}`;
+  document.getElementById("curBuildLabel").textContent=buildLabel(stats);
   document.getElementById("curRph").textContent=fmt(base.rewardHr,1);
   document.getElementById("curFloor").textContent=fmt(base.floorReached,2);
 
@@ -2540,7 +2551,7 @@ async function runMonteRerank(){
   const bestSim = results[0];
   if(bestSim){
     const s = bestSim.stats;
-    document.getElementById("simBestBuild").textContent = `${s.S}/${s.A}/${s.P}/${s.I}/${s.L}`;
+    document.getElementById("simBestBuild").textContent = buildLabel(s);
     document.getElementById("simPrimaryLabel").textContent = primaryFocusKey(inp)==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(inp))}/tick-hour`;
     document.getElementById("simPrimaryScore").textContent = primaryFocusKey(inp)==="target" ? fmt(bestSim.targetPct,1)+"%" : fmt(bestSim.primaryMetric,1);
     document.getElementById("simAvgFloor").textContent = fmt(bestSim.mcAvgFloor,2);
@@ -2706,7 +2717,7 @@ async function runReachability(){
 
   if(results.length){
     const best=results[0], s=best.stats;
-    document.getElementById("reachBestBuild").textContent=`${s.S}/${s.A}/${s.P}/${s.I}/${s.L}`;
+    document.getElementById("reachBestBuild").textContent=buildLabel(s);
     document.getElementById("reachTargetPct").textContent=fmt(best.targetPct,1)+"%";
     document.getElementById("reachAvgFloor").textContent=fmt(best.avgFloor,2);
     document.getElementById("reachMaxObserved").textContent=fmt(globalMaxFloor,2);
