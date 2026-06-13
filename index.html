@@ -584,13 +584,10 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           </div>
         </div>
         <div class="import-box">
-          <h3>Import stats from screenshot (AI)</h3>
-          <div class="form-grid" style="margin-bottom:8px">
-            <div style="grid-column:1/-1"><label>AI OCR worker URL</label><input id="aiOcrWorkerUrl" type="url" inputmode="url" placeholder="https://your-worker.workers.dev" value=""></div>
-          </div>
+          <h3>Import stats from screenshot</h3>
           <details style="margin-bottom:8px">
-            <summary>? Setup &amp; example</summary>
-            <div class="small" style="margin:6px 0">Screenshots are read by Gemini through your own Cloudflare worker (see <code>worker/README.md</code> in the repo). Paste the worker URL above once. Then open the Stats popup so the stat panel and the Enrage / Flurry / Quake cards are both visible and screenshot the whole screen — stats and skills are read together.</div>
+            <summary>? Example screenshot</summary>
+            <div class="small" style="margin:6px 0">Open the Stats popup so the stat panel and the Enrage / Flurry / Quake cards are both visible, then screenshot the whole screen. Stats and skills are read together.</div>
             <img src="stat-skill-example.jpg" alt="Example: stats popup with ability cards visible" style="max-width:100%;border:1px solid var(--line);border-radius:8px">
           </details>
           <div class="import-actions">
@@ -3437,6 +3434,10 @@ function finishImport(parsed, statsText, fullText){
   return applied;
 }
 
+// The AI OCR proxy (Cloudflare Worker holding the Gemini key). Baked in so users
+// never see or configure it; change here if the worker is ever moved.
+const AI_OCR_WORKER_URL = "https://arch-optimizer-ocr.caviarmy.workers.dev";
+
 // Downscale + JPEG-encode the screenshot so the worker payload stays small.
 async function fileToImageDataUrl(file, maxDim=1600, quality=0.85){
   const img = await loadImageFromFile(file);
@@ -3501,11 +3502,8 @@ async function importStatsFromScreenshot(file){
   const note = document.getElementById("ocrRuntimeNote");
   if(!file) return;
 
-  const workerUrl = (document.getElementById("aiOcrWorkerUrl")?.value || "").trim();
-  if(!workerUrl){
-    setOcrStatus("Set the AI OCR worker URL above first (see worker/README.md).");
-    return;
-  }
+  const workerUrl = AI_OCR_WORKER_URL;
+  if(!workerUrl){ setOcrStatus("AI OCR is not configured."); return; }
 
   try{
     if(btn) btn.disabled = true;
