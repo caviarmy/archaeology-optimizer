@@ -295,7 +295,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .asc-note{display:inline-block;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;margin-left:6px}
 
 </style>
-<script id="tesseractCdnScript" src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body data-workflow="results" data-target-used="false" data-simulation-ready="false" data-ascension="0">
 <header>
@@ -588,19 +587,18 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <h3>Import stats from screenshot</h3>
           <details style="margin-bottom:8px">
             <summary>? Example screenshot</summary>
-            <div class="small" style="margin:6px 0">Open the Stats popup so the stat panel and the Enrage / Flurry / Quake cards are both visible, then screenshot the whole screen. Stats and skill values are read together.</div>
+            <div class="small" style="margin:6px 0">Open the Stats popup so the stat panel and the Enrage / Flurry / Quake cards are both visible, then screenshot the whole screen. Stats and skills are read together.</div>
             <img src="stat-skill-example.jpg" alt="Example: stats popup with ability cards visible" style="max-width:100%;border:1px solid var(--line);border-radius:8px">
           </details>
           <div class="import-actions">
             <input id="statScreenshotInput" type="file" accept="image/*">
-            <button id="importStatScreenshotBtn" type="button" class="import-btn icon-btn" title="Import with Tesseract" aria-label="Import with Tesseract">↻</button>
-            <button id="importPaddleBtn" type="button" class="ghost" title="Import with PaddleOCR (experimental)">PaddleOCR</button>
+            <button id="importStatScreenshotBtn" type="button" class="import-btn icon-btn" title="Retry import" aria-label="Retry import">↻</button>
           </div>
           <div id="ocrStatus" class="ocr-status small">No screenshot imported.</div>
           <div id="ocrRuntimeNote" class="ocr-status small"></div>
           <div id="ocrParsedPreview" class="ocr-status small"></div>
           <details style="margin-top:8px">
-            <summary>OCR text</summary>
+            <summary>AI response</summary>
             <button id="copyOcrTextBtn" type="button" class="ghost-btn icon-btn" style="margin:8px 0" title="Copy" aria-label="Copy" onclick="copyOcrText(event)">📋</button>
             <pre id="ocrText" class="ocr-output"></pre>
           </details>
@@ -623,6 +621,19 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Base stamina mod %</label><input id="baseStaminaMod" type="number" step="0.001" value=""></div>
           <div><label>Stamina mod gain</label><input id="staminaModGain" type="number" step="0.001" value=""></div>
           <div><label>Base armor pen (flat)</label><input id="baseArmorPenFlat" type="number" step="0.001" value=""></div>
+          <div><label>Base speed mod gain (flat)</label><input id="baseSpeedModGain" type="number" step="0.001" value=""></div>
+          <div><label>Base speed mod atk rate x</label><input id="baseSpeedModAtkRate" type="number" step="0.001" value=""></div>
+        </div>
+        <h3 class="req-a2">Ascension 2 stats</h3>
+        <div class="form-grid req-a2">
+          <div><label>Base ultra crit chance %</label><input id="baseUltraChance" type="number" step="0.001" value=""></div>
+          <div><label>Base ultra crit damage x</label><input id="baseUltraDamage" type="number" step="0.001" value=""></div>
+          <div><label>Base ability instacharge %</label><input id="baseInstacharge" type="number" step="0.001" value=""></div>
+          <div><label>Base crosshair auto-tap %</label><input id="baseAutoTap" type="number" step="0.001" value=""></div>
+          <div><label>Base gold crosshair chance %</label><input id="baseGoldCrosshairChance" type="number" step="0.001" value=""></div>
+          <div><label>Base gold crosshair multi x</label><input id="baseGoldCrosshairMulti" type="number" step="0.001" value=""></div>
+          <div><label>Base gleaming floor chance %</label><input id="baseGleamingChance" type="number" step="0.001" value=""></div>
+          <div><label>Base gleaming floor multi x</label><input id="baseGleamingMulti" type="number" step="0.001" value=""></div>
         </div>
         <h3>Skills (abilities)</h3>
         <div class="form-grid">
@@ -1389,8 +1400,20 @@ function getInputs(){
       lootMod:pct("baseLootMod"),
       lootModGain:n("baseLootModGain") || 3.8,
       speedMod:pct("baseSpeedMod"),
+      speedModGain:n("baseSpeedModGain"),
+      speedModAtkRate:n("baseSpeedModAtkRate"),
       staminaMod:pct("baseStaminaMod"),
-      armorPenFlat:n("baseArmorPenFlat") || 0
+      armorPenFlat:n("baseArmorPenFlat") || 0,
+      // Ascension-2 stats: captured for display/persistence only. Not yet
+      // consumed by getDerived/scoring (deferred to a later integration pass).
+      ultraChance:pct("baseUltraChance"),
+      ultraDamage:n("baseUltraDamage"),
+      instacharge:pct("baseInstacharge"),
+      autoTap:pct("baseAutoTap"),
+      goldCrosshairChance:pct("baseGoldCrosshairChance"),
+      goldCrosshairMulti:n("baseGoldCrosshairMulti"),
+      gleamingChance:pct("baseGleamingChance"),
+      gleamingMulti:n("baseGleamingMulti")
     },
     inc:{
       strFlatDamage:n("strFlatDamage"),
@@ -2625,7 +2648,7 @@ function closeSettings(){
 function countWorthless(){
   return ["Common","Rare","Epic","Legendary","Mythic","Divine"].filter(t=>document.getElementById("worthless"+t)?.checked).length;
 }
-const BASE_STAT_FIELD_IDS = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat"];
+const BASE_STAT_FIELD_IDS = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain","baseArmorPenFlat","baseUltraChance","baseUltraDamage","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti","baseGleamingChance","baseGleamingMulti"];
 function updateSettingsSummary(){
   const setText=(id,text)=>{ const el=document.getElementById(id); if(el) el.textContent=text; };
   updateInfernalEffectLabels();
@@ -2723,24 +2746,138 @@ async function ensureTesseractLoaded(){
   return await loadScriptOnce("tesseractDynamicScript", "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js");
 }
 
-async function recognizeWithTesseract(image, statusPrefix){
-  const opts = {
+// Tight whitelist for the stats panel. Only digits, the letters that actually
+// appear in stat labels (J/Q/W/Z never do), and the punctuation the panel uses.
+// Forcing Tesseract to pick the best ALLOWED glyph removes junk like § & [ « | ©
+// and stops a digit from collapsing onto a letter that can never be correct here.
+const STAT_CHAR_WHITELIST = "0123456789ABCDEFGHIKLMNOPRSTUVXYabcdefghiklmnoprstuvxy .:%/+-";
+// Skill cards add words like "Quake"/"Blocks", so keep every letter there and
+// only strip the junk symbols.
+const FULL_CHAR_WHITELIST = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .:%/+-";
+// Digits + the punctuation values use. Used for the per-value refinement pass.
+const DIGIT_CHAR_WHITELIST = "0123456789.,+-%x/ ";
+
+let _ocrWorker = null;
+let _ocrParamKey = null;
+let _ocrStatusPrefix = "Reading";
+
+// One reusable worker for the whole session. Reuse is faster than the
+// recognize() convenience helper (which reloads each call) and, crucially, lets
+// us set tessedit_char_whitelist — which the convenience call cannot.
+async function getOcrWorker(){
+  if(_ocrWorker) return _ocrWorker;
+  const T = await ensureTesseractLoaded();
+  _ocrWorker = await T.createWorker("eng", 1, {
     workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
     corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js",
     langPath: "https://tessdata.projectnaptha.com/4.0.0",
     logger:m=>{
       if(m && m.status){
         const pct = m.progress ? ` ${Math.round(m.progress*100)}%` : "";
-        setOcrStatus(`${statusPrefix || "Reading"}: ${m.status}${pct}`);
+        setOcrStatus(`${_ocrStatusPrefix}: ${m.status}${pct}`);
       }
     }
-  };
-  return await Tesseract.recognize(image, "eng", opts);
+  });
+  return _ocrWorker;
+}
+
+async function recognizeWithTesseract(image, statusPrefix, whitelist, psm){
+  const worker = await getOcrWorker();
+  _ocrStatusPrefix = statusPrefix || "Reading";
+  // Default to the tight stats whitelist + single-block segmentation; callers
+  // reading card/full-screen text pass their own. Only re-issue setParameters
+  // when something actually changes (it forces a re-init).
+  const wl = whitelist === undefined ? STAT_CHAR_WHITELIST : whitelist;
+  const ps = psm === undefined ? "6" : String(psm); // 6 = single uniform block
+  const key = ps + " " + wl;
+  if(key !== _ocrParamKey){
+    await worker.setParameters({ tessedit_char_whitelist: wl, tessedit_pageseg_mode: ps });
+    _ocrParamKey = key;
+  }
+  // Request blocks/words so the digit-refinement pass can find value boxes.
+  return await worker.recognize(image, {}, { text: true, blocks: true });
 }
 
 function setOcrRuntimeNote(){
   const note = document.getElementById("ocrRuntimeNote");
   if(note) note.textContent = "";
+}
+
+// A fully letterised value token whose letters are all digit-shaped misreads
+// (e.g. 881 -> "HAL", 2x -> "lx"). This is exactly where the digit pass uniquely
+// wins. Tokens that already contain digits are deliberately excluded: re-OCR
+// doesn't fix digit-shape confusions and can shift a correct-ish value laterally.
+const DIGITISH = /^[OolIiSsBbGgZzHALTtxX]{2,4}$/;
+
+function extractOcrWords(data){
+  const out = [];
+  const push = w => { if(w && w.bbox && typeof w.text === "string") out.push({text:w.text, bbox:w.bbox}); };
+  if(data && Array.isArray(data.words) && data.words.length){ data.words.forEach(push); return out; }
+  for(const blk of (data?.blocks || []))
+    for(const par of (blk.paragraphs || []))
+      for(const ln of (par.lines || []))
+        for(const w of (ln.words || [])) push(w);
+  return out;
+}
+
+// Regroup words into reading-order lines from their boxes (independent of how the
+// engine paragraph-ised them), so reconstructed text matches the label layout.
+function groupWordsIntoLines(words){
+  const ws = [...words].sort((a,b)=>(a.bbox.y0-b.bbox.y0) || (a.bbox.x0-b.bbox.x0));
+  const lines = [];
+  for(const w of ws){
+    const yc = (w.bbox.y0 + w.bbox.y1)/2, hh = Math.max(1, w.bbox.y1 - w.bbox.y0);
+    let L = lines.find(l => Math.abs(l.yc - yc) < hh*0.6);
+    if(!L){ L = {yc, words:[]}; lines.push(L); }
+    L.words.push(w);
+    L.yc = (L.yc*(L.words.length-1) + yc) / L.words.length;
+  }
+  lines.sort((a,b)=>a.yc-b.yc);
+  lines.forEach(L => L.words.sort((a,b)=>a.bbox.x0-b.bbox.x0));
+  return lines.map(L => L.words);
+}
+
+function cropWordBox(canvas, bbox, pad=4, targetH=80){
+  const x = Math.max(0, Math.round(bbox.x0 - pad));
+  const y = Math.max(0, Math.round(bbox.y0 - pad));
+  const w = Math.min(canvas.width - x, Math.round(bbox.x1 - bbox.x0 + pad*2));
+  const h = Math.min(canvas.height - y, Math.round(bbox.y1 - bbox.y0 + pad*2));
+  const scale = Math.max(1, targetH / Math.max(1, h));
+  const out = document.createElement("canvas");
+  out.width = Math.max(1, Math.round(w*scale));
+  out.height = Math.max(1, Math.round(h*scale));
+  const ctx = out.getContext("2d", {willReadFrequently:true});
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(canvas, x, y, w, h, 0, 0, out.width, out.height);
+  return out;
+}
+
+// The accuracy fix: re-OCR each value's own box with a digits-only whitelist, so
+// letters physically can't appear in a number (881 can't become "HAL", a 6 read
+// as "G" must resolve to a digit). Returns text with values swapped in, or null
+// if the engine handed us no word boxes (then we keep the first-pass result).
+async function refineNumbersByDigitPass(processedCanvas, data){
+  const words = extractOcrWords(data);
+  const note = document.getElementById("ocrRuntimeNote");
+  if(!words.length){ if(note) note.textContent = "Value refinement skipped: OCR returned no word boxes."; return null; }
+  const lines = groupWordsIntoLines(words);
+  const candidates = words.filter(w => DIGITISH.test((w.text||"").trim())
+      && (w.bbox.x1 - w.bbox.x0) >= 4 && (w.bbox.y1 - w.bbox.y0) >= 4).slice(0, 24);
+  if(!candidates.length){ if(note) note.textContent = "No letterised values needed refining."; return null; }
+  let done = 0;
+  for(const w of candidates){
+    done++;
+    setOcrStatus(`Refining values ${done}/${candidates.length}...`);
+    let cleaned = "";
+    try{
+      const crop = cropWordBox(processedCanvas, w.bbox);
+      const res = await recognizeWithTesseract(crop, "Refining values", DIGIT_CHAR_WHITELIST, "7");
+      cleaned = (res?.data?.text || "").replace(/[^0-9.,%x+/\-]/gi, "").trim();
+    }catch(_e){}
+    if(/[0-9]/.test(cleaned)) w.text = cleaned; // only trust a result that has a digit
+  }
+  if(note) note.textContent = `Digit-refined ${candidates.length} value${candidates.length===1?"":"s"}.`;
+  return lines.map(L => L.words.map(w => w.text).join(" ")).join("\n");
 }
 
 
@@ -2842,28 +2979,73 @@ function cropCanvas(canvas, rect){
   return out;
 }
 
-function preprocessForOcr(canvas){
-  const scale = Math.max(1, Math.min(3, 2200 / Math.max(canvas.width, canvas.height)));
+// Crop a region — given in the ORIGINAL image's pixel coordinates — straight
+// from the full-resolution image, so stat text keeps its detail instead of being
+// sampled from a pre-shrunk working canvas. The rect is clamped to the image,
+// and the output's long side can be capped (used to bound the big ability crop).
+function cropImageRegion(img, rect, maxOut){
+  const W = img.naturalWidth, H = img.naturalHeight;
+  const ix = Math.max(0, Math.min(Math.round(rect.x), W-1));
+  const iy = Math.max(0, Math.min(Math.round(rect.y), H-1));
+  const iw = Math.max(1, Math.min(Math.round(rect.w), W - ix));
+  const ih = Math.max(1, Math.min(Math.round(rect.h), H - iy));
+  const scale = maxOut ? Math.min(1, maxOut / Math.max(iw, ih)) : 1;
   const out = document.createElement("canvas");
-  out.width = Math.round(canvas.width * scale);
-  out.height = Math.round(canvas.height * scale);
+  out.width = Math.max(1, Math.round(iw*scale));
+  out.height = Math.max(1, Math.round(ih*scale));
   const ctx = out.getContext("2d", {willReadFrequently:true});
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(canvas, 0, 0, out.width, out.height);
-
-  const img = ctx.getImageData(0,0,out.width,out.height);
-  const d = img.data;
-  for(let i=0;i<d.length;i+=4){
-    const lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
-    const isText = lum > 135;
-    d[i] = d[i+1] = d[i+2] = isText ? 0 : 255;
-    d[i+3] = 255;
-  }
-  ctx.putImageData(img,0,0);
+  ctx.imageSmoothingEnabled = scale < 1; // smooth only when shrinking
+  ctx.drawImage(img, ix, iy, iw, ih, 0, 0, out.width, out.height);
   return out;
 }
 
-function preprocessForOcrAlt(canvas){
+// Otsu's method: pick the luminance cut that best separates the dark panel from
+// the light text, so a bright floor bleeding through the translucent panel
+// doesn't break a fixed threshold. Falls back to the caller's default if the
+// histogram is degenerate.
+function otsuThreshold(hist, total){
+  if(!total) return -1;
+  let sum=0; for(let i=0;i<256;i++) sum += i*hist[i];
+  let sumB=0, wB=0, maxVar=-1, thr=-1;
+  for(let i=0;i<256;i++){
+    wB += hist[i];
+    if(wB===0) continue;
+    const wF = total - wB;
+    if(wF<=0) break;
+    sumB += i*hist[i];
+    const mB = sumB/wB, mF = (sum-sumB)/wF;
+    const between = wB*wF*(mB-mF)*(mB-mF);
+    if(between > maxVar){ maxVar = between; thr = i; }
+  }
+  return thr;
+}
+
+// Region below the stats panel, where the ability cards live. Anchored to the
+// detected stats panel (cards are below it); falls back to the lower half.
+function abilityRegionRect(canvas, statsRect){
+  const w = canvas.width, h = canvas.height;
+  let top = (statsRect && statsRect.h && (statsRect.y + statsRect.h) < h*0.9)
+    ? (statsRect.y + statsRect.h) : Math.round(h*0.5);
+  top = Math.max(0, Math.min(top, Math.round(h*0.78)));
+  return {x:0, y:top, w:w, h:h-top};
+}
+
+function preprocessForOcr(canvas, maxScale=3, target=2200, stripColor=false, adaptive=false){
+  const scale = Math.max(1, Math.min(maxScale, target / Math.max(canvas.width, canvas.height)));
+  const out = document.createElement("canvas");
+  out.width = Math.round(canvas.width * scale);
+  out.height = Math.round(canvas.height * scale);
+  const ctx = out.getContext("2d", {willReadFrequently:true});
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(canvas, 0, 0, out.width, out.height);
+
+  const imgData = ctx.getImageData(0,0,out.width,out.height);
+  binarizeImageData(imgData, stripColor, adaptive ? 135 : null, 135);
+  ctx.putImageData(imgData,0,0);
+  return out;
+}
+
+function preprocessForOcrAlt(canvas, stripColor=false, adaptive=false){
   const scale = Math.max(1, Math.min(3, 2200 / Math.max(canvas.width, canvas.height)));
   const out = document.createElement("canvas");
   out.width = Math.round(canvas.width * scale);
@@ -2872,16 +3054,39 @@ function preprocessForOcrAlt(canvas){
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(canvas, 0, 0, out.width, out.height);
 
-  const img = ctx.getImageData(0,0,out.width,out.height);
-  const d = img.data;
-  for(let i=0;i<d.length;i+=4){
+  const imgData = ctx.getImageData(0,0,out.width,out.height);
+  binarizeImageData(imgData, stripColor, adaptive ? 118 : null, 118);
+  ctx.putImageData(imgData,0,0);
+  return out;
+}
+
+// Shared binarizer. Drops saturated (icon/decoration) pixels when stripColor is
+// set, then thresholds luminance — adaptively via Otsu when adaptiveFallback is
+// non-null (using it only if Otsu is sane), otherwise at fixedThreshold. Stat
+// labels/values are near-white; the panel and floor behind it are darker.
+function binarizeImageData(imgData, stripColor, adaptiveFallback, fixedThreshold){
+  const d = imgData.data, n = d.length;
+  const hist = new Uint32Array(256);
+  let counted = 0;
+  for(let i=0;i<n;i+=4){
+    const r=d[i], g=d[i+1], b=d[i+2];
+    const colored = stripColor && (Math.max(r,g,b) - Math.min(r,g,b)) >= 60;
+    d[i+3] = colored ? 1 : 0; // stash the flag in alpha; RGB stays intact
+    if(!colored){ hist[(0.299*r + 0.587*g + 0.114*b)|0]++; counted++; }
+  }
+  let t = fixedThreshold;
+  if(adaptiveFallback !== null){
+    const ot = otsuThreshold(hist, counted);
+    t = (ot >= 60 && ot <= 235) ? ot : adaptiveFallback;
+  }
+  for(let i=0;i<n;i+=4){
+    const colored = d[i+3] === 1;
     const lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
-    const isText = lum > 118;
+    const isText = !colored && lum > t;
     d[i] = d[i+1] = d[i+2] = isText ? 0 : 255;
     d[i+3] = 255;
   }
-  ctx.putImageData(img,0,0);
-  return out;
+  return t;
 }
 
 function parsedValuePrecision(value){
@@ -2947,6 +3152,10 @@ function parseOcrNumericValue(raw, opts={}){
     .replace(/[%xX+]/g," ")
     .trim();
 
+  // Re-join a decimal split by a letter→digit fix, e.g. "6b. 25" became
+  // "66. 25" only after b→6, so the earlier join missed it. ("66.25")
+  s = s.replace(/([0-9])\s*\.\s*([0-9]{2})\b/g, "$1.$2");
+
   const nums = s.match(/[+-]?\d+(?:\.\d+)?/g);
   if(!nums || !nums.length) return null;
   return (opts.preferLast ? nums[nums.length-1] : nums[0]).replace(/^\+/,"");
@@ -2959,7 +3168,10 @@ function cleanStatLine(rawLine){
     .replace(/\(/g,"C")
     .replace(/Archaeolo(?:g|s|e)y/gi,"Archaeology")
     .replace(/Archaeolosy/gi,"Archaeology")
+    .replace(/\b[hfHF]rcha[a-z]+y\b/gi,"Archaeology")
+    .replace(/\b[hHBb][rm]mor\b/gi,"Armor")
     .replace(/Fraement/gi,"Fragment")
+    .replace(/Fras?ment/gi,"Fragment")
     .replace(/Fragment\s+Bain/gi,"Fragment Gain")
     .replace(/Fragment\s+Baim/gi,"Fragment Gain")
     .replace(/\bBain\b/gi,"Gain")
@@ -2969,6 +3181,8 @@ function cleanStatLine(rawLine){
     .replace(/\bhain\b/gi,"Gain")
     .replace(/\bHain\b/gi,"Gain")
     .replace(/\bHod\b/gi,"Mod")
+    .replace(/\bMed\b/gi,"Mod")
+    .replace(/\bBtk\b/gi,"Atk")
     .replace(/\bEzp\b/gi,"Exp")
     .replace(/\bXzP\b/gi,"Exp")
     .replace(/\bEXF\b/gi,"Exp")
@@ -2979,7 +3193,13 @@ function cleanStatLine(rawLine){
     .replace(/Camage/gi,"Damage")
     .replace(/Camase/gi,"Damage")
     .replace(/Damase/gi,"Damage")
+    .replace(/Damaze/gi,"Damage")
+    .replace(/Damace/gi,"Damage")
+    .replace(/\b[A-Za-z]?[o0]ma[a-z]e\b/gi,"Damage")
     .replace(/CDamage/gi,"Damage")
+    // Gleaming Floor: 'G' commonly reads as 'f', and 'Multi' as 'Melti'.
+    .replace(/\b[FfGgBb]leamin[a-z]*/gi,"Gleaming")
+    .replace(/\bMelti\b/gi,"Multi")
     .replace(/Dama\s*=\s*e/gi,"Damage")
     .replace(/Cama\s*=\s*e/gi,"Damage");
 }
@@ -3017,15 +3237,27 @@ function parseStatsFromOcr(rawText){
     take("baseStamina", line, new RegExp("Max\\s+Stamina" + gap + val, "i"));
     // Super crit lines and plain crit lines share the word "Crit", so route by
     // whether the line mentions "super" to avoid cross-contamination.
-    if(/super/.test(lc)){
+    if(/ultra/.test(lc)){
+      take("baseUltraChance", line, new RegExp("Crit\\s+Chance" + gap + val, "i"));
+      take("baseUltraDamage", line, new RegExp("Crit\\s+Damage" + gap + val, "i"));
+    }else if(/super/.test(lc)){
       take("baseSuperChance", line, new RegExp("Crit\\s+Chance" + gap + val, "i"));
       take("baseSuperDamage", line, new RegExp("Crit\\s+Damage" + gap + val, "i"));
     }else{
       take("baseCritChance", line, new RegExp("Crit\\s+Chance" + gap + val, "i"));
       take("baseCritDamage", line, new RegExp("Crit\\s+Damage" + gap + val, "i"));
     }
-    if(!/crit|super/.test(lc)) take("baseDamage", line, new RegExp("(?:^|\\s)Damage" + gap + val, "i"));
+    if(!/crit|super|ultra/.test(lc)) take("baseDamage", line, new RegExp("(?:^|\\s)Damage" + gap + val, "i"));
     take("baseArmorPenFlat", line, new RegExp("Armor\\s+Pen\\w*" + gap + val, "i"));
+    take("baseAtkSpeed", line, new RegExp("Atk\\s+Speed" + gap + val, "i"));
+    // A2 stats. Anchor on each unique phrase; Auto-Tap before the plain Gold
+    // Crosshair lines so "Crosshair" isn't grabbed by the wrong label.
+    take("baseInstacharge", line, new RegExp("Insta\\w+" + gap + val, "i"));
+    take("baseAutoTap", line, new RegExp("Auto[\\s-]*Tap" + gap + val, "i"));
+    take("baseGoldCrosshairMulti", line, new RegExp("Crosshair\\s+Multi" + gap + val, "i"));
+    take("baseGoldCrosshairChance", line, new RegExp("Crosshair\\s+Chance" + gap + val, "i"));
+    take("baseGleamingMulti", line, new RegExp("Gleam\\w*\\s+Floor\\s+Multi" + gap + val, "i"));
+    take("baseGleamingChance", line, new RegExp("Gleam\\w*\\s+Floor\\s+Chance" + gap + val, "i"));
 
     // Right column (Mod Gain before Mod Chance before plain Gain so the more
     // specific label wins).
@@ -3035,6 +3267,8 @@ function parseStatsFromOcr(rawText){
     take("baseFragGain", line, new RegExp("Fragment\\s+Gain" + gap + val, "i"));
     take("baseLootModGain", line, new RegExp("Loot\\s+Mod\\s+Gain" + gap + val, "i"));
     take("baseLootMod", line, new RegExp("Loot\\s+Mod\\s+Chance" + gap + val, "i"));
+    take("baseSpeedModAtkRate", line, new RegExp("Speed\\s+Mod\\s+Atk\\s+Rate" + gap + val, "i"));
+    take("baseSpeedModGain", line, new RegExp("Speed\\s+Mod\\s+Gain" + gap + val, "i"));
     take("baseSpeedMod", line, new RegExp("Speed\\s+Mod\\s+Chance" + gap + val, "i"));
     take("staminaModGain", line, new RegExp("Stamina\\s+Mod\\s+Gain" + gap + val, "i"));
     take("baseStaminaMod", line, new RegExp("Stamina\\s+Mod\\s+Chance" + gap + val, "i"));
@@ -3050,11 +3284,14 @@ function parseStatsFromOcr(rawText){
     if(found.baseStamina === undefined && /max\s+stamina/.test(lower)) found.baseStamina = after("stamina");
     if(found.baseDamage === undefined && /damage/.test(lower) && !/crit|super/.test(lower)) found.baseDamage = after("damage");
 
-    if(found.baseCritChance === undefined && /crit\s+chance/.test(lower) && !/super/.test(lower)) found.baseCritChance = after("chance");
-    if(found.baseCritDamage === undefined && /crit\s+damage/.test(lower) && !/super/.test(lower)) found.baseCritDamage = after("damage");
+    if(found.baseCritChance === undefined && /crit\s+chance/.test(lower) && !/super|ultra/.test(lower)) found.baseCritChance = after("chance");
+    if(found.baseCritDamage === undefined && /crit\s+damage/.test(lower) && !/super|ultra/.test(lower)) found.baseCritDamage = after("damage");
 
     if(found.baseSuperChance === undefined && /super/.test(lower) && /crit/.test(lower) && /chance/.test(lower)) found.baseSuperChance = after("chance");
     if(found.baseSuperDamage === undefined && /super/.test(lower) && /crit/.test(lower) && /damage/.test(lower)) found.baseSuperDamage = after("damage");
+
+    if(found.baseUltraChance === undefined && /ultra/.test(lower) && /crit/.test(lower) && /chance/.test(lower)) found.baseUltraChance = after("chance");
+    if(found.baseUltraDamage === undefined && /ultra/.test(lower) && /crit/.test(lower) && /damage/.test(lower)) found.baseUltraDamage = after("damage");
 
     if(found.baseXpGain === undefined && /(exp|xp)\s+gain/.test(lower) && !/mod/.test(lower)) found.baseXpGain = after("gain");
     if(found.baseFragGain === undefined && /fragment\s+gain/.test(lower)) found.baseFragGain = after("gain");
@@ -3063,9 +3300,20 @@ function parseStatsFromOcr(rawText){
     if(found.baseXpModGain === undefined && /(exp|xp).{0,8}mod\s+gain/.test(lower)) found.baseXpModGain = after("gain");
     if(found.baseLootMod === undefined && /loot\s+mod\s+chance/.test(lower)) found.baseLootMod = after("chance");
     if(found.baseLootModGain === undefined && /loot\s+mod\s+gain/.test(lower)) found.baseLootModGain = after("gain");
+    if(found.baseSpeedModAtkRate === undefined && /speed\s+mod\s+atk\s+rate/.test(lower)) found.baseSpeedModAtkRate = after("rate");
+    if(found.baseSpeedModGain === undefined && /speed\s+mod\s+gain/.test(lower)) found.baseSpeedModGain = after("gain");
     if(found.baseSpeedMod === undefined && /speed\s+mod\s+chance/.test(lower)) found.baseSpeedMod = after("chance");
     if(found.baseStaminaMod === undefined && /stamina\s+mod\s+chance/.test(lower)) found.baseStaminaMod = after("chance");
     if(found.staminaModGain === undefined && /stamina\s+mod\s+gain/.test(lower)) found.staminaModGain = after("gain");
+
+    // A2 stats.
+    if(found.baseAtkSpeed === undefined && /atk\s+speed/.test(lower)) found.baseAtkSpeed = after("speed");
+    if(found.baseInstacharge === undefined && /insta/.test(lower)) found.baseInstacharge = after("insta");
+    if(found.baseAutoTap === undefined && /auto[\s-]*tap/.test(lower)) found.baseAutoTap = after("tap");
+    if(found.baseGoldCrosshairMulti === undefined && /crosshair\s+multi/.test(lower)) found.baseGoldCrosshairMulti = after("multi");
+    if(found.baseGoldCrosshairChance === undefined && /crosshair\s+chance/.test(lower)) found.baseGoldCrosshairChance = after("chance");
+    if(found.baseGleamingMulti === undefined && /gleam\w*\s+floor\s+multi/.test(lower)) found.baseGleamingMulti = after("multi");
+    if(found.baseGleamingChance === undefined && /gleam\w*\s+floor\s+chance/.test(lower)) found.baseGleamingChance = after("chance");
 
     // Flat "Armor Penetration" is shown in the stat window; % armor pen is not a
     // tracked base stat (it comes from attributes/upgrades), so only parse flat.
@@ -3165,10 +3413,14 @@ function finishImport(parsed, statsText, fullText){
       selectedLevel:"Level", baseDamage:"Damage", baseStamina:"Stamina", baseCritChance:"Crit %",
       baseCritDamage:"Crit dmg", baseSuperChance:"Super crit %", baseSuperDamage:"Super crit dmg",
       baseXpGain:"XP gain", baseFragGain:"Fragment gain", baseXpMod:"XP mod %", baseXpModGain:"XP mod gain",
-      baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %", baseStaminaMod:"Stamina mod %",
-      staminaModGain:"Stamina mod gain", baseArmorPenFlat:"Armor pen"
+      baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %",
+      baseSpeedModGain:"Speed mod gain", baseSpeedModAtkRate:"Speed mod atk rate", baseStaminaMod:"Stamina mod %",
+      staminaModGain:"Stamina mod gain", baseArmorPenFlat:"Armor pen", baseAtkSpeed:"Atk speed",
+      baseUltraChance:"Ultra crit %", baseUltraDamage:"Ultra crit dmg", baseInstacharge:"Instacharge %",
+      baseAutoTap:"Auto-tap %", baseGoldCrosshairChance:"Gold crosshair %", baseGoldCrosshairMulti:"Gold crosshair x",
+      baseGleamingChance:"Gleaming floor %", baseGleamingMulti:"Gleaming floor x"
     };
-    const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain","baseArmorPenFlat"];
+    const order = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseUltraChance","baseUltraDamage","baseAtkSpeed","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain","baseArmorPenFlat","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti","baseGleamingChance","baseGleamingMulti"];
     preview.textContent = Object.keys(parsed).length
       ? "Parsed: " + order.filter(id=>parsed[id] !== undefined).map(id=>`${labels[id] || id} ${parsed[id]}`).join(" · ")
       : "";
@@ -3182,130 +3434,108 @@ function finishImport(parsed, statsText, fullText){
   return applied;
 }
 
+// The AI OCR proxy (Cloudflare Worker holding the Gemini key). Baked in so users
+// never see or configure it; change here if the worker is ever moved.
+const AI_OCR_WORKER_URL = "https://arch-optimizer-ocr.caviarmy.workers.dev";
+
+// Downscale + JPEG-encode the screenshot so the worker payload stays small.
+async function fileToImageDataUrl(file, maxDim=1600, quality=0.85){
+  const img = await loadImageFromFile(file);
+  const canvas = canvasFromImage(img, maxDim);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+// Field IDs the worker can return, with friendly labels for the parsed preview.
+const AI_FIELD_LABELS = {
+  selectedLevel:"Level", baseDamage:"Damage", baseStamina:"Stamina", baseCritChance:"Crit %",
+  baseCritDamage:"Crit dmg", baseSuperChance:"Super crit %", baseSuperDamage:"Super crit dmg",
+  baseUltraChance:"Ultra crit %", baseUltraDamage:"Ultra crit dmg", baseAtkSpeed:"Atk speed",
+  baseArmorPenFlat:"Armor pen", baseInstacharge:"Instacharge %", baseAutoTap:"Auto-tap %",
+  baseGoldCrosshairChance:"Gold crosshair %", baseGoldCrosshairMulti:"Gold crosshair x",
+  baseGleamingChance:"Gleaming floor %", baseGleamingMulti:"Gleaming floor x",
+  baseXpGain:"XP gain", baseFragGain:"Fragment gain", baseXpMod:"XP mod %", baseXpModGain:"XP mod gain",
+  baseLootMod:"Loot mod %", baseLootModGain:"Loot mod gain", baseSpeedMod:"Speed mod %",
+  baseSpeedModGain:"Speed mod gain", baseSpeedModAtkRate:"Speed mod atk rate",
+  baseStaminaMod:"Stamina mod %", staminaModGain:"Stamina mod gain",
+  enrageDmgPct:"Enrage dmg %", enrageCritDmgPct:"Enrage crit dmg %", enrageCharges:"Enrage charges", enrageCooldown:"Enrage cd",
+  flurryAtkSpeedPct:"Flurry atk spd %", flurryStaminaOnCast:"Flurry stamina", flurryCharges:"Flurry charges", flurryCooldown:"Flurry cd",
+  quakeDmgPct:"Quake dmg %", quakeCharges:"Quake charges", quakeCooldown:"Quake cd"
+};
+
+// Apply the worker's structured JSON to the form. Keys match input IDs, so this
+// is a direct fill; ability checkboxes are enabled when their fields come back.
+function applyAiStats(stats){
+  let applied = 0;
+  const shown = [];
+  for(const [id, val] of Object.entries(stats || {})){
+    if(val === null || val === undefined || val === "") continue;
+    if(document.getElementById(id) && setFieldValue(id, val)){
+      applied++;
+      if(AI_FIELD_LABELS[id]) shown.push(`${AI_FIELD_LABELS[id]} ${val}`);
+    }
+  }
+  if(applied) statsImported = true;
+
+  const enable = (flag, ids) => {
+    if(ids.some(id => stats[id] !== null && stats[id] !== undefined)){
+      const el = document.getElementById(flag);
+      if(el && !el.checked){ el.checked = true; el.dispatchEvent(new Event("change", {bubbles:true})); }
+    }
+  };
+  enable("enrageOn", ["enrageDmgPct","enrageCritDmgPct","enrageCharges","enrageCooldown"]);
+  enable("flurryOn", ["flurryAtkSpeedPct","flurryStaminaOnCast","flurryCharges","flurryCooldown"]);
+  enable("quakeOn", ["quakeDmgPct","quakeCharges","quakeCooldown"]);
+
+  const preview = document.getElementById("ocrParsedPreview");
+  if(preview) preview.textContent = shown.length ? "Parsed: " + shown.join(" · ") : "";
+
+  markOptimizerStale();
+  renderNodes();
+  scoreCurrent();
+  updateSettingsSummary();
+  return applied;
+}
+
 async function importStatsFromScreenshot(file){
-  const status = document.getElementById("ocrStatus");
   const ocrText = document.getElementById("ocrText");
   const btn = document.getElementById("importStatScreenshotBtn");
+  const note = document.getElementById("ocrRuntimeNote");
   if(!file) return;
+
+  const workerUrl = AI_OCR_WORKER_URL;
+  if(!workerUrl){ setOcrStatus("AI OCR is not configured."); return; }
 
   try{
     if(btn) btn.disabled = true;
-    await ensureTesseractLoaded(status);
-    setOcrStatus("Loading screenshot...");
+    if(note) note.textContent = "";
     if(ocrText) ocrText.textContent = "";
-    const img = await loadImageFromFile(file);
-    const baseCanvas = canvasFromImage(img);
-    const rect = detectStatsPanelRect(baseCanvas);
-    const cropped = cropCanvas(baseCanvas, rect);
-    const processed = preprocessForOcr(cropped);
+    setOcrStatus("Preparing image...");
+    const dataUrl = await fileToImageDataUrl(file);
 
-    setOcrStatus("Reading screenshot...");
-    const result = await recognizeWithTesseract(processed, "Reading screenshot");
+    setOcrStatus("Reading screenshot with AI...");
+    const res = await fetch(workerUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: dataUrl })
+    });
+    const payload = await res.json().catch(() => null);
+    if(ocrText && payload) ocrText.textContent = JSON.stringify(payload, null, 2);
 
-    let text = result?.data?.text || "";
-    let parsed = parseStatsFromOcr(text);
-    let fullText = "";
-
-    // If stamina mod OCR is only one decimal, run one alternate crop pass and
-    // use it only if it gives a more precise stamina-mod value.
-    if(parsed.baseStaminaMod !== undefined && parsedValuePrecision(parsed.baseStaminaMod) < 2){
-      try{
-        const altResult = await recognizeWithTesseract(preprocessForOcrAlt(cropped), "Reading stamina mod");
-        const altText = altResult?.data?.text || "";
-        const altParsed = parseStatsFromOcr(altText);
-        parsed = mergeParsedSingleField(parsed, altParsed, "baseStaminaMod");
-        if(parsedValuePrecision(parsed.baseStaminaMod) < 2 && /Stamina\s+Mod\s+Chance[^\n]*0\.7%%/i.test(text)){
-          parsed.baseStaminaMod = "0.75";
-        }
-      }catch(_err){}
+    if(!res.ok || !payload || payload.error){
+      setOcrStatus("AI OCR failed: " + (payload?.error || ("HTTP " + res.status)));
+      return;
     }
 
-    // Some crops are worse than the full image. If too few labels are found,
-    // retry against the full screenshot before applying values.
-    if(Object.keys(parsed).length < 5){
-      setOcrStatus("Reading full screenshot...");
-      const fullProcessed = preprocessForOcr(baseCanvas);
-      const fullResult = await recognizeWithTesseract(fullProcessed, "Reading full screenshot");
-      fullText = fullResult?.data?.text || "";
-      const fullParsed = parseStatsFromOcr(fullText);
-      if(Object.keys(fullParsed).length >= Object.keys(parsed).length){
-        text = fullText;
-        parsed = fullParsed;
-      }
-    }
-
-    if(parsed.baseStaminaMod !== undefined && parsedValuePrecision(parsed.baseStaminaMod) < 2 && /Stamina\s+Mod\s+Chance[^\n]*0\.7%%/i.test(text)){
-      parsed.baseStaminaMod = "0.75";
-    }
-
-    // Ability cards live below the stats popup, outside the stats crop, so read
-    // the full screenshot (reuse the fallback pass if it already ran).
-    if(!fullText){
-      setOcrStatus("Reading skill cards...");
-      try{
-        const abilityResult = await recognizeWithTesseract(preprocessForOcr(baseCanvas), "Reading skill cards");
-        fullText = abilityResult?.data?.text || "";
-      }catch(_e){}
-    }
-    finishImport(parsed, text, fullText);
+    const applied = applyAiStats(payload.stats || {});
+    setOcrStatus(applied ? `Imported ${applied} value${applied===1?"":"s"} from AI.` : "AI returned no usable values.");
   }catch(err){
     console.error(err);
-    setOcrStatus("Screenshot import failed: " + describeError(err));
+    setOcrStatus("AI OCR error: " + describeError(err));
   }finally{
     if(btn) btn.disabled = false;
   }
 }
 
-/* Experimental: PaddleOCR (PP-OCR) in-browser via PaddleJS, loaded from CDN.
-   Feeds its text through the same parsers so we can compare it to Tesseract. */
-let paddleOcrModule = null;
-async function ensurePaddleOcr(){
-  if(paddleOcrModule) return paddleOcrModule;
-  setOcrStatus("Loading PaddleOCR (first run downloads models)...");
-  // PaddleJS expects a bundler; jsDelivr's /+esm leaves WASM globals undefined
-  // ("Module is not defined"). esm.sh polyfills browser/Node globals, so try it
-  // first and fall back to jsDelivr.
-  const sources = [
-    "https://esm.sh/@paddlejs-models/ocr",
-    "https://cdn.jsdelivr.net/npm/@paddlejs-models/ocr/+esm"
-  ];
-  let mod = null, lastErr = null;
-  for(const url of sources){
-    try{ mod = await import(/* @vite-ignore */ url); break; }
-    catch(e){ lastErr = e; }
-  }
-  if(!mod) throw (lastErr || new Error("Could not load PaddleOCR module"));
-  if(typeof mod.init === "function") await mod.init();
-  paddleOcrModule = mod;
-  return mod;
-}
-async function recognizeWithPaddle(imageEl){
-  const ocr = await ensurePaddleOcr();
-  const res = await ocr.recognize(imageEl);
-  if(Array.isArray(res?.text)) return res.text.join("\n");
-  if(typeof res?.text === "string") return res.text;
-  if(Array.isArray(res)) return res.join("\n");
-  return String(res || "");
-}
-async function importStatsWithPaddle(file){
-  const status = document.getElementById("ocrStatus");
-  const btn = document.getElementById("importPaddleBtn");
-  if(!file) return;
-  try{
-    if(btn) btn.disabled = true;
-    const img = await loadImageFromFile(file);
-    await ensurePaddleOcr();
-    setOcrStatus("Reading screenshot with PaddleOCR...");
-    const text = await recognizeWithPaddle(img);
-    const parsed = parseStatsFromOcr(text);
-    finishImport(parsed, text, text);
-  }catch(err){
-    console.error(err);
-    setOcrStatus("PaddleOCR failed: " + describeError(err) + " (check internet / model CDN)");
-  }finally{
-    if(btn) btn.disabled = false;
-  }
-}
 
 
 function resetAllSettings(){
@@ -3313,8 +3543,9 @@ function resetAllSettings(){
   const blankIds = [
     "selectedLevel","targetFloor",
     "baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage",
-    "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseStaminaMod","staminaModGain",
+    "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain",
     "baseArmorPenFlat",
+    "baseUltraChance","baseUltraDamage","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti","baseGleamingChance","baseGleamingMulti",
     "curStr","curAgi","curPer","curInt","curLuck",
     "spentStr","spentAgi","spentPer","spentInt","spentLuck"
   ];
@@ -3482,11 +3713,6 @@ function bindStatScreenshotImport(){
   if(btn){
     btn.addEventListener("click", startSelectedScreenshotImport);
   }
-  document.getElementById("importPaddleBtn")?.addEventListener("click", ()=>{
-    const file = selectedStatScreenshotFile();
-    if(!file){ if(status) status.textContent = "Choose a screenshot first."; return; }
-    importStatsWithPaddle(file);
-  });
   document.getElementById("copyOcrTextBtn")?.addEventListener("click",copyOcrText);
 
   document.addEventListener("change",(e)=>{

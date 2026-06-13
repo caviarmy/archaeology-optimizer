@@ -1,0 +1,24 @@
+name = "obelisk-ocr"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# The Gemini API key is a SECRET, not a var. Set it after deploy with:
+#   wrangler secret put GEMINI_API_KEY
+# (paste the key from https://aistudio.google.com/app/apikey)
+
+[vars]
+# Default model. Override here if you want a different/newer lite model,
+# e.g. "gemini-2.5-flash-lite". Check available models in Google AI Studio.
+GEMINI_MODEL = "gemini-2.0-flash-lite"
+# Per-IP daily request cap (only enforced if the RL KV namespace below is enabled).
+DAILY_LIMIT = "100"
+# Optional: lock to your app's origin(s), comma-separated. Leave unset to allow any.
+# ALLOWED_ORIGINS = "https://caviarmy.github.io"
+
+# ---- Optional abuse protection -------------------------------------------------
+# Uncomment after creating a KV namespace to enable the per-IP daily cap:
+#   wrangler kv namespace create RL
+# then paste the printed id below.
+# [[kv_namespaces]]
+# binding = "RL"
+# id = "PASTE_KV_NAMESPACE_ID_HERE"
