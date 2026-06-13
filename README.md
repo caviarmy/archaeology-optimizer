@@ -5,7 +5,9 @@ Pick a goal, enter your current stats (manually or via screenshot OCR), and it
 finds the strongest STR / AGI / PER / INT / Luck build for that goal, with
 expected-value scoring plus Monte Carlo simulation to sanity-check it.
 
-The entire app is a single self-contained file: [`index.html`](index.html).
+The app is one self-contained file, [`index.html`](index.html). A second page,
+[`about.html`](about.html), is the "How it works" writeup (every formula, the data
+sources, and the assumptions); the **?** at the top right of the app opens it.
 
 ## Open the app
 

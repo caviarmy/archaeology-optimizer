@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How the Archaeology Optimizer works</title>
+<style>
+  :root{--ink:#172033;--muted:#5b6577;--line:#d8dee9;--soft:#f6f8fc;--accent:#0050A9}
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--ink);font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5}
+  header{background:#101828;color:#fff;padding:16px 20px}
+  header h1{margin:0;font-size:20px}
+  header a{color:#9dc3ff;font-size:13px}
+  main{max-width:860px;margin:0 auto;padding:22px 20px 80px}
+  h2{font-size:19px;margin:34px 0 8px;padding-top:10px;border-top:1px solid var(--line)}
+  h3{font-size:15px;margin:16px 0 4px}
+  p{margin:8px 0}
+  code{background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:13px}
+  pre{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;font-size:13px;line-height:1.45;margin:10px 0}
+  table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:var(--soft)}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+  .toc ol{margin:6px 0 0;padding-left:22px;columns:2;column-gap:26px}
+  .toc a{color:var(--accent);text-decoration:none}
+  .lead{color:var(--muted)}
+  .note{background:#fff8e8;border:1px solid #f0d68a;border-radius:8px;padding:10px 14px;margin:12px 0}
+  a{color:var(--accent)}
+  .sym td:first-child{white-space:nowrap;font-family:monospace}
+</style>
+</head>
+<body>
+<header>
+  <h1>How the Archaeology Optimizer works</h1>
+  <a href="index.html">Back to the app</a>
+</header>
+<main>
+
+<p class="lead">This page explains the model the optimizer uses: every formula, every input, the data it rests on, and the choices made along the way. It is meant to be read in parts. Use the contents to jump to what you care about.</p>
+
+<div class="toc">
+<strong>Contents</strong>
+<ol>
+  <li><a href="#goal">What it optimizes</a></li>
+  <li><a href="#glossary">Glossary</a></li>
+  <li><a href="#skills">Stats and skills</a></li>
+  <li><a href="#damage">Damage per hit</a></li>
+  <li><a href="#armor">Armor and penetration</a></li>
+  <li><a href="#hits">Breaking a block</a></li>
+  <li><a href="#rewards">Rewards and mods</a></li>
+  <li><a href="#stamina">Stamina and run length</a></li>
+  <li><a href="#abilities">Abilities and Instacharge</a></li>
+  <li><a href="#crosshairs">Crosshairs</a></li>
+  <li><a href="#time">Ticks versus real time</a></li>
+  <li><a href="#optimizer">The optimizer</a></li>
+  <li><a href="#sim">The simulation</a></li>
+  <li><a href="#sources">Sources</a></li>
+  <li><a href="#assumptions">Assumptions and limits</a></li>
+</ol>
+</div>
+
+<h2 id="goal">1. What it optimizes</h2>
+<p>You pick a goal (a reward type, all rewards, or a target floor). The optimizer searches how to spend your Archaeology Level points across the skills and returns the allocation with the best expected value for that goal. A separate simulation then replays top builds to check the estimate.</p>
+<p>The core measure is <strong>reward per attack tick</strong>, called tick efficiency. A run ends when stamina runs out, not when a timer expires, so value per stamina (equivalently, value per tick) is what decides how good a build is. Attack speed is deliberately kept out of this measure; see <a href="#time">Ticks versus real time</a>.</p>
+
+<h2 id="glossary">2. Glossary</h2>
+<table>
+<tr><th>Term</th><th>Meaning</th></tr>
+<tr><td>Tick</td><td>One attack swing. Costs one stamina and deals one hit.</td></tr>
+<tr><td>Stamina</td><td>The run budget. Each tick spends one. Some blocks refund stamina (a stamina mod).</td></tr>
+<tr><td>Floor</td><td>A screen of blocks. Clearing a floor advances to the next.</td></tr>
+<tr><td>Block (node)</td><td>One destructible object with HP, armor, and a reward.</td></tr>
+<tr><td>Mod</td><td>A bonus rolled on a block when the floor loads: extra experience, loot, speed, or stamina.</td></tr>
+<tr><td>Crit, super crit, ultra crit</td><td>Stacked damage multipliers. Each tier can only trigger on top of the one below it.</td></tr>
+<tr><td>Crosshair</td><td>A target that appears on a block in real time. An auto crosshair fires one free hit on its own.</td></tr>
+<tr><td>Ascension</td><td>A prestige level. A1 unlocks Divinity, A2 unlocks Corruption and tier 4 blocks.</td></tr>
+</table>
+
+<h2 id="skills">3. Stats and skills</h2>
+<p>Points come from your Archaeology Level and are shared across all skills. Each skill has a cap. Divinity needs Ascension 1, Corruption needs Ascension 2. Per point effects:</p>
+<table>
+<tr><th>Skill</th><th>Per point</th><th>Cap</th></tr>
+<tr><td>Strength</td><td>+1 flat damage, +1% damage, +3% crit damage</td><td>50</td></tr>
+<tr><td>Agility</td><td>+5 max stamina, +1% crit chance, +0.20% speed mod chance</td><td>50</td></tr>
+<tr><td>Perception</td><td>+4% fragment gain, +0.30% loot mod chance, +2 armor penetration</td><td>25</td></tr>
+<tr><td>Intellect</td><td>+5% experience gain, +0.30% exp mod chance, +3% armor penetration</td><td>25</td></tr>
+<tr><td>Luck</td><td>+2% crit chance, +0.20% to all mod chances, +0.50% gold crosshair chance</td><td>25</td></tr>
+<tr><td>Divinity (A1)</td><td>+2 flat damage, +2% super crit chance, +2% crosshair auto-tap</td><td>10</td></tr>
+<tr><td>Corruption (A2)</td><td>+6% damage, -3% max stamina, +1% to all mod multipliers</td><td>10</td></tr>
+</table>
+<p>Source: the in-game Archaeology skill table (see <a href="#sources">Sources</a>). One earlier version of this tool also gave Agility a stamina mod chance; the table above is correct, Agility does not affect stamina mod chance.</p>
+
+<h2 id="damage">4. Damage per hit</h2>
+<p>Flat bonuses are added first, then the percent multipliers:</p>
+<pre>damage = (base + 1*STR + 2*DIV) * (1 + 0.01*STR + 0.06*COR)</pre>
+<p>The crit tiers are conditional. A hit can crit; only a crit can become a super crit; only a super crit can become an ultra crit. With chances <code>cc</code>, <code>sc</code>, <code>uc</code> and multipliers <code>cd</code>, <code>sd</code>, <code>ud</code>:</p>
+<pre>cc = base_cc + 0.01*AGI + 0.02*LUCK        (capped at 99.5%)
+cd = base_cd + 0.03*STR
+sc = base_sc + 0.02*DIV
+sd, uc, ud come from your stats</pre>
+<p>The average damage multiplier of one hit is the sum over the four outcomes:</p>
+<pre>m = (1-cc)
+  + cc*(1-sc)*cd
+  + cc*sc*(1-uc)*cd*sd
+  + cc*sc*uc*cd*sd*ud
+
+expected hit damage = damage * m   (before armor)</pre>
+<p>Example with crit 66.25%, super 60.75%, ultra 22.5% and multipliers 4.21x, 3.11x, 4.84x: the ultra branch alone is <code>0.6625*0.6075*0.225 = 9.05%</code> of hits dealing <code>4.21*3.11*4.84 = 63.4x</code> damage. Leaving ultra out understates a hit by about 40%, so it is modeled in full.</p>
+
+<h2 id="armor">5. Armor and penetration</h2>
+<p>Armor subtracts a flat amount from every hit. Perception adds flat penetration, Intellect adds percent penetration that scales the flat value:</p>
+<pre>pen = (base_pen + 2*PER) * (1 + 0.03*INT)
+effective armor a = max(0, block_armor - pen)
+damage to block per hit = max(0, hit_damage - a)</pre>
+<p>A hit that cannot exceed the armor deals nothing but still spends the tick. A block no hit can exceed is unbreakable and is skipped.</p>
+
+<h2 id="hits">6. Breaking a block</h2>
+<p>Each hit lands one of the four crit outcomes, then loses the armor amount. The expected number of hits to break a block of HP <code>h</code> treats a blocked hit (zero damage) as a wasted tick:</p>
+<pre>E(h) = ( 1 + sum_i p_i * E(h - d_i) ) / (1 - p0)</pre>
+<p>where <code>d_i</code> and <code>p_i</code> are the post-armor damage and probability of each hitting outcome, and <code>p0</code> is the chance a hit is fully blocked. For blocks that take many hits the tool uses the fast estimate <code>E(h) = h / average hit damage</code>, which already discounts blocked ticks.</p>
+
+<h2 id="rewards">7. Rewards and mods</h2>
+<p>Each block has a base experience value and a base loot value. Loot is converted to an experience equivalent so that mixed goals share one number. Gain stats scale the base:</p>
+<pre>xp value   = base_xp   * (exp_gain + 0.05*INT per point applied to the gain stat)
+loot value = base_loot * (frag_gain + 0.04*PER per point applied to the gain stat)</pre>
+<h3>Mods</h3>
+<p>When a floor loads, every block rolls its mods and keeps them. A block can carry more than one. A mod adds its multiplier to the block reward only when it rolls, so the expected reward uses the mod chance:</p>
+<pre>chance:   xp mod   = base + 0.003*INT + 0.002*LUCK
+          loot mod = base + 0.003*PER + 0.002*LUCK
+gain:     multiplier when it rolls, scaled by Corruption: gain * (1 + 0.01*COR)
+
+expected block reward = base_value * gain_stat * (1 + (mod_gain - 1) * mod_chance)</pre>
+<p>Because mods are fixed to the block at spawn, a block killed by a crosshair pays the same reward as one killed by the player.</p>
+<h3>Gleaming floors</h3>
+<p>A floor is gleaming with a set chance, which multiplies all of that floor's rewards (mods included):</p>
+<pre>reward factor = 1 + gleaming_chance * (gleaming_multiplier - 1)</pre>
+
+<h2 id="stamina">8. Stamina and run length</h2>
+<p>Max stamina, after Agility and the Corruption penalty:</p>
+<pre>stamina = (base + 5*AGI) * (1 - 0.03*COR)</pre>
+<p>A run spends stamina floor by floor. Each block costs its expected hits in ticks, minus expected stamina refunds from stamina mods. When the remaining stamina cannot pay for the next floor, the run stops part way through it. The floor reached and the total reward over total ticks define the score. Rewards per tick are reported scaled to 3600 ticks, shown as value per tick-hour.</p>
+
+<h2 id="abilities">9. Abilities and Instacharge</h2>
+<p>Three abilities can auto fire when off cooldown:</p>
+<ul>
+<li><strong>Enrage</strong>: the next few swings gain damage and crit damage.</li>
+<li><strong>Flurry</strong>: restores stamina on cast and doubles attack speed for its swings.</li>
+<li><strong>Quake</strong>: the next few swings also deal a share of damage to every block on the floor.</li>
+</ul>
+<p>Cooldowns run on real time and do not change with attack speed. The buffed swings happen at the tick rate, so faster attack speed spends the fixed number of charges sooner. Instacharge is a chance to refund a cooldown on use, modeled as a shorter effective cooldown:</p>
+<pre>effective cooldown = cooldown * (1 - instacharge_chance)</pre>
+
+<h2 id="crosshairs">10. Crosshairs</h2>
+<p>Crosshairs appear in real time, not on the tick clock. Each <em>live</em> block on the floor independently has about a <strong>2.175% chance every 1.005 seconds</strong> to spawn one. More blocks on screen means more crosshairs. This rate is a community measurement (see <a href="#sources">Sources</a>) and can be edited in the app's settings.</p>
+<p>Only auto-tap crosshairs fire for an idle player; the rest need a manual tap and are ignored. An auto crosshair fires one regular hit about 2 seconds after it appears. If the block dies first, the crosshair is wasted. Gold is decided when the crosshair spawns:</p>
+<pre>gold chance = base + 0.005*LUCK
+a gold crosshair multiplies its hit by the gold multiplier</pre>
+<p>A crosshair hit uses the same crit ladder as a normal hit. Because crosshair hits are free, they let the player clear a floor in fewer ticks. The optimizer folds this into the score as an average per floor:</p>
+<pre>M = 1 + ( (N+1) / (2*v) ) * lambda * t * (hc / hp)
+
+N      = blocks on the floor
+v      = attacks per second
+lambda = 0.02175 / 1.005   (crosshairs per block per second)
+t      = auto-tap fraction (base + 0.02*DIV)
+hc, hp = expected crosshair hit and player hit damage (hc includes the gold factor)</pre>
+<p>The floor's stamina cost and tick cost are divided by <code>M</code>, which both raises reward per tick and lets the run reach deeper. The simulation models crosshairs exactly instead, including the 2 second delay and wasted shots.</p>
+
+<h2 id="time">11. Ticks versus real time</h2>
+<p>Two clocks run at once and the model keeps them apart.</p>
+<table>
+<tr><th>Tick clock</th><th>Real time clock</th></tr>
+<tr><td>Attacks, stamina spend, block damage.</td><td>Crosshair spawns, the 2 second crosshair delay, ability cooldowns.</td></tr>
+<tr><td>One tick is one swing and one stamina.</td><td>One real second is always one second.</td></tr>
+</table>
+<p>Attack speed sets how many ticks happen per real second. It does not change stamina efficiency: a build clears the same blocks for the same stamina at any speed. Speed only changes how crosshairs and ability cooldowns line up against ticks, because a faster run spends less real time and so sees fewer crosshair spawns. For this reason attack speed is excluded from the tick efficiency score and only matters inside the crosshair and ability terms.</p>
+
+<h2 id="optimizer">12. The optimizer</h2>
+<p>Points are allocated across the active skills under their caps (Strength and Agility 50, Perception, Intellect and Luck 25, Divinity and Corruption 10). Two search modes exist:</p>
+<ul>
+<li><strong>Smart search</strong> (default): seeds several allocations, then hill climbs by moving one point between skills, with basin hopping and a local grid to cross ridges. Fast, and matched the exact search on every one of 40 random tests across all ascensions.</li>
+<li><strong>Thorough</strong>: enumerates every legal allocation. Exact, but only runs when the count is small enough; otherwise it falls back to the smart search.</li>
+</ul>
+<p>When you set a secondary goal with a tolerance, the optimizer keeps every build within tolerance of the best primary value, then ranks those by the secondary goal.</p>
+
+<h2 id="sim">13. The simulation</h2>
+<p>The simulation replays a build many times with random crits, mod rolls, block layouts, abilities, and crosshairs. It re-ranks the top builds from the search and reports, per build: average reward per tick, the floor distribution (10th, 50th and 90th percentile), and, for a target floor goal, the percent of runs that reach it. It is the exact model and the right tie breaker when two builds score close.</p>
+
+<h2 id="sources">14. Sources</h2>
+<ul>
+<li>Idle Obelisk Miner Wiki, Archaeology page: skill effects, skill caps, block HP, armor, and reward data.</li>
+<li>In-game stats and skills panel: stat names and the example values used for testing.</li>
+<li>Community Discord: the crosshair spawn rate, measured at about 2.175% per block every 1.005 seconds and independent of attack speed.</li>
+</ul>
+<p>Numbers from the wiki and the game panel are treated as exact. The crosshair spawn rate is a community measurement and is exposed as an editable setting so it can be refined.</p>
+
+<h2 id="assumptions">15. Assumptions and limits</h2>
+<ul>
+<li><strong>Tick efficiency, not real time.</strong> The score is reward per stamina tick. Attack speed enters only through the crosshair and ability terms.</li>
+<li><strong>Loot as experience equivalent.</strong> Loot is converted to one comparable value so mixed goals share a score. The worthless-loot settings change that baseline.</li>
+<li><strong>Crosshair score is an average.</strong> The optimizer's crosshair term assumes crosshair damage is fully used and ignores overkill and per-block armor in the damage ratio. The simulation handles these exactly, so trust the simulation when the two differ.</li>
+<li><strong>Idle player.</strong> Only auto-tap crosshairs are counted. Manual taps are ignored.</li>
+<li><strong>Mods roll at spawn.</strong> Each block fixes its mods when the floor loads, so the killer (player or crosshair) does not change the reward.</li>
+<li><strong>Smart search is a heuristic.</strong> It matched the exact search on all tested cases, but for a hard guarantee on a small problem use Thorough.</li>
+<li><strong>Some card multipliers are neutral.</strong> Polychrome and infernal card values are recordable but treated as neutral until confirmed.</li>
+</ul>
+
+<p style="margin-top:34px"><a href="index.html">Back to the app</a></p>
+</main>
+</body>
+</html>
