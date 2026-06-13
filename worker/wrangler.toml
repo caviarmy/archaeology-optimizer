@@ -1,4 +1,4 @@
-name = "obelisk-ocr"
+name = "arch-optimizer-ocr"
 main = "worker.js"
 compatibility_date = "2024-11-01"
 
@@ -16,10 +16,10 @@ DAILY_LIMIT = "100"
 # Optional: lock to your app's origin(s), comma-separated. Leave unset to allow any.
 # ALLOWED_ORIGINS = "https://caviarmy.github.io"
 
-# ---- Optional abuse protection -------------------------------------------------
-# Uncomment after creating a KV namespace to enable the per-IP daily cap:
-#   wrangler kv namespace create RL
-# then paste the printed id below.
-# [[kv_namespaces]]
-# binding = "RL"
-# id = "PASTE_KV_NAMESPACE_ID_HERE"
+# ---- Abuse protection ----------------------------------------------------------
+# Per-IP daily cap (see DAILY_LIMIT above). This MUST be declared here, not only
+# in the dashboard — Git-connected deploys rebuild bindings from this file, so a
+# dashboard-only binding would be removed on the next deploy.
+[[kv_namespaces]]
+binding = "RL"
+id = "6f5ceb657b33438787fc3894cfeccbc1"
