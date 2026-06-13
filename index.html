@@ -705,7 +705,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>AGI stamina</label><input id="agiStamina" type="number" step="0.001" value="5"></div>
           <div><label>AGI crit chance %</label><input id="agiCritPct" type="number" step="0.001" value="1"></div>
           <div><label>AGI speed mod %</label><input id="agiSpeedPct" type="number" step="0.001" value="0.2"></div>
-          <div><label>AGI stamina mod %</label><input id="agiStaminaModPct" type="number" step="0.001" value="0.2"></div>
           <div><label>PER fragment gain x</label><input id="perFragGain" type="number" step="0.001" value="0.04"></div>
           <div><label>PER loot mod %</label><input id="perLootModPct" type="number" step="0.001" value="0.3"></div>
           <div><label>PER armor pen (flat)</label><input id="perArmorPen" type="number" step="0.001" value="2"></div>
@@ -1436,7 +1435,6 @@ function getInputs(){
       agiStamina:n("agiStamina"),
       agiCritPct:pct("agiCritPct"),
       agiSpeedPct:pct("agiSpeedPct"),
-      agiStaminaModPct:pct("agiStaminaModPct"),
       intXpGain:n("intXpGain"),
       intXpModPct:pct("intXpModPct"),
       intArmorPenPct:pct("intArmorPenPct"),
@@ -1502,7 +1500,7 @@ function reverseBaseStats(b, pts, inc){
     xpMod: Math.max(0, b.xpMod - I*inc.intXpModPct - L*inc.luckXpModPct),
     lootMod: Math.max(0, b.lootMod - P*inc.perLootModPct - L*inc.luckLootModPct),
     speedMod: Math.max(0, b.speedMod - A*inc.agiSpeedPct - L*inc.luckAllModPct),
-    staminaMod: Math.max(0, b.staminaMod - A*inc.agiStaminaModPct - L*inc.luckAllModPct),
+    staminaMod: Math.max(0, b.staminaMod - L*inc.luckAllModPct),
     armorPenFlat: Math.max(0, (b.armorPenFlat || 0) - P*(inc.perArmorPen || 0)),
     // Corruption scales the mod-gain multipliers; back that out too.
     xpModGain: (b.xpModGain || 3) / modMulti,
@@ -1552,7 +1550,9 @@ function getDerived(stats, inp){
   const lootBaseMult = b.fragGain * (1 + lootProcBonus*b.lootMod);
   const lootFactor = lootBaseMult ? lootMult / lootBaseMult : 0;
   const speedChance = clamp(b.speedMod + A*inc.agiSpeedPct + L*inc.luckAllModPct,0,0.95);
-  const staminaModChance = clamp(b.staminaMod + A*inc.agiStaminaModPct + L*inc.luckAllModPct,0,0.95);
+  // Stamina-mod chance: base + Luck (All Mod Chances). Agility does NOT affect it
+  // (wiki: Agility = Max Stamina, Crit Chance, Speed Mod Chance only).
+  const staminaModChance = clamp(b.staminaMod + L*inc.luckAllModPct,0,0.95);
   const stamina = (b.stamina + A*inc.agiStamina) * Math.max(0.05, 1 - C*(inc.corrMaxStaminaPct||0)); // Corruption -3%/pt max stamina
   // PER gives flat armor penetration (+2/level), INT gives percent (+3%/level).
   // Percent armor pen buffs the flat armor-pen stat (e.g. 100 pen +9% = 109 pen).
