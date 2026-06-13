@@ -158,7 +158,7 @@ expected block reward = base_value * gain_stat * (1 + (mod_gain - 1) * mod_chanc
 <pre>effective cooldown = cooldown * (1 - instacharge_chance)</pre>
 
 <h2 id="crosshairs">10. Crosshairs</h2>
-<p>Crosshairs appear in real time, not on the tick clock. Each <em>live</em> block on the floor independently has about a <strong>2.175% chance every 1.005 seconds</strong> to spawn one. More blocks on screen means more crosshairs. This rate is a community measurement (see <a href="#sources">Sources</a>) and can be edited in the app's settings.</p>
+<p>Crosshairs appear in real time, not on the tick clock. Each <em>live</em> block on the floor independently has about a <strong>2.175% chance every 1.005 seconds</strong> to spawn one. Only the blocks the current floor actually rolled count: not empty slots, not blocks already destroyed, and not blocks on deeper floors that have not spawned yet. A block that already shows a crosshair does not roll another until that one resolves. More blocks on screen means more crosshairs. This rate is a community measurement (see <a href="#sources">Sources</a>) and can be edited in the app's settings.</p>
 <p>Only auto-tap crosshairs fire for an idle player; the rest need a manual tap and are ignored. An auto crosshair fires one regular hit about 2 seconds after it appears. If the block dies first, the crosshair is wasted. Gold is decided when the crosshair spawns:</p>
 <pre>gold chance = base + 0.005*LUCK
 a gold crosshair multiplies its hit by the gold multiplier</pre>
@@ -188,7 +188,7 @@ hc, hp = expected crosshair hit and player hit damage (hc includes the gold fact
 <h3>Full search (the "Thorough" toggle)</h3>
 <p>This scores every legal build, so it is guaranteed to find the best one. It runs only when the count is small enough to finish quickly; otherwise it hands off to the guided search.</p>
 <h3>How we know the guided search is right</h3>
-<p>It was checked against the full search on 40 random setups covering every ascension, goal, and tolerance setting. The guided search returned the same best build in all 40. For a hard guarantee on one small case, switch on Thorough and compare.</p>
+<p>It was checked against the full search on 40 random setups covering every ascension, goal, and tolerance setting. It returned the same best build in 39 of them. The one difference was 0.3 percent on a secondary goal, in a flat case where the chosen reward could not spawn at that level so many builds were near-tied. For a hard guarantee on one case, switch on Thorough and compare.</p>
 <h3>Goals and tolerance</h3>
 <p>With a secondary goal and a tolerance, the tool first keeps every build within the tolerance of the best primary score, then ranks those by the secondary goal. This is how, for example, it picks the build with the most experience among the builds that reach close to the best loot.</p>
 
@@ -219,7 +219,7 @@ hc, hp = expected crosshair hit and player hit damage (hc includes the gold fact
 <li><strong>One neutral bridge between experience and loot.</strong> The game gives no rate between them, so we value a block's loot at the block's own experience (equal weight, default 1), take the rarity scaling from the game's experience numbers, and expose the experience-to-loot weight as a single setting. Reward is scored per stamina consumed, net of stamina-mod refunds.</li>
 <li><strong>Speed is left out of efficiency.</strong> Attack speed changes attacks per second, not reward per stamina, so it only enters through the real-time crosshair and ability terms.</li>
 <li><strong>Averages for the search, exact replay for the simulation.</strong> Expected hits, ability uptime, and the crosshair term are averages so the search can score many builds quickly. The simulation runs the exact rules and is the better number when the two disagree.</li>
-<li><strong>The guided search is a search, not a proof.</strong> It matched the full search on every tested case; use Thorough for a guarantee on one case.</li>
+<li><strong>The guided search is a search, not a proof.</strong> On 40 random tests it matched the full search 39 times, the one miss within 0.3 percent on a secondary goal. Use Thorough for a guarantee on one case.</li>
 <li><strong>Idle play.</strong> Only auto-tap crosshairs are counted; manual taps are ignored.</li>
 </ul>
 
