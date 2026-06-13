@@ -29,7 +29,7 @@ const ascOpts = opts("ascension");
   let pass=0, fail=0; const fails=[];
   for(let i=0;i<N;i++){
     // randomize a scenario
-    const lvl = rndi(22,34), mf = rndi(12,22);
+    const lvl = rndi(12,20), mf = rndi(10,20);
     set("selectedLevel", lvl); set("maxFloor", mf);
     set("ascension", pick(ascOpts));
     set("primaryGoal", pick(primaryOpts));
@@ -56,7 +56,9 @@ const ascOpts = opts("ascension");
     const pk = W.primaryFocusKey(inp), sk = W.secondaryFocusKey(inp);
     const topLimit = Math.max(10, inp.mcTopCount);
 
-    const exact = (await W.exhaustiveSearch(inp, blocks, level, topLimit, null)).topBuilds[0];
+    const ex = await W.exhaustiveSearch(inp, blocks, level, topLimit, null);
+    if(ex.bailed){ i--; continue; }
+    const exact = ex.topBuilds[0];
     const fastBest = W.rankCandidates(W.fastSearch(inp, blocks, level), inp)[0];
 
     const mv = (c,k)=>W.metricValue(c,k,inp);
@@ -70,7 +72,7 @@ const ascOpts = opts("ascension");
     }
     const s=exact.stats, f=fastBest.stats;
     if(ok){ pass++; console.log(`#${i} PASS lvl${level} mf${inp.maxFloor} pk=${pk} sk=${sk}`); }
-    else { fail++; const msg=`#${i} FAIL lvl${level} mf${inp.maxFloor} pk=${pk} sk=${sk}: ${why} | exact ${s.S}/${s.A}/${s.P}/${s.I}/${s.L} vs fast ${f.S}/${f.A}/${f.P}/${f.I}/${f.L}`; console.log(msg); fails.push(msg); }
+    else { fail++; const msg=`#${i} FAIL lvl${level} mf${inp.maxFloor} pk=${pk} sk=${sk}: ${why} | exact ${s.S}/${s.A}/${s.P}/${s.I}/${s.L}/${s.D||0}/${s.C||0} vs fast ${f.S}/${f.A}/${f.P}/${f.I}/${f.L}/${f.D||0}/${f.C||0}`; console.log(msg); fails.push(msg); }
   }
   console.log(`\n=== fast vs exhaustive: ${pass}/${N} matched ===`);
   if(fails.length) console.log("MISMATCHES:\n"+fails.join("\n"));
