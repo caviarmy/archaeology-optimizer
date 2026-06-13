@@ -387,6 +387,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       <div class="actionbar">
         <button id="runExact">Find best build</button>
         <button id="runMonteRerank" class="ghost">Simulate top builds</button>
+        <label class="check-row" style="margin:0 0 0 6px"><input id="thoroughSearch" type="checkbox"> Thorough (exact, slow)</label>
       </div>
       <div class="metrics">
         <div class="metric good"><div class="k">Best build</div><div class="v" id="bestBuild">—</div></div>
@@ -1932,23 +1933,44 @@ async function runExact(){
   const blocks = visibleBlocks(inp);
   const status = document.getElementById("status");
   const btn = document.getElementById("runExact");
+  const thorough = !!document.getElementById("thoroughSearch")?.checked;
   btn.disabled = true;
-  status.textContent = "Searching builds...";
+  status.textContent = thorough ? "Searching every build..." : "Searching builds...";
   status.classList.add("show");
   await new Promise(r=>setTimeout(r,20));
 
   clearMonteRerank();
   const topLimit = Math.max(10, inp.mcTopCount);
+  const start = performance.now();
+
+  let topBuilds, count;
+  if(thorough){
+    const res = await exhaustiveSearch(inp, blocks, level, topLimit, status);
+    topBuilds = res.topBuilds; count = res.count;
+  }else{
+    const all = fastSearch(inp, blocks, level);
+    count = all.length;
+    topBuilds = rankCandidates(all, inp).slice(0, topLimit);
+  }
+
+  const best = topBuilds[0];
+  lastExactTopBuilds = topBuilds.map((x, i2) => ({...x, detRank: i2 + 1}));
+  lastExactSignature = exactSignature;
+  renderBest(best, topBuilds.slice(0, 10), count);
+  status.textContent = `Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s (${count.toLocaleString()} build${count===1?"":"s"}${thorough?"":", smart search"}).`;
+  status.classList.add("show");
+  setTimeout(()=>{ status.classList.remove("show"); }, 5000);
+  btn.disabled = false;
+  isRunningExact = false;
+}
+
+// Exhaustive: evaluate every full point allocation (provably the best of all of
+// them), storing only compact per-candidate metrics in typed arrays so 1M+
+// candidates fit in memory. Slow at high levels — behind the "Thorough" toggle.
+async function exhaustiveSearch(inp, blocks, level, topLimit, status){
   const pk = primaryFocusKey(inp);
   const sk = secondaryFocusKey(inp);
   const tol = Math.max(0, (inp.goal?.tolerancePct || 0) / 100);
-  const start = performance.now();
-
-  // Exhaustive over every full point allocation (so the winner is provably the
-  // best of all of them), but store only compact per-candidate metrics in typed
-  // arrays — not the heavy result objects — so 1M+ candidates at high levels fit
-  // in memory instead of crashing the tab. Full detail is recomputed afterwards
-  // for just the handful of builds we actually display.
   const N = countCandidates(level);
   const primaryArr = new Float64Array(N);
   const secondaryArr = new Float64Array(N);
@@ -1956,9 +1978,7 @@ async function runExact(){
   const floorArr = new Float64Array(N);
   const sArr = new Uint8Array(N), aArr = new Uint8Array(N), iArr = new Uint8Array(N), pArr = new Uint8Array(N), lArr = new Uint8Array(N);
 
-  let idx = 0;
-  let bestPrimary = -Infinity;
-  let nextYield = 40000;
+  let idx = 0, bestPrimary = -Infinity, nextYield = 40000;
   const maxI = Math.min(25, level);
   for(let I=0; I<=maxI; I++){
     const maxP = Math.min(25, level-I);
@@ -1967,13 +1987,12 @@ async function runExact(){
       for(let L=0; L<=maxL; L++){
         const rem = level-I-P-L;
         for(let S=0; S<=rem; S++){
-          const A = rem-S;
-          const sc = scoreBuild({S,A,I,P,L}, inp, blocks);
+          const sc = scoreBuild({S,A:rem-S,I,P,L}, inp, blocks);
           primaryArr[idx] = sc.primaryMetric;
           secondaryArr[idx] = sc.secondaryMetric;
           allRewardsArr[idx] = metricValue(sc, "allRewards", inp);
           floorArr[idx] = sc.floorReached;
-          sArr[idx]=S; aArr[idx]=A; iArr[idx]=I; pArr[idx]=P; lArr[idx]=L;
+          sArr[idx]=S; aArr[idx]=rem-S; iArr[idx]=I; pArr[idx]=P; lArr[idx]=L;
           if(sc.primaryMetric > bestPrimary) bestPrimary = sc.primaryMetric;
           idx++;
         }
@@ -1981,16 +2000,12 @@ async function runExact(){
     }
     if(idx >= nextYield){
       nextYield = idx + 40000;
-      status.textContent = `Searching builds... ${N?Math.round(idx/N*100):100}% (${idx.toLocaleString()} of ${N.toLocaleString()})`;
+      if(status) status.textContent = `Searching every build... ${N?Math.round(idx/N*100):100}% (${idx.toLocaleString()} of ${N.toLocaleString()})`;
       await new Promise(r=>setTimeout(r,0));
     }
   }
+  if(status){ status.textContent = `Ranking ${idx.toLocaleString()} builds...`; await new Promise(r=>setTimeout(r,0)); }
 
-  status.textContent = `Ranking ${idx.toLocaleString()} builds...`;
-  await new Promise(r=>setTimeout(r,0));
-
-  // Same ranking as rankCandidates(), but over indices into the typed arrays so
-  // we never materialise the full candidate objects.
   const threshold = bestPrimary - Math.abs(bestPrimary) * tol;
   const order = new Array(idx);
   for(let k=0;k<idx;k++) order[k]=k;
@@ -2011,22 +2026,82 @@ async function runExact(){
     return (sArr[y]-sArr[x])||(aArr[y]-aArr[x])||(pArr[y]-pArr[x])||(iArr[y]-iArr[x])||(lArr[y]-lArr[x]);
   });
 
-  // Recompute full detail only for the builds we display / hand to the simulator.
   const topN = Math.min(topLimit, idx);
-  const top = [];
+  const topBuilds = [];
   for(let r=0;r<topN;r++){
     const k = order[r];
-    top.push(scoreBuild({S:sArr[k],A:aArr[k],I:iArr[k],P:pArr[k],L:lArr[k]}, inp, blocks));
+    topBuilds.push(scoreBuild({S:sArr[k],A:aArr[k],I:iArr[k],P:pArr[k],L:lArr[k]}, inp, blocks));
   }
-  const best = top[0];
-  lastExactTopBuilds = top.map((x, i2) => ({...x, detRank: i2 + 1}));
-  lastExactSignature = exactSignature;
-  renderBest(best, top.slice(0, 10), idx);
-  status.textContent = `Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s (${idx.toLocaleString()} builds).`;
-  status.classList.add("show");
-  setTimeout(()=>{ status.classList.remove("show"); }, 5000);
-  btn.disabled = false;
-  isRunningExact = false;
+  return {topBuilds, count: idx};
+}
+
+// Fast: a coarse grid over the allocation, then multi-start hill-climbing (move
+// one point from one stat to another) on the primary — and, if set, secondary —
+// metric. Returns every build it evaluated so the caller can rank them with the
+// same rankCandidates() as the exhaustive path. Thousands of evals vs millions.
+// Validated against exhaustiveSearch via test/validate-search.js.
+function fastSearch(inp, blocks, level){
+  const caps = {S:Infinity, A:Infinity, I:25, P:25, L:25};
+  const cache = new Map();
+  const all = [];
+  const evalPt = (S,A,I,P,L)=>{
+    const key = S+","+A+","+I+","+P+","+L;
+    let sc = cache.get(key);
+    if(sc === undefined){
+      sc = scoreBuild({S,A,I,P,L}, inp, blocks);
+      cache.set(key, sc);
+      all.push(sc);
+    }
+    return sc;
+  };
+
+  // 1) Coarse grid (stride scales with level), always including the endpoints.
+  const g = Math.max(1, Math.round(level/20));
+  const steps = (max)=>{ const v=[]; for(let x=0;x<=max;x+=g) v.push(x); if(!v.length || v[v.length-1]!==max) v.push(max); return v; };
+  const maxI = Math.min(caps.I, level);
+  for(const I of steps(maxI)){
+    const maxP = Math.min(caps.P, level-I);
+    for(const P of steps(maxP)){
+      const maxL = Math.min(caps.L, level-I-P);
+      for(const L of steps(maxL)){
+        const rem = level-I-P-L;
+        for(const S of steps(rem)){ evalPt(S, rem-S, I, P, L); }
+      }
+    }
+  }
+
+  // 2) Hill-climb from the best coarse points on each relevant objective. A move
+  // shifts one point between two stats (sum stays = level), respecting the caps.
+  const pk = primaryFocusKey(inp), sk = secondaryFocusKey(inp);
+  const objectives = sk !== "none"
+    ? [c=>metricValue(c, pk, inp), c=>metricValue(c, sk, inp)]
+    : [c=>metricValue(c, pk, inp)];
+  const keys = ["S","A","I","P","L"];
+  for(const obj of objectives){
+    const seeds = all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0, 8).map(c=>({...c.stats}));
+    for(const seed of seeds){
+      let cur = seed;
+      let curV = obj(evalPt(cur.S,cur.A,cur.I,cur.P,cur.L));
+      let guard = 0;
+      for(;;){
+        if(guard++ > 4000) break;
+        let bestV = curV, bestStats = null;
+        for(const f of keys){
+          if(cur[f] <= 0) continue;
+          for(const t of keys){
+            if(f===t) continue;
+            const ns = {...cur}; ns[f]-=1; ns[t]+=1;
+            if(ns[t] > caps[t]) continue;
+            const v = obj(evalPt(ns.S, ns.A, ns.I, ns.P, ns.L));
+            if(v > bestV + 1e-12){ bestV = v; bestStats = ns; }
+          }
+        }
+        if(!bestStats) break;
+        cur = bestStats; curV = bestV;
+      }
+    }
+  }
+  return all;
 }
 
 function renderBest(best, top, count){
