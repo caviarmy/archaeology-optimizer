@@ -58,10 +58,11 @@ Or simply download `index.html` and double-click it.
 
 ## Notes
 
-- Optimization is in **tick-efficiency** terms (reward per attack tick); speed
-  is intentionally excluded until a dedicated real-time mode is added.
-- Loot is converted to an XP-equivalent value so mixed-reward goals share one
-  score. Worthless-loot toggles change that baseline.
+- Optimization is **reward per stamina spent** (net of stamina-mod refunds), so a
+  build that earns more for less stamina wins. Attack speed is excluded from this
+  number; it only affects the real-time crosshair and ability terms.
+- Loot is valued at its block's own XP (a neutral 1:1, adjustable with the loot
+  weight) so mixed-reward goals share one scale. Worthless-loot toggles zero a rarity.
 - Settings (stats, cards, ascension, goals) are saved to your browser's
   `localStorage` and restored on reload. Use **Reset all** to clear them. In
   sandboxed previews or private-browsing mode storage may be blocked; the app

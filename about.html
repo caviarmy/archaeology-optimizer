@@ -61,7 +61,7 @@
 
 <h2 id="goal">1. What it optimizes</h2>
 <p>You pick a goal (a reward type, all rewards, or a target floor). The optimizer searches how to spend your Archaeology Level points across the stats and returns the allocation with the best expected value for that goal. A separate simulation then replays top builds to check the estimate.</p>
-<p>The core measure is <strong>reward per attack tick</strong>, called tick efficiency. A run ends when stamina runs out, not when a timer expires, so value per stamina (equivalently, value per tick) is what decides how good a build is. Attack speed is deliberately kept out of this measure; see <a href="#time">Ticks versus real time</a>.</p>
+<p>The core measure is <strong>reward per stamina spent</strong>. A run ends when stamina runs out, so the build that earns the most for each point of stamina wins. Two things make a point of stamina go further and so raise this number: stamina refunds (which give back part of what a hit costs) and auto-crosshairs (free hits that cost no stamina). Attack speed does not change it; see <a href="#time">Ticks versus real time</a>.</p>
 
 <h2 id="glossary">2. Glossary</h2>
 <table>
@@ -145,7 +145,7 @@ expected block reward = base_value * gain_stat * (1 + (mod_gain - 1) * mod_chanc
 <h2 id="stamina">8. Stamina and run length</h2>
 <p>Max stamina, after Agility and the Corruption penalty:</p>
 <pre>stamina = (base + 5*AGI) * (1 - 0.03*COR)</pre>
-<p>A run spends stamina floor by floor. Each block costs its expected hits in ticks, minus expected stamina refunds from stamina mods. When the remaining stamina cannot pay for the next floor, the run stops part way through it. The floor reached and the total reward over total ticks define the score. Rewards per tick are reported scaled to 3600 ticks, shown as value per tick-hour.</p>
+<p>A run spends stamina floor by floor. A block's stamina cost is its expected hits minus any stamina a stamina mod refunds, so refunds make a block cheaper and the run reach further. When the remaining stamina cannot pay for the next floor, the run stops part way through it. The score is total reward divided by total stamina consumed, shown as value per stamina. A build that earns the same reward for less stamina scores higher, which is the point.</p>
 
 <h2 id="abilities">9. Abilities and Instacharge</h2>
 <p>Three abilities can auto fire when off cooldown:</p>
@@ -170,7 +170,7 @@ v      = attacks per second
 lambda = 0.02175 / 1.005   (crosshairs per block per second)
 t      = auto-tap fraction (base + 0.02*DIV)
 hc, hp = expected crosshair hit and player hit damage (hc includes the gold factor)</pre>
-<p>The floor's stamina cost and tick cost are divided by <code>M</code>, which both raises reward per tick and lets the run reach deeper. The simulation models crosshairs exactly instead, including the 2 second delay and wasted shots.</p>
+<p>The floor's stamina cost is divided by <code>M</code>, which raises reward per stamina and lets the run reach deeper, because crosshair hits add progress and rewards without spending any stamina. The simulation models crosshairs exactly instead, including the 2 second delay and wasted shots.</p>
 
 <h2 id="time">11. Ticks versus real time</h2>
 <p>Two clocks run at once and the model keeps them apart.</p>
@@ -179,7 +179,7 @@ hc, hp = expected crosshair hit and player hit damage (hc includes the gold fact
 <tr><td>Attacks, stamina spend, block damage.</td><td>Crosshair spawns, the 2 second crosshair delay, ability cooldowns.</td></tr>
 <tr><td>One tick is one swing and one stamina.</td><td>One real second is always one second.</td></tr>
 </table>
-<p>Attack speed sets how many ticks happen per real second. It does not change stamina efficiency: a build clears the same blocks for the same stamina at any speed. Speed only changes how crosshairs and ability cooldowns line up against ticks, because a faster run spends less real time and so sees fewer crosshair spawns. For this reason attack speed is excluded from the tick efficiency score and only matters inside the crosshair and ability terms.</p>
+<p>Attack speed sets how many ticks happen per real second. It does not change stamina efficiency: a build clears the same blocks for the same stamina at any speed. Speed only changes how crosshairs and ability cooldowns line up against ticks, because a faster run spends less real time and so sees fewer crosshair spawns. For this reason attack speed is excluded from the per-stamina score and only matters inside the crosshair and ability terms.</p>
 
 <h2 id="optimizer">12. The optimizer</h2>
 <p>The problem is its size. Level points can be split across seven stats under their caps (Strength and Agility 50, Perception, Intellect and Luck 25, Divinity and Corruption 10). At high levels that is millions of possible builds, too many to score one by one on a phone. So the tool uses a guided search by default and keeps a full search as a check.</p>
@@ -193,7 +193,7 @@ hc, hp = expected crosshair hit and player hit damage (hc includes the gold fact
 <p>With a secondary goal and a tolerance, the tool first keeps every build within the tolerance of the best primary score, then ranks those by the secondary goal. This is how, for example, it picks the build with the most experience among the builds that reach close to the best loot.</p>
 
 <h2 id="sim">13. The simulation</h2>
-<p>The simulation replays a build many times with random crits, mod rolls, block layouts, abilities, and crosshairs. It re-ranks the top builds from the search and reports, per build: average reward per tick, the floor distribution (10th, 50th and 90th percentile), and, for a target floor goal, the percent of runs that reach it. It is the exact model and the right tie breaker when two builds score close.</p>
+<p>The simulation replays a build many times with random crits, mod rolls, block layouts, abilities, and crosshairs. It re-ranks the top builds from the search and reports, per build: average reward per stamina, the floor distribution (10th, 50th and 90th percentile), and, for a target floor goal, the percent of runs that reach it. It is the exact model and the right tie breaker when two builds score close.</p>
 
 <h2 id="sources">14. Sources</h2>
 <ul>
@@ -216,7 +216,7 @@ hc, hp = expected crosshair hit and player hit damage (hc includes the gold fact
 
 <h3>Our modeling choices</h3>
 <ul>
-<li><strong>One neutral bridge between experience and loot.</strong> The game gives no rate between them, so we value a block's loot at the block's own experience (equal weight, default 1), take the rarity scaling from the game's experience numbers, and expose the experience-to-loot weight as a single setting. Reward is scored per attack tick; tick cost follows a block's HP.</li>
+<li><strong>One neutral bridge between experience and loot.</strong> The game gives no rate between them, so we value a block's loot at the block's own experience (equal weight, default 1), take the rarity scaling from the game's experience numbers, and expose the experience-to-loot weight as a single setting. Reward is scored per stamina consumed, net of stamina-mod refunds.</li>
 <li><strong>Speed is left out of efficiency.</strong> Attack speed changes attacks per second, not reward per stamina, so it only enters through the real-time crosshair and ability terms.</li>
 <li><strong>Averages for the search, exact replay for the simulation.</strong> Expected hits, ability uptime, and the crosshair term are averages so the search can score many builds quickly. The simulation runs the exact rules and is the better number when the two disagree.</li>
 <li><strong>The guided search is a search, not a proof.</strong> It matched the full search on every tested case; use Thorough for a guarantee on one case.</li>
