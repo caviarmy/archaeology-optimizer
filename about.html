@@ -122,11 +122,14 @@ damage to block per hit = max(0, hit_damage - a)</pre>
 <h2 id="rewards">7. Rewards and mods</h2>
 <p>Every block gives experience. Non dirt blocks also give loot. The goals can mix experience and loot, so the model needs both on one scale and a fair value per block.</p>
 <h3>Putting XP and loot on one scale</h3>
-<p>Dirt blocks give experience and no loot, and in the game data they always turn health into experience at the same flat rate, <code>0.0005 experience per 1 HP</code>, in every tier. That rate is the effort line: the experience you earn just for breaking HP.</p>
-<p>A loot block gives more experience than the line, because it also drops loot. The amount above the line is counted as the loot, measured in experience:</p>
-<pre>loot value = block_experience - 0.0005 * block_HP</pre>
-<p>Example: a Tier 1 common has 250 HP and gives 0.15 experience. Its HP alone is worth <code>0.0005 * 250 = 0.125</code>, so the loot is the remaining <code>0.025</code>. Rarer blocks sit further above the line, so their loot is worth more. The block still pays its full experience to the experience total; only this surplus is added to the loot total for its rarity.</p>
-<p>Why this way: the tool does not guess what loot is worth to you. It measures reward against effort, where effort is the HP you break, and puts HP, experience, and loot in one currency. You set the bias yourself through goals and block preferences. Marking a rarity worthless sets its loot to zero. Gain stats then scale each total, Intellect for experience and Perception for loot.</p>
+<p>Experience and loot fragments are different currencies, and the game never states a rate between them. A goal like "all rewards" has to add them, so the model makes one neutral choice and is open about it. Two things set the scale, and the game answers the first for us.</p>
+<ul>
+<li><strong>How rarities compare.</strong> Every block already carries an experience reward, and that number encodes how much the game rewards each rarity: a mythic block gives about 50 times a common's experience. We reuse that scaling for loot, so the worth of a mythic fragment against a common one is the game's own number, not a guess.</li>
+<li><strong>Loot against experience overall.</strong> The game gives no rate, so the only unbiased choice is equal weight: value a block's loot at the same experience the game paired with it on that block.</li>
+</ul>
+<pre>loot value of a block = its experience   (times a global loot weight, default 1)</pre>
+<p>A Tier 1 common gives 0.15 experience and a fragment, so its loot is valued at 0.15 too. A mythic at 7.5 experience has loot worth 7.5. Dirt drops no loot, so it adds only its experience. The block pays its full experience to the experience total and an equal amount to the loot total for its rarity.</p>
+<p>Why this is fair: the two rewards are treated as equal partners, so a block that drops both is worth twice one that drops only experience, which is correct, you leave with two rewards instead of one. The single judgment call, equal weight, is one setting (Loot value vs XP, default 1): leave it at 1 for a neutral mix, raise it if loot matters more to you, lower it if less. Marking a rarity worthless sets its loot to zero. Intellect then scales the experience total, Perception the loot total.</p>
 <h3>Mods</h3>
 <p>When a floor loads, every block rolls its mods and keeps them. A block can carry more than one. A mod adds its multiplier to the block reward only when it rolls, so the expected reward uses the mod chance:</p>
 <pre>chance:   xp mod   = base + 0.003*INT + 0.002*LUCK
@@ -213,7 +216,7 @@ hc, hp = expected crosshair hit and player hit damage (hc includes the gold fact
 
 <h3>Our modeling choices</h3>
 <ul>
-<li><strong>Effort, not stored value.</strong> The score is reward per attack tick, and tick cost follows a block's HP. We do not assign loot a value. Loot is measured as the experience a block pays above the dirt rate for its HP (0.0005 per HP), so HP, experience, and loot share one effort-based currency. You add bias with goals and block preferences.</li>
+<li><strong>One neutral bridge between experience and loot.</strong> The game gives no rate between them, so we value a block's loot at the block's own experience (equal weight, default 1), take the rarity scaling from the game's experience numbers, and expose the experience-to-loot weight as a single setting. Reward is scored per attack tick; tick cost follows a block's HP.</li>
 <li><strong>Speed is left out of efficiency.</strong> Attack speed changes attacks per second, not reward per stamina, so it only enters through the real-time crosshair and ability terms.</li>
 <li><strong>Averages for the search, exact replay for the simulation.</strong> Expected hits, ability uptime, and the crosshair term are averages so the search can score many builds quickly. The simulation runs the exact rules and is the better number when the two disagree.</li>
 <li><strong>The guided search is a search, not a proof.</strong> It matched the full search on every tested case; use Thorough for a guarantee on one case.</li>

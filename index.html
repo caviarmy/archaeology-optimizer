@@ -486,6 +486,10 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <label class="check-row"><input id="worthlessMythic" type="checkbox"> Ignore mythic drops</label>
           <label class="check-row req-a1"><input id="worthlessDivine" type="checkbox"> Ignore divine drops</label>
         </div>
+        <div class="form-grid" style="margin-top:10px">
+          <div><label>Loot value vs XP (x)</label><input id="lootWeight" type="number" min="0" step="0.1" value="1"></div>
+        </div>
+        <div class="small" style="margin-top:6px">1 means a block's loot is worth the same XP the game pairs it with. Raise it if loot matters more to you, lower it if less.</div>
       </section>
 
 
@@ -1264,6 +1268,7 @@ function deterministicSignature(inp){
     polyUpgrade: inp.polyUpgrade,
     mcTopCount: inp.mcTopCount,
     worthless: inp.worthless,
+    lootWeight: inp.lootWeight,
     base: inp.base,
     inc: inp.inc,
     goal: inp.goal,
@@ -1318,6 +1323,7 @@ function getInputs(){
       mythic:checked("worthlessMythic"),
       divine:checked("worthlessDivine")
     },
+    lootWeight:Math.max(0, numOr("lootWeight", 1)),
     base:{
       damage:n("baseDamage"),
       stamina:n("baseStamina"),
@@ -1609,27 +1615,22 @@ function visibleBlocks(inp){
       armor100:b.armor100 ?? b.armor ?? 0,
       armor150:b.armor150 ?? b.armor100 ?? b.armor ?? 0,
       xp0,
-      loot0,
-      xpRaw:b.xp,
-      healthRaw:b.health,
-      rewardMult:cardBonus.rewardMult
+      loot0
     };
   });
-  // Loot value (xp-equivalent) is the reward a block pays above the effort line:
-  // the experience its HP would earn as plain dirt. Dirt is exactly 0.0005 xp per
-  // hp in the game data (same for every tier), so loot = xp - rate*hp, on the
-  // block's base values. A rarity marked worthless is set to zero.
-  const dirtRate = {};
-  for(const d of baseBlocks){ if(d.type==="dirt") dirtRate[d.tier] = d.xp / d.health; }
+  // Loot value is the block's own xp, scaled by a global loot weight (1 = loot
+  // worth equals xp, the neutral default). The game pairs each block's fragment
+  // drop with an xp reward, so we value the loot at that same xp: the relative
+  // worth across rarities comes from the game's xp scaling, and equal weight is
+  // the only unbiased bridge between the two currencies. Worthless rarities are 0.
+  const lootWeight = inp.lootWeight ?? 1;
   for(const b of blocks){
     if(b.type==="dirt" || b.loot0<=0 || inp.worthless[b.type]){
       b.lootXpEq = 0;
       b.isWorthless = true;
       continue;
     }
-    const rate = dirtRate[b.tier] || 0.0005;
-    const lootRaw = Math.max(0, b.xpRaw - rate * b.healthRaw);
-    b.lootXpEq = lootRaw * XP_DISPLAY_SCALE * b.rewardMult;
+    b.lootXpEq = b.xp0 * lootWeight;
     b.isWorthless = false;
   }
   return blocks;
@@ -3585,6 +3586,7 @@ function resetAllSettings(){
     flurryAtkSpeedPct:"100", flurryStaminaOnCast:"5", flurryCharges:"5", flurryCooldown:"120",
     quakeDmgPct:"20", quakeCharges:"5", quakeCooldown:"180",
     crosshairSpawnPct:"2.175", crosshairInterval:"1.005", crosshairFireDelay:"2",
+    lootWeight:"1",
     nodeSpawnModel:"activeCount",
     primaryGoal:"allRewards",
     secondaryGoal:"none",
