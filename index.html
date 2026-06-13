@@ -12,8 +12,10 @@
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35}
-header{background:#101828;color:#fff;padding:16px 18px}
+header{background:#101828;color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 header h1{margin:0;font-size:20px;line-height:1.15}
+.help-link{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid #ffffff55;color:#fff;text-decoration:none;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px}
+.help-link:hover{background:#ffffff22}
 header p{margin:6px 0 0;color:#cbd5e1;max-width:1080px;font-size:13px}
 main{max-width:1280px;margin:0 auto;padding:12px}
 button,input,select{font:inherit}
@@ -299,6 +301,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 <body data-workflow="results" data-target-used="false" data-simulation-ready="false" data-ascension="0">
 <header>
   <h1>Obelisk Miner Archaeology Optimizer</h1>
+  <a class="help-link" href="about.html" target="_blank" rel="noopener" title="How this app works" aria-label="How this app works">?</a>
 </header>
 
 <main>
@@ -387,6 +390,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       <div class="actionbar">
         <button id="runExact">Find best build</button>
         <button id="runMonteRerank" class="ghost">Simulate top builds</button>
+        <label class="check-row" style="margin:0 0 0 6px"><input id="thoroughSearch" type="checkbox"> Thorough (exact, slow)</label>
       </div>
       <div class="metrics">
         <div class="metric good"><div class="k">Best build</div><div class="v" id="bestBuild">—</div></div>
@@ -400,7 +404,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <summary>Top candidate builds</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="topBuildsTable">
-            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>EV value per tick-hour</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
+            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>EV value per stamina</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -421,7 +425,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <summary>Detailed simulation table</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="monteRerankTable">
-            <thead><tr><th>Sim Rank</th><th>EV Rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Sim all rewards/tick-hour</th><th>Sim avg floor</th><th>Target hit %</th><th>P10 floor</th><th>P50 floor</th><th>P90 floor</th><th>EV primary score</th><th>EV expected floor</th></tr></thead>
+            <thead><tr><th>Sim Rank</th><th>EV Rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Sim all rewards/stamina</th><th>Sim avg floor</th><th>Target hit %</th><th>P10 floor</th><th>P50 floor</th><th>P90 floor</th><th>EV primary score</th><th>EV expected floor</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -429,82 +433,9 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
     </div>
   </section>
 
-  <section id="target" class="panel" style="display:none">
-    <div class="card">
-      <span class="pill-note">Goal: reach a floor</span>
-      <h2>Best floor-push build</h2>
-      <div class="actionbar">
-        <button id="runReachability">Find floor-push build</button>
-        <button id="clearReachability" class="clear-chip">Clear floor results</button>
-      </div>
-      <div class="metrics">
-        <div class="metric good"><div class="k">Best build</div><div class="v" id="reachBestBuild">—</div></div>
-        <div class="metric"><div class="k">Target hit chance</div><div class="v" id="reachTargetPct">—</div></div>
-        <div class="metric"><div class="k">Best avg floor</div><div class="v" id="reachAvgFloor">—</div></div>
-        <div class="metric"><div class="k">Highest observed floor</div><div class="v" id="reachMaxObserved">—</div></div>
-        <div class="metric warn"><div class="k">Highest floor at 10%+</div><div class="v" id="reachFloor10">—</div></div>
-      </div>
-      <details>
-        <summary>Floor-push candidates</summary>
-        <div class="table-wrap" style="margin-top:8px">
-          <table id="reachabilityTable">
-            <thead><tr><th>Rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Target hit %</th><th>Avg floor</th><th>Highest observed</th><th>Floor ≥50%</th><th>Floor ≥25%</th><th>Floor ≥10%</th><th>Floor ≥5%</th><th>Floor ≥1%</th><th>P10</th><th>P50</th><th>P90</th><th>EV expected floor</th><th>EV primary score</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </details>
-    </div>
-  </section>
 
-  <section id="nextpoint" class="panel">
-    <div class="card">
-      <span class="pill-note">Goal: evaluate next stat point</span>
-      <h2>Manual build and next stat point</h2>
-      <div class="actionbar">
-        <button id="scoreCurrent">Score manual build</button>
-        <button id="runMonte" class="ghost">Simulation target chance for current build</button>
-      </div>
-      <div class="metrics">
-        <div class="metric"><div class="k">Manual build</div><div class="v" id="curBuildLabel">—</div></div>
-        <div class="metric"><div class="k">EV value per tick-hour</div><div class="v" id="curRph">—</div></div>
-        <div class="metric"><div class="k">Expected floor</div><div class="v" id="curFloor">—</div></div>
-        <div class="metric"><div class="k">Target Simulation chance</div><div class="v" id="monteChance">—</div></div>
-        <div class="metric"><div class="k">Avg Simulation floor</div><div class="v" id="monteFloor">—</div></div>
-      </div>
-      <div class="table-wrap">
-        <table id="nextPointTable">
-          <thead><tr><th>Candidate</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Value per tick-hour</th><th>Δ reward</th><th>Δ %</th><th>Expected floor</th><th>Δ floor</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
 
-  <section id="greedy" class="panel">
-    <div class="card">
-      <span class="pill-note">Goal: build a level path</span>
-      <h2>Level 0–100 path</h2>
-      <div class="actionbar"><button id="runGreedy">Build level path</button></div>
-      <div class="table-wrap">
-        <table id="greedyTable">
-          <thead><tr><th>Level</th><th>Added</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Value per tick-hour</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
 
-  <section id="nodes" class="panel">
-    <div class="card">
-      <h2>Node values</h2>
-      <div class="table-wrap">
-        <table id="nodeTable">
-          <thead><tr><th>Tier</th><th>Type</th><th>Floor min</th><th>Floor max</th><th>HP</th><th>Armor</th><th>XP0</th><th>Loot0</th><th>Loot XP-equivalent</th><th>Worthless?</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
 </main>
 
 <div id="status" class="status-toast"></div>
@@ -555,17 +486,12 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <label class="check-row"><input id="worthlessMythic" type="checkbox"> Ignore mythic drops</label>
           <label class="check-row req-a1"><input id="worthlessDivine" type="checkbox"> Ignore divine drops</label>
         </div>
+        <div class="form-grid" style="margin-top:10px">
+          <div><label>Loot value vs XP (x)</label><input id="lootWeight" type="number" min="0" step="0.1" value="1"></div>
+        </div>
+        <div class="small" style="margin-top:6px">1 means a block's loot is worth the same XP the game pairs it with. Raise it if loot matters more to you, lower it if less.</div>
       </section>
 
-      <section id="settings-current" class="settings-section" style="display:none">
-        <div class="form-grid">
-          <div><label>STR</label><input id="curStr" type="number" min="0" value="0"></div>
-          <div><label>AGI</label><input id="curAgi" type="number" min="0" value="0"></div>
-          <div><label>PER</label><input id="curPer" type="number" min="0" max="25" value="0"></div>
-          <div><label>INT</label><input id="curInt" type="number" min="0" max="25" value="0"></div>
-          <div><label>Luck</label><input id="curLuck" type="number" min="0" max="25" value="0"></div>
-        </div>
-      </section>
 
       <section id="settings-base" class="settings-section">
         <div class="helper" id="baseModeNote"></div>
@@ -581,6 +507,8 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
             <div><label>Spent PER</label><input id="spentPer" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent INT</label><input id="spentInt" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent Luck</label><input id="spentLuck" type="number" min="0" step="1" value="0"></div>
+            <div class="req-a1"><label>Spent Divinity</label><input id="spentDivinity" type="number" min="0" step="1" value="0"></div>
+            <div class="req-a2"><label>Spent Corruption</label><input id="spentCorruption" type="number" min="0" step="1" value="0"></div>
           </div>
         </div>
         <div class="import-box">
@@ -634,6 +562,9 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Base gold crosshair multi x</label><input id="baseGoldCrosshairMulti" type="number" step="0.001" value=""></div>
           <div><label>Base gleaming floor chance %</label><input id="baseGleamingChance" type="number" step="0.001" value=""></div>
           <div><label>Base gleaming floor multi x</label><input id="baseGleamingMulti" type="number" step="0.001" value=""></div>
+          <div><label>Crosshair spawn % / block</label><input id="crosshairSpawnPct" type="number" step="0.001" value="2.175"></div>
+          <div><label>Crosshair interval s</label><input id="crosshairInterval" type="number" step="0.001" value="1.005"></div>
+          <div><label>Crosshair fire delay s</label><input id="crosshairFireDelay" type="number" step="0.001" value="2"></div>
         </div>
         <h3>Skills (abilities)</h3>
         <div class="form-grid">
@@ -700,7 +631,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>AGI stamina</label><input id="agiStamina" type="number" step="0.001" value="5"></div>
           <div><label>AGI crit chance %</label><input id="agiCritPct" type="number" step="0.001" value="1"></div>
           <div><label>AGI speed mod %</label><input id="agiSpeedPct" type="number" step="0.001" value="0.2"></div>
-          <div><label>AGI stamina mod %</label><input id="agiStaminaModPct" type="number" step="0.001" value="0.2"></div>
           <div><label>PER fragment gain x</label><input id="perFragGain" type="number" step="0.001" value="0.04"></div>
           <div><label>PER loot mod %</label><input id="perLootModPct" type="number" step="0.001" value="0.3"></div>
           <div><label>PER armor pen (flat)</label><input id="perArmorPen" type="number" step="0.001" value="2"></div>
@@ -711,6 +641,12 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Luck XP mod %</label><input id="luckXpModPct" type="number" step="0.001" value="0.2"></div>
           <div><label>Luck loot mod %</label><input id="luckLootModPct" type="number" step="0.001" value="0.2"></div>
           <div><label>Luck all-mod %</label><input id="luckAllModPct" type="number" step="0.001" value="0.2"></div>
+          <div class="req-a1"><label>Divinity flat damage</label><input id="divFlatDamage" type="number" step="0.001" value="2"></div>
+          <div class="req-a1"><label>Divinity super crit %</label><input id="divSuperCritPct" type="number" step="0.001" value="2"></div>
+          <div class="req-a1"><label>Divinity auto-tap %</label><input id="divAutoTapPct" type="number" step="0.001" value="2"></div>
+          <div class="req-a2"><label>Corruption damage %</label><input id="corrDamagePct" type="number" step="0.001" value="6"></div>
+          <div class="req-a2"><label>Corruption max stamina %</label><input id="corrMaxStaminaPct" type="number" step="0.001" value="3"></div>
+          <div class="req-a2"><label>Corruption all-mod multi %</label><input id="corrAllModMultiPct" type="number" step="0.001" value="1"></div>
         </div>
       </section>
 
@@ -718,8 +654,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <div class="form-grid">
           <div><label>Top reward builds to rerank</label><input id="mcTopCount" type="number" min="1" max="100" value="25"></div>
           <div><label>Runs per reward build</label><input id="mcRunsPerBuild" type="number" min="100" max="20000" value="1000"></div>
-          <div><label>Top floor-push builds to simulate</label><input id="reachTopCount" type="number" min="1" max="200" value="75"></div>
-          <div><label>Runs per floor-push build</label><input id="reachRunsPerBuild" type="number" min="100" max="20000" value="1000"></div>
           <div><label>Simulation seed mode</label><select id="simSeedMode"><option value="random" selected>Random each run</option><option value="fixed">Fixed seed</option></select></div>
           <div><label>Fixed simulation seed</label><input id="simSeedValue" type="text" value="12345"></div>
         </div>
@@ -801,10 +735,13 @@ const spawnRanges = [
   {min:20,max:24,rates:{dirt:19.50,common:7.31,rare:8.23,epic:12.34,legendary:8.64,mythic:5.00,divine:0}},
   {min:25,max:29,rates:{dirt:18.47,common:7.92,rare:9.05,epic:12.06,legendary:10.56,mythic:5.00,divine:0}},
   {min:30,max:49,rates:{dirt:18.10,common:9.05,rare:7.92,epic:11.88,legendary:11.88,mythic:5.00,divine:0}},
-  {min:50,max:75,rates:{dirt:16.87,common:8.43,rare:9.84,epic:13.77,legendary:11.81,mythic:5.56,divine:0}},
-  {min:76,max:999,rates:{dirt:16.81,common:10.08,rare:10.08,epic:11.76,legendary:11.76,mythic:5.88,divine:0}}
+  {min:50,max:59,rates:{dirt:16.53,common:8.26,rare:9.64,epic:13.50,legendary:11.57,mythic:5.44,divine:2.00}},
+  {min:60,max:69,rates:{dirt:16.49,common:8.25,rare:9.62,epic:13.47,legendary:11.54,mythic:5.43,divine:2.22}},
+  {min:70,max:99,rates:{dirt:16.39,common:9.83,rare:9.83,epic:11.47,legendary:11.47,mythic:5.74,divine:2.50}},
+  {min:100,max:149,rates:{dirt:15.70,common:9.42,rare:9.42,epic:10.99,legendary:12.82,mythic:6.90,divine:3.33}},
+  {min:150,max:999,rates:{dirt:13.50,common:8.10,rare:9.72,epic:11.67,legendary:14.00,mythic:9.33,divine:6.67}}
 ];
-const bossSingle = {11:"dirt",17:"common",23:"dirt",25:"rare",29:"epic",31:"legendary",35:"rare",41:"epic",44:"legendary",95:"common",98:"mythic",149:"divine"};
+const bossSingle = {11:"dirt",17:"common",23:"dirt",25:"rare",29:"epic",31:"legendary",35:"rare",41:"epic",44:"legendary",95:"common",98:"mythic",110:"rare",125:"epic",135:"legendary",140:"mythic",149:"divine"};
 const bossMixed = {
   34:{dirt:0,common:(20/24)*100,rare:0,epic:0,legendary:(4/24)*100,mythic:0,divine:0},
   49:{dirt:(6/24)*100,common:(6/24)*100,rare:(6/24)*100,epic:0,legendary:0,mythic:(6/24)*100,divine:0},
@@ -993,7 +930,7 @@ function updateGoalUI(){
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
   const label = document.getElementById("bestValueLabel");
-  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(getInputs()))}/tick-hour`;
+  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(getInputs()))}/stamina`;
   const modeLabel = document.getElementById("bestModeLabel");
   if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(getInputs()));
 }
@@ -1183,13 +1120,11 @@ function populateCardSettings(){
     const radios = Array.from(document.querySelectorAll(`input[name="card_state_${c.key}"]`));
     cb?.addEventListener("change", ()=>{
       syncCardField(c.key);
-      markOptimizerStale();
-      renderNodes(); scoreCurrent(); updateSettingsSummary();
+      markOptimizerStale(); updateSettingsSummary();
     });
     radios.forEach(r=>r.addEventListener("change", ()=>{
       syncCardField(c.key);
-      markOptimizerStale();
-      renderNodes(); scoreCurrent(); updateSettingsSummary();
+      markOptimizerStale(); updateSettingsSummary();
     }));
     syncCardField(c.key);
   });
@@ -1232,8 +1167,6 @@ function applyCardBulk(scope){
   });
 
   markOptimizerStale();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
   scheduleSave();
   showStatus(scope === "clear"
@@ -1335,6 +1268,7 @@ function deterministicSignature(inp){
     polyUpgrade: inp.polyUpgrade,
     mcTopCount: inp.mcTopCount,
     worthless: inp.worthless,
+    lootWeight: inp.lootWeight,
     base: inp.base,
     inc: inp.inc,
     goal: inp.goal,
@@ -1370,12 +1304,15 @@ function getInputs(){
     archInfernalMult:Math.max(0, n("archInfernalMult") || 1),
     atkSpeed:Math.max(0.01, numOr("baseAtkSpeed", 1)),
     abilities:abilityInputs(),
+    crosshair:{
+      spawnPct: Math.max(0, pct("crosshairSpawnPct") || 0.02175),  // per block per interval
+      interval: Math.max(0.05, numOr("crosshairInterval", 1.005)), // real seconds
+      fireDelay: Math.max(0, numOr("crosshairFireDelay", 2))       // real seconds
+    },
     nodeSpawnModel:v("nodeSpawnModel") || "activeCount",
     speedModel:"none", // speed/ticks-per-second intentionally excluded from tick-efficiency optimization
     mcTopCount:Math.max(1, Math.min(100, Math.floor(n("mcTopCount") || 25))),
     mcRunsPerBuild:Math.max(100, Math.min(20000, Math.floor(n("mcRunsPerBuild") || 1000))),
-    reachTopCount:Math.max(1, Math.min(200, Math.floor(n("reachTopCount") || 75))),
-    reachRunsPerBuild:Math.max(100, Math.min(20000, Math.floor(n("reachRunsPerBuild") || 1000))),
     simSeedMode:v("simSeedMode") || "random",
     simSeedValue:String(v("simSeedValue") || "12345"),
     worthless:{
@@ -1386,6 +1323,7 @@ function getInputs(){
       mythic:checked("worthlessMythic"),
       divine:checked("worthlessDivine")
     },
+    lootWeight:Math.max(0, numOr("lootWeight", 1)),
     base:{
       damage:n("baseDamage"),
       stamina:n("baseStamina"),
@@ -1422,7 +1360,6 @@ function getInputs(){
       agiStamina:n("agiStamina"),
       agiCritPct:pct("agiCritPct"),
       agiSpeedPct:pct("agiSpeedPct"),
-      agiStaminaModPct:pct("agiStaminaModPct"),
       intXpGain:n("intXpGain"),
       intXpModPct:pct("intXpModPct"),
       intArmorPenPct:pct("intArmorPenPct"),
@@ -1433,7 +1370,15 @@ function getInputs(){
       luckXpModPct:pct("luckXpModPct"),
       luckLootModPct:pct("luckLootModPct"),
       luckAllModPct:pct("luckAllModPct"),
-      staminaModGain:n("staminaModGain")
+      staminaModGain:n("staminaModGain"),
+      // Divinity (A1) per point: +flat dmg, +super crit %, +crosshair auto-tap %.
+      divFlatDamage:n("divFlatDamage"),
+      divSuperCritPct:pct("divSuperCritPct"),
+      divAutoTapPct:pct("divAutoTapPct"),
+      // Corruption (A2) per point: +dmg %, -max stamina %, +all mod multis %.
+      corrDamagePct:pct("corrDamagePct"),
+      corrMaxStaminaPct:pct("corrMaxStaminaPct"),
+      corrAllModMultiPct:pct("corrAllModMultiPct")
     },
     goal:{
       primaryType:(v("primaryGoal") || "allRewards") === "target" ? "target" : "rewards",
@@ -1452,7 +1397,9 @@ function getInputs(){
       A:Math.max(0, Math.floor(n("spentAgi"))),
       P:Math.max(0, Math.floor(n("spentPer"))),
       I:Math.max(0, Math.floor(n("spentInt"))),
-      L:Math.max(0, Math.floor(n("spentLuck")))
+      L:Math.max(0, Math.floor(n("spentLuck"))),
+      D:Math.max(0, Math.floor(n("spentDivinity"))),
+      C:Math.max(0, Math.floor(n("spentCorruption")))
     };
     out.base = reverseBaseStats(out.base, pts, out.inc);
   }
@@ -1462,21 +1409,28 @@ function getInputs(){
 // Recover unspent base stats from displayed totals by removing the contribution
 // of the currently-spent attribute points, inverting the getDerived formulas.
 function reverseBaseStats(b, pts, inc){
-  const {S,A,P,I,L} = pts;
+  const {S,A,P,I,L,D=0,C=0} = pts;
+  const corrStam = Math.max(0.05, 1 - C*(inc.corrMaxStaminaPct||0));
+  const modMulti = 1 + C*(inc.corrAllModMultiPct||0);
   return {
     ...b,
-    damage: Math.max(0, (b.damage / (1 + S*inc.strDamagePct)) - S*inc.strFlatDamage),
-    stamina: Math.max(0, b.stamina - A*inc.agiStamina),
+    // Invert getDerived: damage = (base + S*flat + D*divFlat)(1 + S*str% + C*corr%).
+    damage: Math.max(0, (b.damage / (1 + S*inc.strDamagePct + C*(inc.corrDamagePct||0))) - S*inc.strFlatDamage - D*(inc.divFlatDamage||0)),
+    stamina: Math.max(0, b.stamina / corrStam - A*inc.agiStamina),
     critChance: Math.max(0, b.critChance - A*inc.agiCritPct - L*inc.luckCritPct),
     critDamage: Math.max(1, b.critDamage - S*inc.strCritDamage),
+    superChance: Math.max(0, (b.superChance||0) - D*(inc.divSuperCritPct||0)),
     xpGain: Math.max(0, b.xpGain - I*inc.intXpGain),
     fragGain: Math.max(0, b.fragGain - P*inc.perFragGain),
     xpMod: Math.max(0, b.xpMod - I*inc.intXpModPct - L*inc.luckXpModPct),
     lootMod: Math.max(0, b.lootMod - P*inc.perLootModPct - L*inc.luckLootModPct),
     speedMod: Math.max(0, b.speedMod - A*inc.agiSpeedPct - L*inc.luckAllModPct),
-    staminaMod: Math.max(0, b.staminaMod - A*inc.agiStaminaModPct - L*inc.luckAllModPct),
-    armorPenFlat: Math.max(0, (b.armorPenFlat || 0) - P*(inc.perArmorPen || 0))
-    // superChance, superDamage, xpModGain, lootModGain, staminaModGain: no attribute scaling
+    staminaMod: Math.max(0, b.staminaMod - L*inc.luckAllModPct),
+    armorPenFlat: Math.max(0, (b.armorPenFlat || 0) - P*(inc.perArmorPen || 0)),
+    // Corruption scales the mod-gain multipliers; back that out too.
+    xpModGain: (b.xpModGain || 3) / modMulti,
+    lootModGain: (b.lootModGain || 3.8) / modMulti
+    // superDamage, ultra*, staminaModGain: no skill scaling
   };
 }
 
@@ -1484,7 +1438,7 @@ function baseStatModeSpent(){
   return (document.querySelector('input[name="baseStatMode"]:checked')?.value) === "spent";
 }
 function spentPointsSum(){
-  return ["spentStr","spentAgi","spentPer","spentInt","spentLuck"].reduce((s,id)=>s + (n(id)||0), 0);
+  return ["spentStr","spentAgi","spentPer","spentInt","spentLuck","spentDivinity","spentCorruption"].reduce((s,id)=>s + (n(id)||0), 0);
 }
 function syncBaseStatMode(){
   const el = document.getElementById("spentAttrs");
@@ -1493,15 +1447,27 @@ function syncBaseStatMode(){
 
 function getDerived(stats, inp){
   const S=stats.S, A=stats.A, I=stats.I, P=stats.P, L=stats.L;
+  const D=stats.D||0, C=stats.C||0;                  // Divinity (A1), Corruption (A2)
   const b=inp.base, inc=inp.inc;
-  const damage = (b.damage + S*inc.strFlatDamage) * (1 + S*inc.strDamagePct);
+  // STR flat dmg + Divinity flat dmg (+2/pt), then STR% + Corruption% (+6%/pt).
+  const damage = (b.damage + S*inc.strFlatDamage + D*(inc.divFlatDamage||0)) * (1 + S*inc.strDamagePct + C*(inc.corrDamagePct||0));
   const critChance = clamp(b.critChance + A*inc.agiCritPct + L*inc.luckCritPct,0,0.995);
   const critDamage = b.critDamage + S*inc.strCritDamage;
-  const superAvg = 1 + b.superChance * (b.superDamage - 1);
-  const normalHit = damage * superAvg;
-  const critHit = damage * critDamage * superAvg;
-  const xpProcBonus = Math.max(0, (b.xpModGain || 3) - 1);
-  const lootProcBonus = Math.max(0, (b.lootModGain || 3.8) - 1);
+  // Crits are nested & conditional: super crit can only land on a crit, ultra
+  // crit only on a super crit. Defaults make missing layers no-ops.
+  const superChance = clamp((b.superChance || 0) + D*(inc.divSuperCritPct||0), 0, 0.995); // Divinity +2%/pt
+  const superDamage = b.superDamage > 0 ? b.superDamage : 1;
+  const ultraChance = clamp(b.ultraChance || 0, 0, 0.995);
+  const ultraDamage = b.ultraDamage > 0 ? b.ultraDamage : 1;
+  // Gleaming floor: a floor is gleaming with chance gleamingChance and multiplies
+  // all its block rewards (mods included) by gleamingMulti. EV = 1 + p*(mult-1).
+  const gc = clamp(b.gleamingChance || 0, 0, 1);
+  const gm = b.gleamingMulti > 0 ? b.gleamingMulti : 1;
+  const gleamingMult = 1 + gc * (gm - 1);
+  // Corruption: All Mod Multis +1%/pt scales the mod-gain multipliers.
+  const modMulti = 1 + C*(inc.corrAllModMultiPct||0);
+  const xpProcBonus = Math.max(0, (b.xpModGain || 3)*modMulti - 1);
+  const lootProcBonus = Math.max(0, (b.lootModGain || 3.8)*modMulti - 1);
   const xpMult = (b.xpGain + I*inc.intXpGain) * (1 + xpProcBonus*(b.xpMod + I*inc.intXpModPct + L*inc.luckXpModPct));
   const xpBaseMult = b.xpGain * (1 + xpProcBonus*b.xpMod);
   const xpFactor = xpBaseMult ? xpMult / xpBaseMult : 0;
@@ -1509,8 +1475,10 @@ function getDerived(stats, inp){
   const lootBaseMult = b.fragGain * (1 + lootProcBonus*b.lootMod);
   const lootFactor = lootBaseMult ? lootMult / lootBaseMult : 0;
   const speedChance = clamp(b.speedMod + A*inc.agiSpeedPct + L*inc.luckAllModPct,0,0.95);
-  const staminaModChance = clamp(b.staminaMod + A*inc.agiStaminaModPct + L*inc.luckAllModPct,0,0.95);
-  const stamina = b.stamina + A*inc.agiStamina;
+  // Stamina-mod chance: base + Luck (All Mod Chances). Agility does NOT affect it
+  // (wiki: Agility = Max Stamina, Crit Chance, Speed Mod Chance only).
+  const staminaModChance = clamp(b.staminaMod + L*inc.luckAllModPct,0,0.95);
+  const stamina = (b.stamina + A*inc.agiStamina) * Math.max(0.05, 1 - C*(inc.corrMaxStaminaPct||0)); // Corruption -3%/pt max stamina
   // PER gives flat armor penetration (+2/level), INT gives percent (+3%/level).
   // Percent armor pen buffs the flat armor-pen stat (e.g. 100 pen +9% = 109 pen).
   const armorPenFlat = (b.armorPenFlat || 0) + P*(inc.perArmorPen || 0);
@@ -1522,11 +1490,30 @@ function getDerived(stats, inp){
   const en = inp.abilities?.enrage;
   if(en && en.on){
     const atk = Math.max(0.01, inp.atkSpeed || 1);
-    const uptime = Math.min(1, (en.charges || 0) / Math.max(1e-9, atk * (en.cooldown || 1)));
+    // Instacharge shortens the effective cooldown (cooldown*(1-p)), raising uptime.
+    const ic = clamp(inp.base?.instacharge || 0, 0, 0.99);
+    const cd = Math.max(1e-9, (en.cooldown || 1) * (1 - ic));
+    const uptime = Math.min(1, (en.charges || 0) / Math.max(1e-9, atk * cd));
     evDamage = damage * (1 + uptime * ((en.dmgPct || 0) / 100));
     evCritDamage = critDamage + uptime * ((en.critDmgPct || 0) / 100);
   }
-  return {damage,critChance,critDamage,superAvg,normalHit,critHit,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage};
+  // Crosshairs as an average tick-efficiency gain. Auto-crosshairs are free hits
+  // (real time, ~2.175%/block/1.005s), doing part of each floor's damage so the
+  // player spends fewer ticks. Per floor: M = 1 + (avgLiveBlocks/atkSpeed) * lambda
+  // * autoTap * (crosshairHitDmg / playerHitDmg); applied as a stamina+tick cost cut.
+  // Divinity feeds auto-tap, Luck feeds gold-crosshair chance.
+  const autoTapEff = clamp((b.autoTap||0) + D*(inc.divAutoTapPct||0), 0, 1);
+  const goldChance = clamp((b.goldCrosshairChance||0) + L*0.005, 0, 1);
+  const goldMulti = b.goldCrosshairMulti>0 ? b.goldCrosshairMulti : 3;
+  const goldFactor = 1 + goldChance*(goldMulti-1);
+  const superUltra = (1-superChance) + superChance*superDamage*((1-ultraChance) + ultraChance*ultraDamage);
+  const playerHit = evDamage * ((1-critChance) + critChance*evCritDamage*superUltra);
+  const chHit = damage * ((1-critChance) + critChance*critDamage*superUltra) * goldFactor;
+  const chRatio = playerHit > 1e-9 ? chHit/playerHit : 0;
+  const atkS = Math.max(0.01, inp.atkSpeed || 1);
+  const chLambda = (inp.crosshair?.spawnPct ?? 0.02175) / (inp.crosshair?.interval || 1.005);
+  const chFactorPerBlock = autoTapEff>0 ? chLambda * autoTapEff * chRatio / (2*atkS) : 0;
+  return {damage,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage,autoTapEff,chFactorPerBlock};
 }
 
 // Effective block armor after the player's penetration. Percent armor pen buffs
@@ -1631,27 +1618,37 @@ function visibleBlocks(inp){
       loot0
     };
   });
-  // compute loot XP-equivalent from highest lower worthless baseline
+  // Loot value is the block's own xp, scaled by a global loot weight (1 = loot
+  // worth equals xp, the neutral default). The game pairs each block's fragment
+  // drop with an xp reward, so we value the loot at that same xp: the relative
+  // worth across rarities comes from the game's xp scaling, and equal weight is
+  // the only unbiased bridge between the two currencies. Worthless rarities are 0.
+  const lootWeight = inp.lootWeight ?? 1;
   for(const b of blocks){
     if(b.type==="dirt" || b.loot0<=0 || inp.worthless[b.type]){
       b.lootXpEq = 0;
       b.isWorthless = true;
       continue;
     }
-    const idx = rarityOrder.indexOf(b.type);
-    let baselineType = "dirt";
-    for(let j=1;j<idx;j++){
-      const t = rarityOrder[j];
-      if(inp.worthless[t]) baselineType = t;
-    }
-    const baseline = blocks
-      .filter(x => x.tier===b.tier && x.type===baselineType)
-      .sort((a,bb)=>bb.floorMin-a.floorMin)[0];
-    const baselineXp = baseline ? baseline.xp0 : 0;
-    b.lootXpEq = Math.max(0, b.xp0 - baselineXp);
+    b.lootXpEq = b.xp0 * lootWeight;
     b.isWorthless = false;
   }
   return blocks;
+}
+
+// Global per-stage block scaling (wiki: Block HP/Armor Multiplier by Stage).
+// Cumulative — each milestone multiplies on top of the previous — and applies
+// uniformly to every block. This replaces the old hard cap at floor 150 so deep
+// floors keep getting tougher (HP x2 every 50 stages, x4 at 300; armor x1.5,
+// x2.25 at 300). Verified to reproduce the old floor-100/150 values exactly.
+const STAGE_HP_MULT    = {100:2, 150:2, 200:2, 250:2, 300:4, 350:2, 400:2, 450:2, 500:2};
+const STAGE_ARMOR_MULT = {100:1.5, 150:1, 200:1.5, 250:1.5, 300:2.25, 350:1.5, 400:1.5, 450:1.5, 500:1.5};
+const STAGE_MILESTONES = [100, 150, 200, 250, 300, 350, 400, 450, 500];
+function stageScale(floor){
+  let hp = 1, armor = 1;
+  for(const s of STAGE_MILESTONES){ if(floor >= s){ hp *= STAGE_HP_MULT[s]; armor *= STAGE_ARMOR_MULT[s]; } }
+  if(floor > 500){ const extra = Math.floor((floor - 500) / 50); hp *= Math.pow(2, extra); armor *= Math.pow(1.5, extra); }
+  return {hp, armor};
 }
 
 function blockForFloor(type, floor, blocks){
@@ -1662,9 +1659,8 @@ function blockForFloor(type, floor, blocks){
     }
   }
   if(!best) return null;
-  const resolvedHp = floor >= 150 ? best.hp150 : (floor >= 100 ? best.hp100 : best.hp);
-  const resolvedArmor = floor >= 150 ? best.armor150 : (floor >= 100 ? best.armor100 : best.armor);
-  return {...best, hp: resolvedHp, armor: resolvedArmor};
+  const ss = stageScale(floor);
+  return {...best, hp: best.hp * ss.hp, armor: (best.armor || 0) * ss.armor};
 }
 
 function ratesForFloor(floor, inp){
@@ -1695,17 +1691,20 @@ function expectedHitsFull(hp, der, inp, armor=0){
   const cacheKey = Math.ceil(hp * 1000) + "|" + Math.round(armor * 100);
   if(der._hitCache.has(cacheKey)) return der._hitCache.get(cacheKey);
 
-  const pCrit = der.critChance;
-  const pSuper = inp.base.superChance;
+  const cc = der.critChance;                       // crit chance
+  const sc = der.superChance;                      // super crit chance (on a crit)
+  const uc = der.ultraChance;                      // ultra crit chance (on a super crit)
   const dmg = der.evDamage ?? der.damage;          // includes the Enrage EV uptime buff
-  const cdmg = der.evCritDamage ?? der.critDamage;
-  // Armor subtracts flat from each hit's damage (min 0). Keep every outcome's
-  // probability: a blocked hit (0 damage) is still a spent tick.
+  const cdmg = der.evCritDamage ?? der.critDamage; // crit damage multiplier
+  const sd = der.superDamage;                      // super crit damage multiplier
+  const ud = der.ultraDamage;                      // ultra crit damage multiplier
+  // Nested crit ladder: super requires a crit, ultra requires a super.
+  // Armor subtracts flat from each hit (min 0); a blocked hit is still a spent tick.
   const allOutcomes = [
-    {p:(1-pCrit)*(1-pSuper), d:dmg},
-    {p:(1-pCrit)*pSuper, d:dmg*inp.base.superDamage},
-    {p:pCrit*(1-pSuper), d:dmg*cdmg},
-    {p:pCrit*pSuper, d:dmg*cdmg*inp.base.superDamage}
+    {p:(1-cc),       d:dmg},                        // normal
+    {p:cc*(1-sc),    d:dmg*cdmg},                   // crit only
+    {p:cc*sc*(1-uc), d:dmg*cdmg*sd},                // super crit
+    {p:cc*sc*uc,     d:dmg*cdmg*sd*ud}              // ultra crit
   ].map(o => ({p:o.p, d:Math.max(0, o.d - armor)})).filter(o => o.p > 0);
 
   const hitting = allOutcomes.filter(o => o.d > 0);
@@ -1763,7 +1762,8 @@ function addChannels(target, source, multiplier=1){
   for(const k of Object.keys(target)) target[k] += (source[k] || 0) * multiplier;
 }
 function finalizeMetrics(channels, used){
-  const scale = 3600 / Math.max(1, used);
+  // `used` is stamina consumed (net of refunds), so metrics are reward per stamina.
+  const scale = 1 / Math.max(1, used);
   const metrics = {};
   for(const k of Object.keys(channels)) metrics[k] = channels[k] * scale;
   metrics.allLoot = metrics.common + metrics.rare + metrics.epic + metrics.legendary + metrics.mythic + metrics.divine;
@@ -1783,8 +1783,8 @@ function floorCostValue(floor, der, inp, blocks){
     if(!b) continue;
     const hits = expectedHitsFull(b.hp, der, inp, effectiveArmor(b.armor, der, inp));
     const costs = nodeCosts(hits, der, inp);
-    const xpValue = b.xp0 * der.xpMult;
-    const lootValue = b.lootXpEq * der.lootMult;
+    const xpValue = b.xp0 * der.xpMult * der.gleamingMult;
+    const lootValue = b.lootXpEq * der.lootMult * der.gleamingMult;
     staminaCost += expectedCount * costs.staminaCost;
     tickCost += expectedCount * costs.tickCost;
     channels.xp += expectedCount * xpValue;
@@ -1792,6 +1792,10 @@ function floorCostValue(floor, der, inp, blocks){
     nodes += expectedCount;
   }
   const value = channels.xp + channels.common + channels.rare + channels.epic + channels.legendary + channels.mythic + channels.divine;
+  // Crosshair efficiency: free auto-crosshair hits do part of the floor's damage,
+  // cutting the player's stamina+tick cost (avg over the floor's live blocks).
+  const Mch = 1 + (nodes+1) * (der.chFactorPerBlock||0);
+  staminaCost /= Mch; tickCost /= Mch;
   return {cost:staminaCost, staminaCost, tickCost, value, nodes, channels};
 }
 
@@ -1805,6 +1809,8 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
   let value = 0, tickCost = 0, nodes = 0, clearedNodes = 0;
   const channels = blankChannels();
   const emptyProb = spawnModel(inp)==="slotChance" ? Math.max(0, 1 - Math.min(100, totalRateForFloorRates(rates))/100) : 0;
+  // Crosshair efficiency: free auto-crosshair hits cut the player's per-block cost.
+  const Mch = 1 + (expectedActive+1) * (der.chFactorPerBlock||0);
 
   for(let node=0; node<expectedActive && remaining>0; node++){
     clearedNodes += emptyProb;
@@ -1818,8 +1824,8 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
       if(!b) continue;
       const hits = expectedHitsFull(b.hp, der, inp, effectiveArmor(b.armor, der, inp));
       const costs = nodeCosts(hits, der, inp);
-      const xpValue = b.xp0 * der.xpMult;
-      const lootValue = b.lootXpEq * der.lootMult;
+      const xpValue = b.xp0 * der.xpMult * der.gleamingMult;
+      const lootValue = b.lootXpEq * der.lootMult * der.gleamingMult;
       nodeGross += p * hits;
       nodeNet += p * costs.staminaCost;
       nodeTick += p * costs.tickCost;
@@ -1829,6 +1835,7 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
     }
 
     if(nodeGross <= 0) continue;
+    nodeGross /= Mch; nodeNet /= Mch; nodeTick /= Mch;
 
     if(remaining >= nodeGross){
       remaining -= nodeNet;
@@ -1872,14 +1879,14 @@ function scoreBuild(stats, inp, blocks){
       remaining -= fv.staminaCost;
       totalValue += fv.value;
       addChannels(channels, fv.channels);
-      used += fv.tickCost;
+      used += fv.staminaCost;
       totalNodes += fv.nodes;
       floorReached = floor + 1;
     } else {
       const pv = partialFloorCostValue(floor, der, inp, blocks, remaining);
       totalValue += pv.value;
       addChannels(channels, pv.channels);
-      used += pv.tickCost;
+      used += pv.staminaCost;
       totalNodes += pv.nodes;
       floorReached = floor + pv.floorFrac;
       remaining = 0;
@@ -1907,6 +1914,21 @@ function topInsert(arr, item, inp, max=10){
   if(arr.length>max) arr.pop();
 }
 
+// Skills the optimizer allocates Archaeology-Level points across, with caps.
+// Divinity unlocks at Ascension 1, Corruption at Ascension 2; all share the pool.
+function activeSkillSpec(inp){
+  const asc = inp.ascension ?? 0;
+  const spec = [["S",50],["A",50],["P",25],["I",25],["L",25]];
+  if(asc >= 1) spec.push(["D",10]);
+  if(asc >= 2) spec.push(["C",10]);
+  return spec;
+}
+function fullStats(obj){
+  const o = {S:0,A:0,I:0,P:0,L:0,D:0,C:0};
+  for(const k in o) if(obj && obj[k] != null) o[k] = obj[k];
+  return o;
+}
+
 async function runExact(){
   isRunningExact = true;
   const inp = getInputs();
@@ -1915,50 +1937,244 @@ async function runExact(){
   const blocks = visibleBlocks(inp);
   const status = document.getElementById("status");
   const btn = document.getElementById("runExact");
+  let thorough = !!document.getElementById("thoroughSearch")?.checked;
   btn.disabled = true;
-  status.textContent = "Searching builds...";
+  showStatus(thorough ? "Searching every build..." : "Searching builds...", 30000);
   await new Promise(r=>setTimeout(r,20));
 
   clearMonteRerank();
-  let count=0;
-  const allCandidates=[];
   const topLimit = Math.max(10, inp.mcTopCount);
-  const maxI = Math.min(25, level);
   const start = performance.now();
-  for(let I=0; I<=maxI; I++){
-    const maxP = Math.min(25, level-I);
-    for(let P=0; P<=maxP; P++){
-      const maxL = Math.min(25, level-I-P);
-      for(let L=0; L<=maxL; L++){
-        const rem = level-I-P-L;
-        for(let S=0; S<=rem; S++){
-          const A = rem-S;
-          const sc = scoreBuild({S,A,I,P,L}, inp, blocks);
-          count++;
-          allCandidates.push(sc);
-        }
-      }
+
+  let topBuilds, count, extra="";
+  if(thorough){
+    const res = await exhaustiveSearch(inp, blocks, level, topLimit, status);
+    if(res.bailed){
+      const all = fastSearch(inp, blocks, level);
+      count = all.length; topBuilds = rankCandidates(all, inp).slice(0, topLimit);
+      thorough = false; extra = " — too many combinations for exact, used smart search";
+    }else{
+      topBuilds = res.topBuilds; count = res.count;
     }
-    if(I % 2 === 0){
-      status.textContent = `Searching builds... I=${I}/${maxI}, candidates ${count.toLocaleString()}`;
-      await new Promise(r=>setTimeout(r,0));
-    }
+  }else{
+    const all = fastSearch(inp, blocks, level);
+    count = all.length;
+    topBuilds = rankCandidates(all, inp).slice(0, topLimit);
   }
-  const ranked = rankCandidates(allCandidates, inp);
-  const best = ranked[0];
-  const top = ranked.slice(0, topLimit);
-  lastExactTopBuilds = top.map((x, idx) => ({...x, detRank: idx + 1}));
+
+  const best = topBuilds[0];
+  lastExactTopBuilds = topBuilds.map((x, i2) => ({...x, detRank: i2 + 1}));
   lastExactSignature = exactSignature;
-  renderBest(best, top.slice(0, 10), count);
-  status.textContent = `Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s.`;
+  renderBest(best, topBuilds.slice(0, 10), count);
+  showStatus(`Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s (${count.toLocaleString()} build${count===1?"":"s"}${thorough?"":", smart search"})${extra}.`, 5000);
   btn.disabled = false;
   isRunningExact = false;
+}
+
+// Exact search: enumerate every valid allocation of points across the active
+// skills (respecting caps), keeping compact per-candidate metrics. Bails to the
+// caller (fast search) if the combination count exceeds LIMIT. Behind "Thorough".
+async function exhaustiveSearch(inp, blocks, level, topLimit, status){
+  const spec = activeSkillSpec(inp);
+  const keys = spec.map(s=>s[0]);
+  const caps = spec.map(s=>s[1]);
+  const target = Math.min(level, caps.reduce((a,b)=>a+b,0));
+  const pk = primaryFocusKey(inp), sk = secondaryFocusKey(inp);
+  const tol = Math.max(0, (inp.goal?.tolerancePct || 0) / 100);
+  const LIMIT = 400000;
+
+  // restCap[i] = sum of caps after position i, to prune impossible branches.
+  const restCap = new Array(keys.length).fill(0);
+  for(let i=keys.length-2;i>=0;i--) restCap[i] = restCap[i+1] + caps[i+1];
+
+  // Count first (no scoring) so we can bail before heavy work.
+  let total = 0, over = false;
+  (function cnt(i, rem){
+    if(over) return;
+    if(i === keys.length-1){ if(rem<=caps[i]){ if(++total>LIMIT) over=true; } return; }
+    const lo = Math.max(0, rem-restCap[i]), hi = Math.min(caps[i], rem);
+    for(let v=lo; v<=hi && !over; v++) cnt(i+1, rem-v);
+  })(0, target);
+  if(over) return {bailed:true, count:total};
+
+  const recs = []; let bestPrimary = -Infinity;
+  const acc = new Array(keys.length).fill(0);
+  (function rec(i, rem){
+    if(i === keys.length-1){
+      if(rem<=caps[i]){
+        acc[i]=rem;
+        const st={S:0,A:0,I:0,P:0,L:0,D:0,C:0};
+        for(let j=0;j<keys.length;j++) st[keys[j]]=acc[j];
+        const sc=scoreBuild(st, inp, blocks);
+        recs.push({a:acc.slice(), pm:sc.primaryMetric, sm:sc.secondaryMetric, ar:metricValue(sc,"allRewards",inp), fr:sc.floorReached});
+        if(sc.primaryMetric>bestPrimary) bestPrimary=sc.primaryMetric;
+      }
+      return;
+    }
+    const lo=Math.max(0,rem-restCap[i]), hi=Math.min(caps[i],rem);
+    for(let v=lo; v<=hi; v++){ acc[i]=v; rec(i+1, rem-v); }
+  })(0, target);
+
+  if(status){ showStatus(`Ranking ${recs.length.toLocaleString()} builds...`, 30000); await new Promise(r=>setTimeout(r,0)); }
+
+  const threshold = bestPrimary - Math.abs(bestPrimary) * tol;
+  recs.sort((x,y)=>{
+    const ax = x.pm >= threshold-1e-9, ay = y.pm >= threshold-1e-9;
+    if(ax!==ay) return ax ? -1 : 1;
+    if(ax && ay && sk!=="none"){
+      if(Math.abs(y.sm-x.sm)>1e-9) return y.sm-x.sm;
+      if(Math.abs(y.pm-x.pm)>1e-9) return y.pm-x.pm;
+    }else{
+      if(Math.abs(y.pm-x.pm)>1e-9) return y.pm-x.pm;
+    }
+    if(Math.abs(y.ar-x.ar)>1e-9) return y.ar-x.ar;
+    if(Math.abs(y.fr-x.fr)>1e-9) return y.fr-x.fr;
+    for(let i=0;i<x.a.length;i++){ if(y.a[i]!==x.a[i]) return y.a[i]-x.a[i]; }
+    return 0;
+  });
+
+  const topBuilds = recs.slice(0, topLimit).map(r=>{
+    const st={S:0,A:0,I:0,P:0,L:0,D:0,C:0};
+    for(let j=0;j<keys.length;j++) st[keys[j]]=r.a[j];
+    return scoreBuild(st, inp, blocks);
+  });
+  return {topBuilds, count: recs.length};
+}
+
+// Fast: a coarse grid over the allocation, then multi-start hill-climbing (move
+// one point from one stat to another) on the primary — and, if set, secondary —
+// metric. Returns every build it evaluated so the caller can rank them with the
+// same rankCandidates() as the exhaustive path. Thousands of evals vs millions.
+// Validated against exhaustiveSearch via test/validate-search.js.
+function fastSearch(inp, blocks, level){
+  const spec = activeSkillSpec(inp);
+  const keys = spec.map(s=>s[0]);
+  const caps = Object.fromEntries(spec);
+  const target = Math.min(level, spec.reduce((a,[,c])=>a+c,0));
+  const cache = new Map();
+  const all = [];
+  const evalA = (a)=>{
+    const st={S:0,A:0,I:0,P:0,L:0,D:0,C:0};
+    for(const k of keys) st[k]=a[k]||0;
+    const key = keys.map(k=>st[k]).join(",");
+    let sc = cache.get(key);
+    if(sc === undefined){ sc = scoreBuild(st, inp, blocks); cache.set(key, sc); all.push(sc); }
+    return sc;
+  };
+  // Greedy-fill `target` points across skills in a priority order, respecting caps.
+  const fill = (order)=>{
+    const a = {}; for(const k of keys) a[k]=0;
+    let rem = target;
+    for(const k of order){ const put=Math.min(caps[k], rem); a[k]=put; rem-=put; if(rem<=0) break; }
+    return a;
+  };
+
+  // 1) Diverse seeds: each skill prioritised first, an even split, and randoms.
+  const seeds = [];
+  for(const k of keys) seeds.push(fill([k, ...keys.filter(x=>x!==k)]));
+  { const a={}; for(const k of keys) a[k]=0; let rem=target,i=0;
+    while(rem>0 && i<100000){ const k=keys[i%keys.length]; if(a[k]<caps[k]){a[k]++;rem--;} i++; } seeds.push(a); }
+  for(let r=0;r<8;r++) seeds.push(fill(keys.slice().sort(()=>Math.random()-0.5)));
+  for(const s of seeds) evalA(s);
+
+  const pk = primaryFocusKey(inp), sk = secondaryFocusKey(inp);
+  const objectives = sk !== "none"
+    ? [c=>metricValue(c, pk, inp), c=>metricValue(c, sk, inp)]
+    : [c=>metricValue(c, pk, inp)];
+
+  // 2) Multi-start hill-climb: shift one point between two skills (sum stays
+  // = target), respecting caps, taking the best improving move until none.
+  const climb = (seed, obj)=>{
+    let cur = {}; for(const k of keys) cur[k]=seed[k]||0;
+    let curV = obj(evalA(cur)), guard=0;
+    for(;;){
+      if(guard++ > 6000) break;
+      let bestV=curV, bestA=null;
+      for(const f of keys){
+        if(cur[f] <= 0) continue;
+        for(const t of keys){
+          if(f===t || (cur[t]||0) >= caps[t]) continue;
+          const ns={...cur}; ns[f]-=1; ns[t]+=1;
+          const v=obj(evalA(ns));
+          if(v > bestV+1e-12){ bestV=v; bestA=ns; }
+        }
+      }
+      if(!bestA) break; cur=bestA; curV=bestV;
+    }
+  };
+  for(const obj of objectives){
+    all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,10).forEach(c=>climb(c.stats, obj));
+  }
+
+  // 3) Local polish: a ±W grid around the best builds over the top free skills
+  // (AGI is the slack), to catch ridge optima the greedy climb stepped past.
+  const freeKeys = keys.filter(k=>k!=="A");
+  const W = freeKeys.length <= 5 ? 2 : 1;
+  const polishSeeds = [];
+  for(const obj of objectives) all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,3).forEach(c=>polishSeeds.push(c.stats));
+  for(const s of polishSeeds){
+    const dims = freeKeys.slice().sort((x,y)=>(s[y]||0)-(s[x]||0)).slice(0,5);
+    const base = {}; for(const k of keys) base[k]=s[k]||0;
+    (function grid(di, cur){
+      if(di === dims.length){
+        let sum=0; for(const k of keys) if(k!=="A") sum += cur[k]||0;
+        const a = target - sum;
+        if(a < 0 || a > caps.A) return;
+        cur.A = a; evalA(cur); return;
+      }
+      const k = dims[di];
+      for(let d=-W; d<=W; d++){
+        const v = (s[k]||0)+d;
+        if(v<0 || v>caps[k]) continue;
+        cur[k]=v; grid(di+1, cur);
+      }
+    })(0, {...base});
+  }
+
+  // 4) Band-aware objective: when a secondary goal is set, the displayed best is
+  // the build with the best SECONDARY among those within tolerance of the max
+  // primary. Climb directly on that constrained objective (in-band -> rank by
+  // secondary; out-of-band -> push primary up toward the band).
+  const objsToHop = objectives.slice();
+  if(sk !== "none"){
+    const maxP = all.reduce((m,c)=>Math.max(m, metricValue(c,pk,inp)), -Infinity);
+    const tol = Math.max(0, (inp.goal?.tolerancePct||0)/100);
+    const threshold = maxP - Math.abs(maxP)*tol;
+    objsToHop.push(c=>{ const p=metricValue(c,pk,inp); return p >= threshold-1e-9 ? 1e12 + metricValue(c,sk,inp) : p; });
+  }
+
+  // 5) Hill-climb + basin-hopping on each objective: kick the current best a few
+  // points and re-climb, to escape multi-skill ridges the ±1 climb / bounded
+  // polish can't cross in single steps (e.g. a simultaneous -3 L / +3 C move).
+  for(const obj of objsToHop){
+    all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,10).forEach(c=>climb(c.stats, obj));
+    for(let iter=0; iter<80; iter++){
+      // kick from one of the current top builds (not just the best) for diversity
+      const pool = all.slice().sort((a,b)=>obj(b)-obj(a)).slice(0,5);
+      const top = pool[Math.random()*pool.length|0];
+      const cur = {}; for(const k of keys) cur[k] = top.stats[k]||0;
+      const kicks = 2 + (Math.random()*6|0);
+      for(let q=0;q<kicks;q++){
+        const f = keys[Math.random()*keys.length|0], t = keys[Math.random()*keys.length|0];
+        if(f!==t && cur[f]>0 && (cur[t]||0)<caps[t]){ cur[f]--; cur[t]++; }
+      }
+      climb(cur, obj);
+    }
+  }
+  return all;
+}
+
+// Build label "S/A/P/I/L" (+"/D/C" once Divinity/Corruption are allocated).
+function buildLabel(s){
+  let lbl = `${s.S||0}/${s.A||0}/${s.P||0}/${s.I||0}/${s.L||0}`;
+  if((s.D||0) > 0 || (s.C||0) > 0) lbl += `/${s.D||0}/${s.C||0}`;
+  return lbl;
 }
 
 function renderBest(best, top, count){
   if(!best) return;
   const s=best.stats, d=best.der;
-  document.getElementById("bestBuild").textContent = `${s.S}/${s.A}/${s.P}/${s.I}/${s.L}`;
+  document.getElementById("bestBuild").textContent = buildLabel(s);
   document.getElementById("bestRph").textContent = fmt(best.rewardHr,1);
   document.getElementById("bestFloor").textContent = fmt(best.floorReached,2);
   const inp = getInputs();
@@ -1967,7 +2183,7 @@ function renderBest(best, top, count){
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
   const valueLabel = document.getElementById("bestValueLabel");
-  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))}/tick-hour`;
+  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))}/stamina`;
   document.getElementById("candidateCount").textContent = count.toLocaleString();
   const bandEl = document.getElementById("primaryBandFloor");
   if(bandEl && top.length){
@@ -1983,106 +2199,19 @@ function renderBest(best, top, count){
     const tr=document.createElement("tr");
     if(i===0) tr.className="best";
     const st=x.stats, der=x.der;
-    const cells=[i+1,st.S,st.A,st.P,st.I,st.L,fmt(x.rewardHr,1),fmt(x.floorReached,2),fmt(der.stamina,0),fmt(der.damage,1),fmt(der.critChance*100,1)];
+    const asc = inp.ascension ?? 0;
+    const cells=[{v:i+1},{v:st.S},{v:st.A},{v:st.P},{v:st.I},{v:st.L},
+      {v:st.D||0,req:1},{v:st.C||0,req:2},
+      {v:fmt(x.rewardHr,1)},{v:fmt(x.floorReached,2)},{v:fmt(der.stamina,0)},{v:fmt(der.damage,1)},{v:fmt(der.critChance*100,1)}];
     for(const c of cells){
-      const td=document.createElement("td"); td.textContent=c; tr.appendChild(td);
+      const td=document.createElement("td"); td.textContent=c.v;
+      if(c.req){ td.className = c.req===2?"req-a2":"req-a1"; if(asc < c.req) td.style.display="none"; }
+      tr.appendChild(td);
     }
     tbody.appendChild(tr);
   });
 }
 
-function scoreCurrent(){
-  const inp=getInputs(), blocks=visibleBlocks(inp);
-  const stats={
-    S:Math.max(0,Math.floor(n("curStr"))),
-    A:Math.max(0,Math.floor(n("curAgi"))),
-    I:clamp(Math.floor(n("curInt")),0,25),
-    P:clamp(Math.floor(n("curPer")),0,25),
-    L:clamp(Math.floor(n("curLuck")),0,25)
-  };
-  const base=scoreBuild(stats,inp,blocks);
-  document.getElementById("curBuildLabel").textContent=`${stats.S}/${stats.A}/${stats.P}/${stats.I}/${stats.L}`;
-  document.getElementById("curRph").textContent=fmt(base.rewardHr,1);
-  document.getElementById("curFloor").textContent=fmt(base.floorReached,2);
-
-  const candidates=[
-    ["Current", stats],
-    ["+1 STR", {...stats,S:stats.S+1}],
-    ["+1 AGI", {...stats,A:stats.A+1}],
-    ["+1 PER", {...stats,P:Math.min(25,stats.P+1)}],
-    ["+1 INT", {...stats,I:Math.min(25,stats.I+1)}],
-    ["+1 Luck", {...stats,L:Math.min(25,stats.L+1)}]
-  ];
-  const tbody=document.querySelector("#nextPointTable tbody");
-  tbody.innerHTML="";
-  let rows=candidates.map(([name,st])=>({name,sc:scoreBuild(st,inp,blocks)}));
-  const bestDelta = Math.max(...rows.slice(1).map(r=>r.sc.rewardHr-base.rewardHr));
-  rows.forEach((r,idx)=>{
-    const tr=document.createElement("tr");
-    if(idx>0 && Math.abs((r.sc.rewardHr-base.rewardHr)-bestDelta)<1e-7) tr.className="best";
-    const st=r.sc.stats;
-    const delta=r.sc.rewardHr-base.rewardHr;
-    const pctDelta=base.rewardHr?delta/base.rewardHr*100:0;
-    const floorDelta=r.sc.floorReached-base.floorReached;
-    const cells=[r.name,st.S,st.A,st.P,st.I,st.L,fmt(r.sc.rewardHr,1),fmt(delta,2),fmt(pctDelta,2)+"%",fmt(r.sc.floorReached,2),fmt(floorDelta,3)];
-    for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
-    tbody.appendChild(tr);
-  });
-}
-
-async function runGreedy(){
-  const inp=getInputs(), blocks=visibleBlocks(inp);
-  const tbody=document.querySelector("#greedyTable tbody");
-  tbody.innerHTML="";
-  const status=document.getElementById("status");
-  const btn=document.getElementById("runGreedy");
-  btn.disabled=true;
-  let stats={S:0,A:0,I:0,P:0,L:0};
-  const maxLevel=100;
-  for(let level=0; level<=maxLevel; level++){
-    const sc=scoreBuild(stats,inp,blocks);
-    const der=sc.der;
-    const tr=document.createElement("tr");
-    const cells=[level, level===0?"—":stats.added, stats.S,stats.A,stats.P,stats.I,stats.L,fmt(sc.rewardHr,1),fmt(sc.floorReached,2),fmt(der.stamina,0),fmt(der.damage,1),fmt(der.critChance*100,1)];
-    for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
-    tbody.appendChild(tr);
-
-    if(level < maxLevel){
-      const options=[
-        ["STR",{...stats,S:stats.S+1}],
-        ["AGI",{...stats,A:stats.A+1}],
-        ["PER",{...stats,P:stats.P<25?stats.P+1:stats.P}],
-        ["INT",{...stats,I:stats.I<25?stats.I+1:stats.I}],
-        ["Luck",{...stats,L:stats.L<25?stats.L+1:stats.L}]
-      ].filter(o => JSON.stringify(o[1]) !== JSON.stringify(stats));
-      let best=null, bestName="";
-      for(const [name,st] of options){
-        const opt=scoreBuild(st,inp,blocks);
-        if(isBetter(opt,best,inp)){ best=opt; bestName=name; }
-      }
-      stats={...best.stats, added:bestName};
-    }
-    if(level%10===0){
-      status.textContent=`Building greedy path... level ${level}/100`;
-      await new Promise(r=>setTimeout(r,0));
-    }
-  }
-  status.textContent="Greedy path complete.";
-  btn.disabled=false;
-}
-
-function renderNodes(){
-  const inp=getInputs();
-  const blocks=visibleBlocks(inp);
-  const tbody=document.querySelector("#nodeTable tbody");
-  tbody.innerHTML="";
-  for(const b of blocks){
-    const tr=document.createElement("tr");
-    const cells=[b.tier,b.type,b.floorMin,b.floorMax===999?"∞":b.floorMax,fmt(b.hp,0),b.armor>0?fmt(b.armor,2):"—",fmt(b.xp0,3),fmt(b.loot0,3),fmt(b.lootXpEq,3),b.isWorthless?"Yes":"No"];
-    for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
-    tbody.appendChild(tr);
-  }
-}
 
 /* Simulation uses exact randomized node slots and crits. It is intentionally separate from optimizer. */
 function randBlockTypeForFloor(floor, inp, rng=Math.random){
@@ -2102,6 +2231,17 @@ function randBlockTypeForFloor(floor, inp, rng=Math.random){
   return null;
 }
 
+// One hit's damage multiplier under the nested crit ladder: crit -> (super only
+// on a crit) -> (ultra only on a super). Shared by normal hits and crosshairs.
+function rollCritMult(rng, cc, cd, sc, sd, uc, ud){
+  if(rng() < cc){
+    let m = cd;
+    if(rng() < sc){ m *= sd; if(rng() < uc) m *= ud; }
+    return m;
+  }
+  return 1;
+}
+
 function simulateOneRun(stats, inp, blocks, rng=Math.random){
   const der=getDerived(stats,inp);
   let stamina=der.stamina;
@@ -2116,9 +2256,12 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
   // skipped, so with all abilities off this reduces to plain attacks.
   const A = inp.abilities || {};
   const sched = {};
+  // Instacharge: each ability use has this chance to instantly refund its
+  // cooldown, so the effective cooldown is cooldown*(1-p) (more uptime).
+  const instacharge = clamp(inp.base?.instacharge || 0, 0, 0.99);
   for(const k of ["enrage","flurry","quake"]){
     const a = A[k] || {};
-    sched[k] = {on:!!a.on, charges:Math.max(0,a.charges||0), cooldown:Math.max(0.01,a.cooldown||1), nextAt:0, left:0, a};
+    sched[k] = {on:!!a.on, charges:Math.max(0,a.charges||0), cooldown:Math.max(0.01,(a.cooldown||1)*(1-instacharge)), nextAt:0, left:0, a};
   }
   function tryCast(){
     for(const k of ["enrage","flurry","quake"]){
@@ -2130,24 +2273,82 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
       }
     }
   }
+  // Mods are rolled when a block SPAWNS (below) and attached to it, so the reward
+  // is identical whoever lands the kill (a player tick or a crosshair). A block
+  // can carry several mods at once (independent rolls).
+  const modMulti = 1 + stats.C*(inp.inc.corrAllModMultiPct||0);
+  const xpGain = inp.base.xpGain + stats.I*inp.inc.intXpGain;
+  const fragGain = inp.base.fragGain + stats.P*inp.inc.perFragGain;
+  const xpModChance = inp.base.xpMod + stats.I*inp.inc.intXpModPct + stats.L*inp.inc.luckXpModPct;
+  const lootModChance = inp.base.lootMod + stats.P*inp.inc.perLootModPct + stats.L*inp.inc.luckLootModPct;
   function clearNode(node){
     if(node.cleared) return;
     node.cleared = true;
-    const xpMod = rng() < (inp.base.xpMod + stats.I*inp.inc.intXpModPct + stats.L*inp.inc.luckXpModPct) ? 3 : 1;
-    const lootMod = rng() < (inp.base.lootMod + stats.P*inp.inc.perLootModPct + stats.L*inp.inc.luckLootModPct) ? 3.8 : 1;
-    const xpGain = inp.base.xpGain + stats.I*inp.inc.intXpGain;
-    const fragGain = inp.base.fragGain + stats.P*inp.inc.perFragGain;
-    const xpValue = node.b.xp0 * xpGain * xpMod;
-    const lootValue = node.b.lootXpEq * fragGain * lootMod;
+    const xpValue = node.b.xp0 * xpGain * node.xpMod * node.gleam;
+    const lootValue = node.b.lootXpEq * fragGain * node.lootMod * node.gleam;
     channels.xp += xpValue;
     if(channels[node.type] !== undefined) channels[node.type] += lootValue;
     totalValue += xpValue + lootValue;
-    if(rng()<der.staminaModChance) stamina += inp.inc.staminaModGain;
+    if(node.staminaMod) stamina += inp.inc.staminaModGain;
+  }
+
+  // Crosshairs: each live block independently has ~2.175% chance every ~1.005s
+  // (real time, speed-independent) to spawn a crosshair. Only auto-tap crosshairs
+  // fire for an idle player (manual ones are ignored); they fire ~2s later as one
+  // regular hit (full reward if it kills the block), x gold multiplier if golden.
+  // Divinity adds auto-tap %, Luck adds gold-crosshair %.
+  const CH_P = inp.crosshair?.spawnPct ?? 0.02175, CH_INTERVAL = inp.crosshair?.interval || 1.005, CH_DELAY = inp.crosshair?.fireDelay ?? 2;
+  const autoTapEff = clamp((inp.base.autoTap||0) + stats.D*(inp.inc.divAutoTapPct||0), 0, 1);
+  const goldEff = clamp((inp.base.goldCrosshairChance||0) + stats.L*0.005, 0, 1);
+  const goldMulti = inp.base.goldCrosshairMulti>0 ? inp.base.goldCrosshairMulti : 3;
+  const crosshairsActive = autoTapEff > 0;
+  let chNextCheck = CH_INTERVAL;
+  let chQueue = [];
+  function crosshairHit(node, gold){
+    const mult = rollCritMult(rng, der.critChance, der.critDamage, der.superChance, der.superDamage, der.ultraChance, der.ultraDamage);
+    let dmg = der.damage * mult;
+    if(gold) dmg *= goldMulti;
+    node.hp -= Math.max(0, dmg - node.armor);
+    if(node.hp<=0) clearNode(node);
+  }
+  function processCrosshairs(nodes){
+    if(!crosshairsActive) return;
+    // Spawn checks: each live block with no crosshair already on it rolls once per
+    // ~1.005s of real time. A block that already carries a crosshair is skipped
+    // until that crosshair resolves. Auto-tap and golden are decided at spawn.
+    while(timeSec >= chNextCheck){
+      for(const nd of nodes){
+        if(nd.cleared || nd.hasCrosshair) continue;
+        if(rng() < CH_P){
+          nd.hasCrosshair = true;
+          if(rng() < autoTapEff){
+            // auto crosshair: resolves on its own ~CH_DELAY later
+            chQueue.push({target:nd, fireAt:chNextCheck + CH_DELAY, gold: rng() < goldEff});
+          }
+          // else manual: an idle player never taps it, so it sits on the block
+          // until the block is destroyed, blocking new crosshairs there. We leave
+          // hasCrosshair set and never free it (a cleared block is skipped anyway).
+        }
+      }
+      chNextCheck += CH_INTERVAL;
+    }
+    // Resolve due auto crosshairs: hit if the block still lives, then free the node.
+    for(let i=chQueue.length-1;i>=0;i--){
+      if(chQueue[i].fireAt <= timeSec){
+        const c = chQueue[i];
+        if(!c.target.cleared) crosshairHit(c.target, c.gold);
+        c.target.hasCrosshair = false;
+        chQueue.splice(i,1);
+      }
+    }
   }
 
   for(let floor=1; floor<=inp.maxFloor && stamina>0; floor++){
     const activeNodeCount = rollNodeAttemptsForFloor(floor, inp, rng);
     let clearedCount = 0;
+    chQueue.length = 0; // new floor: crosshairs from the previous floor are gone
+    // Gleaming floor: rolled once for the whole floor; multiplies all its rewards.
+    const floorGleam = (rng() < clamp(inp.base.gleamingChance||0,0,1)) ? (inp.base.gleamingMulti>0?inp.base.gleamingMulti:1) : 1;
     // Pre-roll the floor's nodes so Quake can damage all of them at once.
     const nodes = [];
     for(let i=0;i<activeNodeCount;i++){
@@ -2155,7 +2356,12 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
       if(!type){ if(slot) clearedCount++; continue; }
       const b = blockForFloor(type, floor, blocks);
       if(!b) continue;
-      nodes.push({type, b, hp:b.hp, armor:effectiveArmor(b.armor, der, inp), hasSpeed: der.speedChance>0 ? rng()<der.speedChance : false, cleared:false});
+      nodes.push({type, b, hp:b.hp, armor:effectiveArmor(b.armor, der, inp),
+        hasSpeed: der.speedChance>0 ? rng()<der.speedChance : false,
+        xpMod: rng() < xpModChance ? (inp.base.xpModGain||3)*modMulti : 1,
+        lootMod: rng() < lootModChance ? (inp.base.lootModGain||3.8)*modMulti : 1,
+        staminaMod: rng() < der.staminaModChance,
+        gleam: floorGleam, cleared:false});
     }
     for(const node of nodes){
       if(stamina<=0) break;
@@ -2165,8 +2371,8 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
         const enr = sched.enrage.left>0, flu = sched.flurry.left>0, qk = sched.quake.left>0;
         let dmg = der.damage, cdmg = der.critDamage;
         if(enr){ dmg *= 1 + (sched.enrage.a.dmgPct||0)/100; cdmg += (sched.enrage.a.critDmgPct||0)/100; }
-        const crit = rng()<der.critChance, superCrit = rng()<inp.base.superChance;
-        const hitDmg = dmg * (crit?cdmg:1) * (superCrit?inp.base.superDamage:1);
+        // Nested crit ladder (crit -> super -> ultra), matching the EV model.
+        const hitDmg = dmg * rollCritMult(rng, der.critChance, cdmg, der.superChance, der.superDamage, der.ultraChance, der.ultraDamage);
         node.hp -= Math.max(0, hitDmg - node.armor);
         if(qk){
           const share = der.damage * ((sched.quake.a.dmgPct||0)/100); // % of base damage to all blocks
@@ -2174,6 +2380,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
         }
         const rate = atkSpeedBase * (flu ? 1+(sched.flurry.a.atkSpeedPct||0)/100 : 1) * (node.hasSpeed ? 2 : 1);
         timeSec += 1/Math.max(0.01, rate);
+        processCrosshairs(nodes); // real-time crosshair spawns/fires as time advances
         if(enr) sched.enrage.left--;
         if(flu) sched.flurry.left--;
         if(qk) sched.quake.left--;
@@ -2186,12 +2393,15 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
     else floorReached = floor + (activeNodeCount>0 ? Math.min(1, clearedCount/activeNodeCount) : 0);
   }
 
-  const usedTicks = Math.max(1,ticksSpent);
-  const metrics = finalizeMetrics(channels, usedTicks);
+  // Score is reward per stamina consumed (net of refunds), to match the optimizer.
+  // Ticks are still tracked, but only for real-time effects (crosshairs, abilities).
+  const usedStamina = Math.max(1, der.stamina - stamina);
+  const metrics = finalizeMetrics(channels, usedStamina);
   const out = {
     floorReached,
     totalValue,
-    ticksSpent:usedTicks,
+    ticksSpent:Math.max(1,ticksSpent),
+    staminaUsed:usedStamina,
     timeSec,
     channels,
     metrics,
@@ -2202,37 +2412,6 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
   return out;
 }
 
-async function runMonte(){
-  const inp=getInputs(), blocks=visibleBlocks(inp);
-  const stats={
-    S:Math.max(0,Math.floor(n("curStr"))),
-    A:Math.max(0,Math.floor(n("curAgi"))),
-    I:clamp(Math.floor(n("curInt")),0,25),
-    P:clamp(Math.floor(n("curPer")),0,25),
-    L:clamp(Math.floor(n("curLuck")),0,25)
-  };
-  const runs=3000;
-  const simRng=createSimulationRng(inp);
-  const rng=simRng.random;
-  let hit=0, sumFloor=0;
-  const status=document.getElementById("status");
-  const btn=document.getElementById("runMonte");
-  btn.disabled=true;
-  for(let i=0;i<runs;i++){
-    const r=simulateOneRun(stats,inp,blocks,rng);
-    if(r.floorReached>=inp.targetFloor) hit++;
-    sumFloor+=r.floorReached;
-    if(i%250===0){
-      status.textContent=`Simulation ${i}/${runs}...`;
-      await new Promise(res=>setTimeout(res,0));
-    }
-  }
-  document.getElementById("monteChance").textContent=fmt(hit/runs*100,1)+"%";
-  document.getElementById("monteFloor").textContent=fmt(sumFloor/runs,2);
-  status.textContent=`Simulation complete: ${runs.toLocaleString()} runs.`;
-  const seedEl=document.getElementById("simSeedUsed"); if(seedEl) seedEl.textContent=simRng.seed;
-  btn.disabled=false;
-}
 
 
 async function runMonteRerank(){
@@ -2242,11 +2421,11 @@ async function runMonteRerank(){
   const tbody=document.querySelector("#monteRerankTable tbody");
 
   if(!lastExactTopBuilds || lastExactTopBuilds.length===0){
-    status.textContent="Find the best build first.";
+    showStatus("Find the best build first.", 5000);
     return;
   }
   if(deterministicSignature(inp) !== lastExactSignature){
-    status.textContent="Settings changed. Run Find best build again before simulating.";
+    showStatus("Settings changed. Run Find best build again before simulating.", 5000);
     return;
   }
 
@@ -2262,14 +2441,14 @@ async function runMonteRerank(){
   for(let b=0; b<builds.length; b++){
     const det=builds[b];
     const stats=det.stats;
-    let sumValue=0, sumTicks=0, sumFloor=0, hitTarget=0;
+    let sumValue=0, sumStamina=0, sumFloor=0, hitTarget=0;
     const floors=[];
     const simChannels=blankChannels();
 
     for(let r=0; r<runs; r++){
       const sim=simulateOneRun(stats, inp, blocks, rng);
       sumValue += sim.totalValue;
-      sumTicks += sim.ticksSpent;
+      sumStamina += sim.staminaUsed;
       sumFloor += sim.floorReached;
       addChannels(simChannels, sim.channels);
       floors.push(sim.floorReached);
@@ -2279,7 +2458,7 @@ async function runMonteRerank(){
     floors.sort((a,b)=>a-b);
     const pct = p => floors[Math.max(0, Math.min(floors.length-1, Math.floor((floors.length-1)*p)))];
     const mcAvgFloor = sumFloor/runs;
-    const mcMetrics = finalizeMetrics(simChannels, Math.max(1,sumTicks));
+    const mcMetrics = finalizeMetrics(simChannels, Math.max(1,sumStamina));
     const mcAggregate = {metrics:mcMetrics, floorReached:mcAvgFloor};
     const row={
       detRank:det.detRank || (b+1),
@@ -2300,7 +2479,7 @@ async function runMonteRerank(){
     };
     results.push(row);
 
-    status.textContent=`Simulation ${b+1}/${builds.length}; ${runs.toLocaleString()} runs/build.`;
+    showStatus(`Simulation ${b+1}/${builds.length}; ${runs.toLocaleString()} runs/build.`, 30000);
     await new Promise(res=>setTimeout(res,0));
   }
 
@@ -2309,8 +2488,8 @@ async function runMonteRerank(){
   const bestSim = results[0];
   if(bestSim){
     const s = bestSim.stats;
-    document.getElementById("simBestBuild").textContent = `${s.S}/${s.A}/${s.P}/${s.I}/${s.L}`;
-    document.getElementById("simPrimaryLabel").textContent = primaryFocusKey(inp)==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(inp))}/tick-hour`;
+    document.getElementById("simBestBuild").textContent = buildLabel(s);
+    document.getElementById("simPrimaryLabel").textContent = primaryFocusKey(inp)==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(inp))}/stamina`;
     document.getElementById("simPrimaryScore").textContent = primaryFocusKey(inp)==="target" ? fmt(bestSim.targetPct,1)+"%" : fmt(bestSim.primaryMetric,1);
     document.getElementById("simAvgFloor").textContent = fmt(bestSim.mcAvgFloor,2);
     document.getElementById("simTargetChance").textContent = fmt(bestSim.targetPct,1)+"%";
@@ -2337,7 +2516,7 @@ async function runMonteRerank(){
   });
 
   document.body.dataset.simulationReady = "true";
-  status.textContent=`Simulation complete in ${((performance.now()-start)/1000).toFixed(2)}s.`;
+  showStatus(`Simulation complete in ${((performance.now()-start)/1000).toFixed(2)}s.`, 5000);
   const simCard=document.getElementById("simulationCard");
   if(simCard){
     setTimeout(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}), 80);
@@ -2361,162 +2540,6 @@ function clearMonteRerank(silent=false){
 
 
 
-function topInsertByFloor(arr, item, max=75){
-  arr.push(item);
-  arr.sort((a,b)=>{
-    if(Math.abs(b.floorReached-a.floorReached)>1e-9) return b.floorReached-a.floorReached;
-    return b.rewardHr-a.rewardHr;
-  });
-  if(arr.length>max) arr.pop();
-}
-
-function floorAtChance(sortedFloorsAsc, chancePct){
-  // Highest floor reached in at least chancePct of runs.
-  // If 10% chance requested, use the 90th-percentile-from-bottom threshold.
-  if(!sortedFloorsAsc.length) return 0;
-  const p = Math.max(0, Math.min(1, 1 - chancePct/100));
-  const idx = Math.max(0, Math.min(sortedFloorsAsc.length-1, Math.floor((sortedFloorsAsc.length-1)*p)));
-  return sortedFloorsAsc[idx];
-}
-
-async function runReachability(){
-  const inp=getInputs(), blocks=visibleBlocks(inp);
-  const status=document.getElementById("status");
-  const btn=document.getElementById("runReachability");
-  const tbody=document.querySelector("#reachabilityTable tbody");
-  const level=inp.selectedLevel;
-  btn.disabled=true;
-  tbody.innerHTML="";
-  document.getElementById("reachBestBuild").textContent="—";
-  document.getElementById("reachTargetPct").textContent="—";
-  document.getElementById("reachAvgFloor").textContent="—";
-  document.getElementById("reachMaxObserved").textContent="—";
-  document.getElementById("reachFloor10").textContent="—";
-
-  const top=[];
-  let count=0;
-  const start=performance.now();
-  const maxI=Math.min(25, level);
-
-  for(let I=0; I<=maxI; I++){
-    const maxP=Math.min(25, level-I);
-    for(let P=0; P<=maxP; P++){
-      const maxL=Math.min(25, level-I-P);
-      for(let L=0; L<=maxL; L++){
-        const rem=level-I-P-L;
-        for(let S=0; S<=rem; S++){
-          const A=rem-S;
-          const sc=scoreBuild({S,A,I,P,L}, inp, blocks);
-          count++;
-          topInsertByFloor(top, sc, inp.reachTopCount);
-        }
-      }
-    }
-    if(I % 2 === 0){
-      status.textContent=`Searching floor-push builds... I=${I}/${maxI}, candidates ${count.toLocaleString()}`;
-      await new Promise(r=>setTimeout(r,0));
-    }
-  }
-
-  const runs=inp.reachRunsPerBuild;
-  const simRng=createSimulationRng(inp);
-  const rng=simRng.random;
-  const results=[];
-  let globalMaxFloor=0;
-
-  for(let b=0; b<top.length; b++){
-    const det=top[b];
-    const stats=det.stats;
-    let sumValue=0, sumTicks=0, sumFloor=0, hitTarget=0, maxFloorSeen=0;
-    const floors=[];
-
-    for(let r=0; r<runs; r++){
-      const sim=simulateOneRun(stats, inp, blocks, rng);
-      sumValue += sim.totalValue;
-      sumTicks += sim.ticksSpent;
-      sumFloor += sim.floorReached;
-      floors.push(sim.floorReached);
-      if(sim.floorReached >= inp.targetFloor) hitTarget++;
-      if(sim.floorReached > maxFloorSeen) maxFloorSeen=sim.floorReached;
-      if(sim.floorReached > globalMaxFloor) globalMaxFloor=sim.floorReached;
-    }
-
-    floors.sort((a,b)=>a-b);
-    const pct = p => floors[Math.max(0, Math.min(floors.length-1, Math.floor((floors.length-1)*p)))];
-    const row={
-      stats:{...stats},
-      targetPct:hitTarget/runs*100,
-      avgFloor:sumFloor/runs,
-      maxObserved:maxFloorSeen,
-      floor50:floorAtChance(floors,50),
-      floor25:floorAtChance(floors,25),
-      floor10:floorAtChance(floors,10),
-      floor5:floorAtChance(floors,5),
-      floor1:floorAtChance(floors,1),
-      p10:pct(0.10),
-      p50:pct(0.50),
-      p90:pct(0.90),
-      mcRewardHr:3600*sumValue/Math.max(1,sumTicks),
-      detRewardHr:det.rewardHr,
-      detFloor:det.floorReached
-    };
-    results.push(row);
-
-    status.textContent=`Reachability Sim ${b+1}/${top.length}; ${runs.toLocaleString()} runs/build.`;
-    await new Promise(r=>setTimeout(r,0));
-  }
-
-  // Sort primarily by target success chance, then average floor, then reward.
-  results.sort((a,b)=>{
-    if(Math.abs(b.targetPct-a.targetPct)>1e-9) return b.targetPct-a.targetPct;
-    if(Math.abs(b.avgFloor-a.avgFloor)>1e-9) return b.avgFloor-a.avgFloor;
-    return b.mcRewardHr-a.mcRewardHr;
-  });
-
-  if(results.length){
-    const best=results[0], s=best.stats;
-    document.getElementById("reachBestBuild").textContent=`${s.S}/${s.A}/${s.P}/${s.I}/${s.L}`;
-    document.getElementById("reachTargetPct").textContent=fmt(best.targetPct,1)+"%";
-    document.getElementById("reachAvgFloor").textContent=fmt(best.avgFloor,2);
-    document.getElementById("reachMaxObserved").textContent=fmt(globalMaxFloor,2);
-    document.getElementById("reachFloor10").textContent=fmt(Math.max(...results.map(x=>x.floor10)),2);
-  }
-
-  results.forEach((r,i)=>{
-    const tr=document.createElement("tr");
-    if(i===0) tr.className="best";
-    const s=r.stats;
-    const cells=[
-      i+1,s.S,s.A,s.P,s.I,s.L,
-      fmt(r.targetPct,1)+"%",fmt(r.avgFloor,2),fmt(r.maxObserved,2),
-      fmt(r.floor50,2),fmt(r.floor25,2),fmt(r.floor10,2),fmt(r.floor5,2),fmt(r.floor1,2),
-      fmt(r.p10,2),fmt(r.p50,2),fmt(r.p90,2),
-      fmt(r.detFloor,2),fmt(r.detRewardHr,1)
-    ];
-    for(const c of cells){
-      const td=document.createElement("td");
-      td.textContent=c;
-      tr.appendChild(td);
-    }
-    tbody.appendChild(tr);
-  });
-
-  status.textContent=`Floor-push search complete in ${((performance.now()-start)/1000).toFixed(2)}s. Candidate builds checked: ${count.toLocaleString()}.`;
-  const clearBtn=document.getElementById("clearReachability"); if(clearBtn) clearBtn.style.display="inline-flex";
-  btn.disabled=false;
-}
-
-function clearReachability(){
-  const tbody=document.querySelector("#reachabilityTable tbody");
-  if(tbody) tbody.innerHTML="";
-  document.getElementById("reachBestBuild").textContent="—";
-  document.getElementById("reachTargetPct").textContent="—";
-  document.getElementById("reachAvgFloor").textContent="—";
-  document.getElementById("reachMaxObserved").textContent="—";
-  document.getElementById("reachFloor10").textContent="—";
-  const clearBtn=document.getElementById("clearReachability"); if(clearBtn) clearBtn.style.display="none";
-  document.getElementById("status").textContent="Floor results cleared.";
-}
 
 
 
@@ -2601,8 +2624,6 @@ function restoreSettingsSnapshot(){
   applyAscensionGating();
   syncBaseStatMode();
   syncAllCardFields();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
   scheduleSave();
 }
@@ -3427,8 +3448,6 @@ function finishImport(parsed, statsText, fullText){
   }
 
   markOptimizerStale();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
   if(status) status.textContent = applied ? `Imported ${applied} stat value${applied===1?"":"s"}.` : "OCR finished, but no stat values were imported.";
   return applied;
@@ -3490,8 +3509,6 @@ function applyAiStats(stats){
   if(preview) preview.textContent = shown.length ? "Parsed: " + shown.join(" · ") : "";
 
   markOptimizerStale();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
   return applied;
 }
@@ -3568,8 +3585,7 @@ function resetAllSettings(){
     "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain",
     "baseArmorPenFlat",
     "baseUltraChance","baseUltraDamage","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti","baseGleamingChance","baseGleamingMulti",
-    "curStr","curAgi","curPer","curInt","curLuck",
-    "spentStr","spentAgi","spentPer","spentInt","spentLuck"
+    "spentStr","spentAgi","spentPer","spentInt","spentLuck","spentDivinity","spentCorruption"
   ];
 
   for(const id of blankIds){
@@ -3585,14 +3601,14 @@ function resetAllSettings(){
     enrageDmgPct:"20", enrageCritDmgPct:"100", enrageCharges:"5", enrageCooldown:"60",
     flurryAtkSpeedPct:"100", flurryStaminaOnCast:"5", flurryCharges:"5", flurryCooldown:"120",
     quakeDmgPct:"20", quakeCharges:"5", quakeCooldown:"180",
+    crosshairSpawnPct:"2.175", crosshairInterval:"1.005", crosshairFireDelay:"2",
+    lootWeight:"1",
     nodeSpawnModel:"activeCount",
     primaryGoal:"allRewards",
     secondaryGoal:"none",
     primaryToleranceValue:"2",
     mcTopCount:"25",
     mcRunsPerBuild:"1000",
-    reachTopCount:"75",
-    reachRunsPerBuild:"1000",
     simSeedMode:"random",
     simSeedValue:"12345"
   };
@@ -3626,15 +3642,12 @@ function resetAllSettings(){
   if(ocrPreview) ocrPreview.textContent="";
 
   clearMonteRerank(true);
-  clearReachability?.();
   markOptimizerStale();
   applyAscensionGating();
   syncBaseStatMode();
   syncSecondaryGoalOptions();
   syncPrimaryProtectionUI();
   updateGoalUI();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
   scheduleSave();
 }
@@ -3751,61 +3764,42 @@ function bindGoalSelector(){
   document.getElementById("primaryGoal")?.addEventListener("change",()=>{
     syncSecondaryGoalOptions();
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
   document.getElementById("secondaryGoal")?.addEventListener("change",()=>{
     syncSecondaryGoalOptions();
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
   document.querySelectorAll('input[name="primaryProtectionMode"]').forEach(el=>el.addEventListener("change",()=>{
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   }));
   document.getElementById("primaryToleranceValue")?.addEventListener("input",()=>{
     validatePrimaryTolerance();
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
   document.getElementById("primaryToleranceValue")?.addEventListener("change",()=>{
     validatePrimaryTolerance();
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
   document.getElementById("targetFloor")?.addEventListener("input",()=>{
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
   document.getElementById("targetFloor")?.addEventListener("change",()=>{
     validateTargetFloor();
     updateGoalUI();
-    renderNodes();
-    scoreCurrent();
     updateSettingsSummary();
   });
 }
 document.getElementById("runExact").addEventListener("click",runExact);
-document.getElementById("runGreedy")?.addEventListener("click",runGreedy);
-document.getElementById("scoreCurrent")?.addEventListener("click",()=>{scoreCurrent(); renderNodes();});
-document.getElementById("runMonte")?.addEventListener("click",runMonte);
 document.getElementById("runMonteRerank").addEventListener("click",runMonteRerank);
 document.getElementById("clearMonteRerank").addEventListener("click",clearMonteRerank);
-document.getElementById("runReachability").addEventListener("click",runReachability);
-document.getElementById("clearReachability").addEventListener("click",clearReachability);
 document.getElementById("resetAllSettings")?.addEventListener("click",resetAllSettings);
-document.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{updateGoalUI(); markOptimizerStale(); renderNodes(); scoreCurrent(); updateSettingsSummary();}));
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{updateGoalUI(); markOptimizerStale(); updateSettingsSummary();}));
 document.querySelectorAll("[data-open-settings]").forEach(el=>el.addEventListener("click",()=>openSettings(el.dataset.openSettings)));
 document.querySelectorAll("[data-close-settings]").forEach(el=>el.addEventListener("click",confirmSettings));
 document.querySelectorAll("[data-confirm-settings]").forEach(el=>el.addEventListener("click",confirmSettings));
@@ -3816,16 +3810,12 @@ document.getElementById("ascension")?.addEventListener("change",()=>{
   applyAscensionGating();
   markOptimizerStale();
   updateGoalUI();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
 });
 document.querySelectorAll("[data-card-bulk]").forEach(btn=>btn.addEventListener("click",()=>applyCardBulk(btn.dataset.cardBulk)));
 document.querySelectorAll('input[name="baseStatMode"]').forEach(el=>el.addEventListener("change",()=>{
   syncBaseStatMode();
   markOptimizerStale();
-  renderNodes();
-  scoreCurrent();
   updateSettingsSummary();
 }));
 
@@ -3837,8 +3827,8 @@ populateCardSettings();
 
 populateCardSettings();
 document.querySelectorAll("input, select").forEach(el=>{
-  el.addEventListener("input",()=>{ markOptimizerStale(); renderNodes(); scoreCurrent(); updateSettingsSummary(); });
-  el.addEventListener("change",()=>{ markOptimizerStale(); renderNodes(); scoreCurrent(); updateSettingsSummary(); });
+  el.addEventListener("input",()=>{ markOptimizerStale(); updateSettingsSummary(); });
+  el.addEventListener("change",()=>{ markOptimizerStale(); updateSettingsSummary(); });
 });
 // v58: persist any user edit (debounced). Document-level so it also catches
 // the dynamically-created card inputs.
@@ -3864,8 +3854,6 @@ syncBaseStatMode();
 syncSecondaryGoalOptions();
 syncPrimaryProtectionUI();
 updateGoalUI();
-renderNodes();
-scoreCurrent();
 updateSettingsSummary();
 </script>
 <script>
