@@ -2313,21 +2313,26 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
   }
   function processCrosshairs(nodes){
     if(!crosshairsActive) return;
-    // Spawn checks: each live block independently rolls per ~1.005s of real time.
-    // Auto-tap and golden are both decided at spawn; the hit lands ~2s later.
+    // Spawn checks: each live block with no crosshair already on it rolls once per
+    // ~1.005s of real time. A block that already carries a crosshair is skipped
+    // until that crosshair resolves. Auto-tap and golden are decided at spawn.
     while(timeSec >= chNextCheck){
       for(const nd of nodes){
-        if(nd.cleared) continue;
-        if(rng() < CH_P && rng() < autoTapEff) chQueue.push({target:nd, fireAt:chNextCheck + CH_DELAY, gold: rng() < goldEff});
+        if(nd.cleared || nd.hasCrosshair) continue;
+        if(rng() < CH_P){
+          nd.hasCrosshair = true;
+          chQueue.push({target:nd, fireAt:chNextCheck + CH_DELAY, auto: rng() < autoTapEff, gold: rng() < goldEff});
+        }
       }
       chNextCheck += CH_INTERVAL;
     }
-    // Fire due crosshairs; one whose block already died (player or another
-    // crosshair) before the 2s delay is wasted.
+    // Resolve at +delay: an auto crosshair hits if its block still lives (a manual
+    // one is ignored). Either way the node is freed so it can roll a new crosshair.
     for(let i=chQueue.length-1;i>=0;i--){
       if(chQueue[i].fireAt <= timeSec){
         const c = chQueue[i];
-        if(!c.target.cleared) crosshairHit(c.target, c.gold);
+        if(c.auto && !c.target.cleared) crosshairHit(c.target, c.gold);
+        c.target.hasCrosshair = false;
         chQueue.splice(i,1);
       }
     }
