@@ -2183,6 +2183,22 @@ function fastSearch(inp, blocks, level){
       }
     })(0, {...base});
   }
+
+  // 4) Basin-hopping: kick the current best a few points to random skills, then
+  // re-climb — escapes multi-skill ridges the ±1 climb / bounded polish can't
+  // cross in single steps (e.g. needing a simultaneous -3 L / +3 C move).
+  for(const obj of objectives){
+    for(let iter=0; iter<40; iter++){
+      const top = all.slice().sort((a,b)=>obj(b)-obj(a))[0];
+      const cur = {}; for(const k of keys) cur[k] = top.stats[k]||0;
+      const kicks = 2 + (Math.random()*6|0);
+      for(let q=0;q<kicks;q++){
+        const f = keys[Math.random()*keys.length|0], t = keys[Math.random()*keys.length|0];
+        if(f!==t && cur[f]>0 && (cur[t]||0)<caps[t]){ cur[f]--; cur[t]++; }
+      }
+      climb(cur, obj);
+    }
+  }
   return all;
 }
 
