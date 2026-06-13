@@ -80,12 +80,12 @@ summary{font-weight:900;cursor:pointer;color:#344054}
 .status-toast{position:fixed;right:14px;bottom:14px;z-index:40;max-width:min(520px,calc(100vw - 28px));background:#eef4ff;border:1px solid #c7d7fe;border-radius:12px;color:#1e3a8a;padding:10px;box-shadow:0 6px 20px rgba(15,23,42,.18)}
 .settings-modal{position:fixed;inset:0;background:rgba(15,23,42,.50);display:none;z-index:50;align-items:center;justify-content:center;padding:14px}
 .settings-modal.open{display:flex}
-.settings-panel{width:min(980px,100%);height:min(720px,92vh);background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.25);display:grid;grid-template-columns:190px 1fr;overflow:hidden}
-.settings-nav{background:#f8fafc;border-right:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:6px}
+.settings-panel{width:min(980px,100%);height:min(720px,92vh);background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.25);display:grid;grid-template-columns:190px 1fr;grid-template-rows:auto 1fr;grid-template-areas:"nav top" "nav body";overflow:hidden}
+.settings-nav{grid-area:nav;background:#f8fafc;border-right:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:6px}
 .settings-nav button{background:transparent;color:#344054;text-align:left;border-radius:9px;padding:10px;border:0}
 .settings-nav button.active{background:var(--accent2);color:#003f86}
-.settings-body{padding:16px;overflow:auto;min-height:0}
-.settings-top{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;margin-bottom:10px}
+.settings-body{grid-area:body;padding:16px;overflow:auto;min-height:0}
+.settings-top{grid-area:top;display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;padding:12px 16px;background:#fff;border-bottom:1px solid var(--line)}
 .settings-title{text-align:left;min-width:0}
 .settings-top h2{margin:0;font-size:20px}
 .settings-back{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;background:#fff;color:#344054;border:1px solid #cbd5e1;border-radius:999px;padding:0;font-size:22px;line-height:1}
@@ -119,11 +119,11 @@ summary{font-weight:900;cursor:pointer;color:#344054}
   .metric{grid-column:1 / -1}
   .actionbar button{width:100%}
   .settings-modal{align-items:stretch;justify-content:stretch;padding:0;background:#fff}
-  .settings-panel{width:100%;height:100dvh;max-height:none;border-radius:0;box-shadow:none;grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow:hidden}
+  .settings-panel{width:100%;height:100dvh;max-height:none;border-radius:0;box-shadow:none;grid-template-columns:1fr;grid-template-rows:auto auto 1fr;grid-template-areas:"nav" "top" "body";overflow:hidden}
   .settings-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;overflow:visible;border-right:0;border-bottom:1px solid var(--line);padding:10px;background:#f8fafc}
   .settings-nav button{white-space:normal;font-size:13px;line-height:1.15;padding:10px 6px;text-align:center}
   .settings-body{padding:14px;max-height:none;overflow:auto;min-height:0}
-  .settings-top{position:sticky;top:0;z-index:4;background:#fff;border-bottom:1px solid #edf0f5;margin:-14px -14px 12px;padding:12px 14px;grid-template-columns:auto 1fr}
+  .settings-top{padding:10px 14px}
   .settings-top h2{font-size:20px}
   .settings-title .small{font-size:11px}
   .settings-back{width:38px;height:38px;font-size:22px}
@@ -450,11 +450,11 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       <button data-section="settings-scaling">Stat scaling</button>
       <button data-section="settings-mc">Simulation</button>
     </nav>
+    <div class="settings-top">
+      <button class="settings-back" data-cancel-settings type="button" aria-label="Back">←</button>
+      <div class="settings-title"><h2>Settings</h2></div>
+    </div>
     <div class="settings-body">
-      <div class="settings-top">
-        <button class="settings-back" data-cancel-settings type="button" aria-label="Back">←</button>
-        <div class="settings-title"><h2>Settings</h2></div>
-      </div>
 
       <section id="settings-general" class="settings-section active">
         <div class="form-grid">
