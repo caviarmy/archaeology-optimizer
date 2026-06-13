@@ -2259,11 +2259,11 @@ async function runGreedy(){
       stats={...best.stats, added:bestName};
     }
     if(level%10===0){
-      status.textContent=`Building greedy path... level ${level}/100`;
+      showStatus(`Building greedy path... level ${level}/100`, 30000);
       await new Promise(r=>setTimeout(r,0));
     }
   }
-  status.textContent="Greedy path complete.";
+  showStatus("Greedy path complete.", 5000);
   btn.disabled=false;
 }
 
@@ -2419,13 +2419,13 @@ async function runMonte(){
     if(r.floorReached>=inp.targetFloor) hit++;
     sumFloor+=r.floorReached;
     if(i%250===0){
-      status.textContent=`Simulation ${i}/${runs}...`;
+      showStatus(`Simulation ${i}/${runs}...`, 30000);
       await new Promise(res=>setTimeout(res,0));
     }
   }
   document.getElementById("monteChance").textContent=fmt(hit/runs*100,1)+"%";
   document.getElementById("monteFloor").textContent=fmt(sumFloor/runs,2);
-  status.textContent=`Simulation complete: ${runs.toLocaleString()} runs.`;
+  showStatus(`Simulation complete: ${runs.toLocaleString()} runs.`, 5000);
   const seedEl=document.getElementById("simSeedUsed"); if(seedEl) seedEl.textContent=simRng.seed;
   btn.disabled=false;
 }
@@ -2438,11 +2438,11 @@ async function runMonteRerank(){
   const tbody=document.querySelector("#monteRerankTable tbody");
 
   if(!lastExactTopBuilds || lastExactTopBuilds.length===0){
-    status.textContent="Find the best build first.";
+    showStatus("Find the best build first.", 5000);
     return;
   }
   if(deterministicSignature(inp) !== lastExactSignature){
-    status.textContent="Settings changed. Run Find best build again before simulating.";
+    showStatus("Settings changed. Run Find best build again before simulating.", 5000);
     return;
   }
 
@@ -2496,7 +2496,7 @@ async function runMonteRerank(){
     };
     results.push(row);
 
-    status.textContent=`Simulation ${b+1}/${builds.length}; ${runs.toLocaleString()} runs/build.`;
+    showStatus(`Simulation ${b+1}/${builds.length}; ${runs.toLocaleString()} runs/build.`, 30000);
     await new Promise(res=>setTimeout(res,0));
   }
 
@@ -2533,7 +2533,7 @@ async function runMonteRerank(){
   });
 
   document.body.dataset.simulationReady = "true";
-  status.textContent=`Simulation complete in ${((performance.now()-start)/1000).toFixed(2)}s.`;
+  showStatus(`Simulation complete in ${((performance.now()-start)/1000).toFixed(2)}s.`, 5000);
   const simCard=document.getElementById("simulationCard");
   if(simCard){
     setTimeout(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}), 80);
@@ -2609,7 +2609,7 @@ async function runReachability(){
       }
     }
     if(I % 2 === 0){
-      status.textContent=`Searching floor-push builds... I=${I}/${maxI}, candidates ${count.toLocaleString()}`;
+      showStatus(`Searching floor-push builds... I=${I}/${maxI}, candidates ${count.toLocaleString()}`, 30000);
       await new Promise(r=>setTimeout(r,0));
     }
   }
@@ -2658,7 +2658,7 @@ async function runReachability(){
     };
     results.push(row);
 
-    status.textContent=`Reachability Sim ${b+1}/${top.length}; ${runs.toLocaleString()} runs/build.`;
+    showStatus(`Reachability Sim ${b+1}/${top.length}; ${runs.toLocaleString()} runs/build.`, 30000);
     await new Promise(r=>setTimeout(r,0));
   }
 
@@ -2697,7 +2697,7 @@ async function runReachability(){
     tbody.appendChild(tr);
   });
 
-  status.textContent=`Floor-push search complete in ${((performance.now()-start)/1000).toFixed(2)}s. Candidate builds checked: ${count.toLocaleString()}.`;
+  showStatus(`Floor-push search complete in ${((performance.now()-start)/1000).toFixed(2)}s. Candidate builds checked: ${count.toLocaleString()}.`, 5000);
   const clearBtn=document.getElementById("clearReachability"); if(clearBtn) clearBtn.style.display="inline-flex";
   btn.disabled=false;
 }
