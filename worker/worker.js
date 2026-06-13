@@ -44,6 +44,10 @@ Enrage "+N% Damage"=enrageDmgPct, Enrage "+N% Crit Damage"=enrageCritDmgPct, Enr
 Flurry "+N% Atk Speed"=flurryAtkSpeedPct, Flurry "+N Stamina On Cast"=flurryStaminaOnCast, Flurry charges=flurryCharges, Flurry cooldown seconds=flurryCooldown,
 Quake "deal N% Damage"=quakeDmgPct, Quake charges=quakeCharges, Quake cooldown seconds=quakeCooldown.
 
+The RIGHT column is dense and easy to misalign. Walk it strictly top-to-bottom and output a value for EVERY visible row without skipping any. Its order is:
+Exp Gain, Fragment Gain, Exp Mod Chance, Exp Mod Gain, Loot Mod Chance, Loot Mod Gain, Speed Mod Chance, Speed Mod Gain, Speed Mod Atk Rate, Stamina Mod Chance, Stamina Mod Gain.
+Each "... Mod Chance" is a % and the "... Mod Gain" beneath it is a SEPARATE value — read both from their own lines and never reuse one row's number for a neighbour. In particular Exp Mod Gain, Loot Mod Chance, and Loot Mod Gain are three different numbers on three different lines.
+
 Return ONLY the JSON object.`;
 
 function corsHeaders(env, request) {
