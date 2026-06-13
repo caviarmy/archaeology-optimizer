@@ -565,6 +565,8 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>PER</label><input id="curPer" type="number" min="0" max="25" value="0"></div>
           <div><label>INT</label><input id="curInt" type="number" min="0" max="25" value="0"></div>
           <div><label>Luck</label><input id="curLuck" type="number" min="0" max="25" value="0"></div>
+          <div class="req-a1"><label>Divinity</label><input id="curDivinity" type="number" min="0" max="10" value="0"></div>
+          <div class="req-a2"><label>Corruption</label><input id="curCorruption" type="number" min="0" max="10" value="0"></div>
         </div>
       </section>
 
@@ -582,6 +584,8 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
             <div><label>Spent PER</label><input id="spentPer" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent INT</label><input id="spentInt" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent Luck</label><input id="spentLuck" type="number" min="0" step="1" value="0"></div>
+            <div class="req-a1"><label>Spent Divinity</label><input id="spentDivinity" type="number" min="0" step="1" value="0"></div>
+            <div class="req-a2"><label>Spent Corruption</label><input id="spentCorruption" type="number" min="0" step="1" value="0"></div>
           </div>
         </div>
         <div class="import-box">
@@ -712,6 +716,12 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Luck XP mod %</label><input id="luckXpModPct" type="number" step="0.001" value="0.2"></div>
           <div><label>Luck loot mod %</label><input id="luckLootModPct" type="number" step="0.001" value="0.2"></div>
           <div><label>Luck all-mod %</label><input id="luckAllModPct" type="number" step="0.001" value="0.2"></div>
+          <div class="req-a1"><label>Divinity flat damage</label><input id="divFlatDamage" type="number" step="0.001" value="2"></div>
+          <div class="req-a1"><label>Divinity super crit %</label><input id="divSuperCritPct" type="number" step="0.001" value="2"></div>
+          <div class="req-a1"><label>Divinity auto-tap %</label><input id="divAutoTapPct" type="number" step="0.001" value="2"></div>
+          <div class="req-a2"><label>Corruption damage %</label><input id="corrDamagePct" type="number" step="0.001" value="6"></div>
+          <div class="req-a2"><label>Corruption max stamina %</label><input id="corrMaxStaminaPct" type="number" step="0.001" value="3"></div>
+          <div class="req-a2"><label>Corruption all-mod multi %</label><input id="corrAllModMultiPct" type="number" step="0.001" value="1"></div>
         </div>
       </section>
 
@@ -1437,7 +1447,15 @@ function getInputs(){
       luckXpModPct:pct("luckXpModPct"),
       luckLootModPct:pct("luckLootModPct"),
       luckAllModPct:pct("luckAllModPct"),
-      staminaModGain:n("staminaModGain")
+      staminaModGain:n("staminaModGain"),
+      // Divinity (A1) per point: +flat dmg, +super crit %, +crosshair auto-tap %.
+      divFlatDamage:n("divFlatDamage"),
+      divSuperCritPct:pct("divSuperCritPct"),
+      divAutoTapPct:pct("divAutoTapPct"),
+      // Corruption (A2) per point: +dmg %, -max stamina %, +all mod multis %.
+      corrDamagePct:pct("corrDamagePct"),
+      corrMaxStaminaPct:pct("corrMaxStaminaPct"),
+      corrAllModMultiPct:pct("corrAllModMultiPct")
     },
     goal:{
       primaryType:(v("primaryGoal") || "allRewards") === "target" ? "target" : "rewards",
@@ -1456,7 +1474,9 @@ function getInputs(){
       A:Math.max(0, Math.floor(n("spentAgi"))),
       P:Math.max(0, Math.floor(n("spentPer"))),
       I:Math.max(0, Math.floor(n("spentInt"))),
-      L:Math.max(0, Math.floor(n("spentLuck")))
+      L:Math.max(0, Math.floor(n("spentLuck"))),
+      D:Math.max(0, Math.floor(n("spentDivinity"))),
+      C:Math.max(0, Math.floor(n("spentCorruption")))
     };
     out.base = reverseBaseStats(out.base, pts, out.inc);
   }
@@ -1466,21 +1486,28 @@ function getInputs(){
 // Recover unspent base stats from displayed totals by removing the contribution
 // of the currently-spent attribute points, inverting the getDerived formulas.
 function reverseBaseStats(b, pts, inc){
-  const {S,A,P,I,L} = pts;
+  const {S,A,P,I,L,D=0,C=0} = pts;
+  const corrStam = Math.max(0.05, 1 - C*(inc.corrMaxStaminaPct||0));
+  const modMulti = 1 + C*(inc.corrAllModMultiPct||0);
   return {
     ...b,
-    damage: Math.max(0, (b.damage / (1 + S*inc.strDamagePct)) - S*inc.strFlatDamage),
-    stamina: Math.max(0, b.stamina - A*inc.agiStamina),
+    // Invert getDerived: damage = (base + S*flat + D*divFlat)(1 + S*str% + C*corr%).
+    damage: Math.max(0, (b.damage / (1 + S*inc.strDamagePct + C*(inc.corrDamagePct||0))) - S*inc.strFlatDamage - D*(inc.divFlatDamage||0)),
+    stamina: Math.max(0, b.stamina / corrStam - A*inc.agiStamina),
     critChance: Math.max(0, b.critChance - A*inc.agiCritPct - L*inc.luckCritPct),
     critDamage: Math.max(1, b.critDamage - S*inc.strCritDamage),
+    superChance: Math.max(0, (b.superChance||0) - D*(inc.divSuperCritPct||0)),
     xpGain: Math.max(0, b.xpGain - I*inc.intXpGain),
     fragGain: Math.max(0, b.fragGain - P*inc.perFragGain),
     xpMod: Math.max(0, b.xpMod - I*inc.intXpModPct - L*inc.luckXpModPct),
     lootMod: Math.max(0, b.lootMod - P*inc.perLootModPct - L*inc.luckLootModPct),
     speedMod: Math.max(0, b.speedMod - A*inc.agiSpeedPct - L*inc.luckAllModPct),
     staminaMod: Math.max(0, b.staminaMod - A*inc.agiStaminaModPct - L*inc.luckAllModPct),
-    armorPenFlat: Math.max(0, (b.armorPenFlat || 0) - P*(inc.perArmorPen || 0))
-    // superChance, superDamage, xpModGain, lootModGain, staminaModGain: no attribute scaling
+    armorPenFlat: Math.max(0, (b.armorPenFlat || 0) - P*(inc.perArmorPen || 0)),
+    // Corruption scales the mod-gain multipliers; back that out too.
+    xpModGain: (b.xpModGain || 3) / modMulti,
+    lootModGain: (b.lootModGain || 3.8) / modMulti
+    // superDamage, ultra*, staminaModGain: no skill scaling
   };
 }
 
@@ -1488,7 +1515,7 @@ function baseStatModeSpent(){
   return (document.querySelector('input[name="baseStatMode"]:checked')?.value) === "spent";
 }
 function spentPointsSum(){
-  return ["spentStr","spentAgi","spentPer","spentInt","spentLuck"].reduce((s,id)=>s + (n(id)||0), 0);
+  return ["spentStr","spentAgi","spentPer","spentInt","spentLuck","spentDivinity","spentCorruption"].reduce((s,id)=>s + (n(id)||0), 0);
 }
 function syncBaseStatMode(){
   const el = document.getElementById("spentAttrs");
@@ -1497,13 +1524,15 @@ function syncBaseStatMode(){
 
 function getDerived(stats, inp){
   const S=stats.S, A=stats.A, I=stats.I, P=stats.P, L=stats.L;
+  const D=stats.D||0, C=stats.C||0;                  // Divinity (A1), Corruption (A2)
   const b=inp.base, inc=inp.inc;
-  const damage = (b.damage + S*inc.strFlatDamage) * (1 + S*inc.strDamagePct);
+  // STR flat dmg + Divinity flat dmg (+2/pt), then STR% + Corruption% (+6%/pt).
+  const damage = (b.damage + S*inc.strFlatDamage + D*(inc.divFlatDamage||0)) * (1 + S*inc.strDamagePct + C*(inc.corrDamagePct||0));
   const critChance = clamp(b.critChance + A*inc.agiCritPct + L*inc.luckCritPct,0,0.995);
   const critDamage = b.critDamage + S*inc.strCritDamage;
   // Crits are nested & conditional: super crit can only land on a crit, ultra
   // crit only on a super crit. Defaults make missing layers no-ops.
-  const superChance = clamp(b.superChance || 0, 0, 0.995);
+  const superChance = clamp((b.superChance || 0) + D*(inc.divSuperCritPct||0), 0, 0.995); // Divinity +2%/pt
   const superDamage = b.superDamage > 0 ? b.superDamage : 1;
   const ultraChance = clamp(b.ultraChance || 0, 0, 0.995);
   const ultraDamage = b.ultraDamage > 0 ? b.ultraDamage : 1;
@@ -1512,8 +1541,10 @@ function getDerived(stats, inp){
   const gc = clamp(b.gleamingChance || 0, 0, 1);
   const gm = b.gleamingMulti > 0 ? b.gleamingMulti : 1;
   const gleamingMult = 1 + gc * (gm - 1);
-  const xpProcBonus = Math.max(0, (b.xpModGain || 3) - 1);
-  const lootProcBonus = Math.max(0, (b.lootModGain || 3.8) - 1);
+  // Corruption: All Mod Multis +1%/pt scales the mod-gain multipliers.
+  const modMulti = 1 + C*(inc.corrAllModMultiPct||0);
+  const xpProcBonus = Math.max(0, (b.xpModGain || 3)*modMulti - 1);
+  const lootProcBonus = Math.max(0, (b.lootModGain || 3.8)*modMulti - 1);
   const xpMult = (b.xpGain + I*inc.intXpGain) * (1 + xpProcBonus*(b.xpMod + I*inc.intXpModPct + L*inc.luckXpModPct));
   const xpBaseMult = b.xpGain * (1 + xpProcBonus*b.xpMod);
   const xpFactor = xpBaseMult ? xpMult / xpBaseMult : 0;
@@ -1522,7 +1553,7 @@ function getDerived(stats, inp){
   const lootFactor = lootBaseMult ? lootMult / lootBaseMult : 0;
   const speedChance = clamp(b.speedMod + A*inc.agiSpeedPct + L*inc.luckAllModPct,0,0.95);
   const staminaModChance = clamp(b.staminaMod + A*inc.agiStaminaModPct + L*inc.luckAllModPct,0,0.95);
-  const stamina = b.stamina + A*inc.agiStamina;
+  const stamina = (b.stamina + A*inc.agiStamina) * Math.max(0.05, 1 - C*(inc.corrMaxStaminaPct||0)); // Corruption -3%/pt max stamina
   // PER gives flat armor penetration (+2/level), INT gives percent (+3%/level).
   // Percent armor pen buffs the flat armor-pen stat (e.g. 100 pen +9% = 109 pen).
   const armorPenFlat = (b.armorPenFlat || 0) + P*(inc.perArmorPen || 0);
@@ -2194,7 +2225,9 @@ function scoreCurrent(){
     A:Math.max(0,Math.floor(n("curAgi"))),
     I:clamp(Math.floor(n("curInt")),0,25),
     P:clamp(Math.floor(n("curPer")),0,25),
-    L:clamp(Math.floor(n("curLuck")),0,25)
+    L:clamp(Math.floor(n("curLuck")),0,25),
+    D:clamp(Math.floor(n("curDivinity")),0,10),
+    C:clamp(Math.floor(n("curCorruption")),0,10)
   };
   const base=scoreBuild(stats,inp,blocks);
   document.getElementById("curBuildLabel").textContent=`${stats.S}/${stats.A}/${stats.P}/${stats.I}/${stats.L}`;
@@ -2405,7 +2438,9 @@ async function runMonte(){
     A:Math.max(0,Math.floor(n("curAgi"))),
     I:clamp(Math.floor(n("curInt")),0,25),
     P:clamp(Math.floor(n("curPer")),0,25),
-    L:clamp(Math.floor(n("curLuck")),0,25)
+    L:clamp(Math.floor(n("curLuck")),0,25),
+    D:clamp(Math.floor(n("curDivinity")),0,10),
+    C:clamp(Math.floor(n("curCorruption")),0,10)
   };
   const runs=3000;
   const simRng=createSimulationRng(inp);
@@ -3764,8 +3799,8 @@ function resetAllSettings(){
     "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain",
     "baseArmorPenFlat",
     "baseUltraChance","baseUltraDamage","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti","baseGleamingChance","baseGleamingMulti",
-    "curStr","curAgi","curPer","curInt","curLuck",
-    "spentStr","spentAgi","spentPer","spentInt","spentLuck"
+    "curStr","curAgi","curPer","curInt","curLuck","curDivinity","curCorruption",
+    "spentStr","spentAgi","spentPer","spentInt","spentLuck","spentDivinity","spentCorruption"
   ];
 
   for(const id of blankIds){
