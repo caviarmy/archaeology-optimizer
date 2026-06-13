@@ -2416,19 +2416,23 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
       }
     }
   }
+  // Mods are rolled when a block SPAWNS (below) and attached to it, so the reward
+  // is identical whoever lands the kill (a player tick or a crosshair). A block
+  // can carry several mods at once (independent rolls).
+  const modMulti = 1 + stats.C*(inp.inc.corrAllModMultiPct||0);
+  const xpGain = inp.base.xpGain + stats.I*inp.inc.intXpGain;
+  const fragGain = inp.base.fragGain + stats.P*inp.inc.perFragGain;
+  const xpModChance = inp.base.xpMod + stats.I*inp.inc.intXpModPct + stats.L*inp.inc.luckXpModPct;
+  const lootModChance = inp.base.lootMod + stats.P*inp.inc.perLootModPct + stats.L*inp.inc.luckLootModPct;
   function clearNode(node){
     if(node.cleared) return;
     node.cleared = true;
-    const xpMod = rng() < (inp.base.xpMod + stats.I*inp.inc.intXpModPct + stats.L*inp.inc.luckXpModPct) ? 3 : 1;
-    const lootMod = rng() < (inp.base.lootMod + stats.P*inp.inc.perLootModPct + stats.L*inp.inc.luckLootModPct) ? 3.8 : 1;
-    const xpGain = inp.base.xpGain + stats.I*inp.inc.intXpGain;
-    const fragGain = inp.base.fragGain + stats.P*inp.inc.perFragGain;
-    const xpValue = node.b.xp0 * xpGain * xpMod;
-    const lootValue = node.b.lootXpEq * fragGain * lootMod;
+    const xpValue = node.b.xp0 * xpGain * node.xpMod * node.gleam;
+    const lootValue = node.b.lootXpEq * fragGain * node.lootMod * node.gleam;
     channels.xp += xpValue;
     if(channels[node.type] !== undefined) channels[node.type] += lootValue;
     totalValue += xpValue + lootValue;
-    if(rng()<der.staminaModChance) stamina += inp.inc.staminaModGain;
+    if(node.staminaMod) stamina += inp.inc.staminaModGain;
   }
 
   // Crosshairs: each live block independently has ~2.175% chance every ~1.005s
@@ -2443,26 +2447,30 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
   const crosshairsActive = autoTapEff > 0;
   let chNextCheck = CH_INTERVAL;
   let chQueue = [];
-  function crosshairHit(node){
+  function crosshairHit(node, gold){
     const mult = rollCritMult(rng, der.critChance, der.critDamage, der.superChance, der.superDamage, der.ultraChance, der.ultraDamage);
     let dmg = der.damage * mult;
-    if(rng() < goldEff) dmg *= goldMulti;
+    if(gold) dmg *= goldMulti;
     node.hp -= Math.max(0, dmg - node.armor);
     if(node.hp<=0) clearNode(node);
   }
   function processCrosshairs(nodes){
     if(!crosshairsActive) return;
+    // Spawn checks: each live block independently rolls per ~1.005s of real time.
+    // Auto-tap and golden are both decided at spawn; the hit lands ~2s later.
     while(timeSec >= chNextCheck){
       for(const nd of nodes){
         if(nd.cleared) continue;
-        if(rng() < CH_P && rng() < autoTapEff) chQueue.push({target:nd, fireAt:chNextCheck + CH_DELAY});
+        if(rng() < CH_P && rng() < autoTapEff) chQueue.push({target:nd, fireAt:chNextCheck + CH_DELAY, gold: rng() < goldEff});
       }
       chNextCheck += CH_INTERVAL;
     }
+    // Fire due crosshairs; one whose block already died (player or another
+    // crosshair) before the 2s delay is wasted.
     for(let i=chQueue.length-1;i>=0;i--){
       if(chQueue[i].fireAt <= timeSec){
         const c = chQueue[i];
-        if(!c.target.cleared) crosshairHit(c.target);
+        if(!c.target.cleared) crosshairHit(c.target, c.gold);
         chQueue.splice(i,1);
       }
     }
@@ -2472,6 +2480,8 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
     const activeNodeCount = rollNodeAttemptsForFloor(floor, inp, rng);
     let clearedCount = 0;
     chQueue.length = 0; // new floor: crosshairs from the previous floor are gone
+    // Gleaming floor: rolled once for the whole floor; multiplies all its rewards.
+    const floorGleam = (rng() < clamp(inp.base.gleamingChance||0,0,1)) ? (inp.base.gleamingMulti>0?inp.base.gleamingMulti:1) : 1;
     // Pre-roll the floor's nodes so Quake can damage all of them at once.
     const nodes = [];
     for(let i=0;i<activeNodeCount;i++){
@@ -2479,7 +2489,12 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
       if(!type){ if(slot) clearedCount++; continue; }
       const b = blockForFloor(type, floor, blocks);
       if(!b) continue;
-      nodes.push({type, b, hp:b.hp, armor:effectiveArmor(b.armor, der, inp), hasSpeed: der.speedChance>0 ? rng()<der.speedChance : false, cleared:false});
+      nodes.push({type, b, hp:b.hp, armor:effectiveArmor(b.armor, der, inp),
+        hasSpeed: der.speedChance>0 ? rng()<der.speedChance : false,
+        xpMod: rng() < xpModChance ? (inp.base.xpModGain||3)*modMulti : 1,
+        lootMod: rng() < lootModChance ? (inp.base.lootModGain||3.8)*modMulti : 1,
+        staminaMod: rng() < der.staminaModChance,
+        gleam: floorGleam, cleared:false});
     }
     for(const node of nodes){
       if(stamina<=0) break;
