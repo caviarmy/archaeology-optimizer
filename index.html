@@ -1572,7 +1572,22 @@ function getDerived(stats, inp){
     evDamage = damage * (1 + uptime * ((en.dmgPct || 0) / 100));
     evCritDamage = critDamage + uptime * ((en.critDmgPct || 0) / 100);
   }
-  return {damage,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage};
+  // Crosshairs as an average tick-efficiency gain. Auto-crosshairs are free hits
+  // (real time, ~2.175%/block/1.005s), doing part of each floor's damage so the
+  // player spends fewer ticks. Per floor: M = 1 + (avgLiveBlocks/atkSpeed) * lambda
+  // * autoTap * (crosshairHitDmg / playerHitDmg); applied as a stamina+tick cost cut.
+  // Divinity feeds auto-tap, Luck feeds gold-crosshair chance.
+  const autoTapEff = clamp((b.autoTap||0) + D*(inc.divAutoTapPct||0), 0, 1);
+  const goldChance = clamp((b.goldCrosshairChance||0) + L*0.005, 0, 1);
+  const goldMulti = b.goldCrosshairMulti>0 ? b.goldCrosshairMulti : 3;
+  const goldFactor = 1 + goldChance*(goldMulti-1);
+  const superUltra = (1-superChance) + superChance*superDamage*((1-ultraChance) + ultraChance*ultraDamage);
+  const playerHit = evDamage * ((1-critChance) + critChance*evCritDamage*superUltra);
+  const chHit = damage * ((1-critChance) + critChance*critDamage*superUltra) * goldFactor;
+  const chRatio = playerHit > 1e-9 ? chHit/playerHit : 0;
+  const atkS = Math.max(0.01, inp.atkSpeed || 1);
+  const chFactorPerBlock = autoTapEff>0 ? (0.02175/1.005) * autoTapEff * chRatio / (2*atkS) : 0;
+  return {damage,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage,autoTapEff,chFactorPerBlock};
 }
 
 // Effective block armor after the player's penetration. Percent armor pen buffs
@@ -1855,6 +1870,10 @@ function floorCostValue(floor, der, inp, blocks){
     nodes += expectedCount;
   }
   const value = channels.xp + channels.common + channels.rare + channels.epic + channels.legendary + channels.mythic + channels.divine;
+  // Crosshair efficiency: free auto-crosshair hits do part of the floor's damage,
+  // cutting the player's stamina+tick cost (avg over the floor's live blocks).
+  const Mch = 1 + (nodes+1) * (der.chFactorPerBlock||0);
+  staminaCost /= Mch; tickCost /= Mch;
   return {cost:staminaCost, staminaCost, tickCost, value, nodes, channels};
 }
 
@@ -1868,6 +1887,8 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
   let value = 0, tickCost = 0, nodes = 0, clearedNodes = 0;
   const channels = blankChannels();
   const emptyProb = spawnModel(inp)==="slotChance" ? Math.max(0, 1 - Math.min(100, totalRateForFloorRates(rates))/100) : 0;
+  // Crosshair efficiency: free auto-crosshair hits cut the player's per-block cost.
+  const Mch = 1 + (expectedActive+1) * (der.chFactorPerBlock||0);
 
   for(let node=0; node<expectedActive && remaining>0; node++){
     clearedNodes += emptyProb;
@@ -1892,6 +1913,7 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
     }
 
     if(nodeGross <= 0) continue;
+    nodeGross /= Mch; nodeNet /= Mch; nodeTick /= Mch;
 
     if(remaining >= nodeGross){
       remaining -= nodeNet;
