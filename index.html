@@ -2321,17 +2321,22 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
         if(nd.cleared || nd.hasCrosshair) continue;
         if(rng() < CH_P){
           nd.hasCrosshair = true;
-          chQueue.push({target:nd, fireAt:chNextCheck + CH_DELAY, auto: rng() < autoTapEff, gold: rng() < goldEff});
+          if(rng() < autoTapEff){
+            // auto crosshair: resolves on its own ~CH_DELAY later
+            chQueue.push({target:nd, fireAt:chNextCheck + CH_DELAY, gold: rng() < goldEff});
+          }
+          // else manual: an idle player never taps it, so it sits on the block
+          // until the block is destroyed, blocking new crosshairs there. We leave
+          // hasCrosshair set and never free it (a cleared block is skipped anyway).
         }
       }
       chNextCheck += CH_INTERVAL;
     }
-    // Resolve at +delay: an auto crosshair hits if its block still lives (a manual
-    // one is ignored). Either way the node is freed so it can roll a new crosshair.
+    // Resolve due auto crosshairs: hit if the block still lives, then free the node.
     for(let i=chQueue.length-1;i>=0;i--){
       if(chQueue[i].fireAt <= timeSec){
         const c = chQueue[i];
-        if(c.auto && !c.target.cleared) crosshairHit(c.target, c.gold);
+        if(!c.target.cleared) crosshairHit(c.target, c.gold);
         c.target.hasCrosshair = false;
         chQueue.splice(i,1);
       }

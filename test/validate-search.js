@@ -21,9 +21,15 @@ const rnd = (a,b)=>a+Math.random()*(b-a);
 const rndi = (a,b)=>Math.floor(rnd(a,b+1));
 const pick = arr => arr[rndi(0,arr.length-1)];
 
-const primaryOpts = opts("primaryGoal");
-const secondaryOpts = opts("secondaryGoal");
+// Only test goals that can actually be reached at these low validation levels.
+// Targeting a deep rarity (mythic floor 20+, divine 50+) at a shallow maxFloor
+// ties every build at 0 for that rarity, which is a meaningless scenario, not a
+// search test. Restrict to rarities that spawn early (common floor 1, rare 3)
+// plus the aggregate goals and target-floor.
+const REACHABLE = ["allRewards","xp","allLoot","common","rare"];
 const ascOpts = opts("ascension");
+const primaryOpts = ["target", ...REACHABLE].filter(g=>opts("primaryGoal").includes(g));
+const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").includes(g));
 
 (async () => {
   let pass=0, fail=0; const fails=[];
