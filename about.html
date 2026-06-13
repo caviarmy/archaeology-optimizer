@@ -55,7 +55,7 @@
   <li><a href="#optimizer">The optimizer</a></li>
   <li><a href="#sim">The simulation</a></li>
   <li><a href="#sources">Sources</a></li>
-  <li><a href="#assumptions">Assumptions and limits</a></li>
+  <li><a href="#assumptions">Sourced, method, estimated</a></li>
 </ol>
 </div>
 
@@ -125,7 +125,7 @@ damage to block per hit = max(0, hit_damage - a)</pre>
 <p>The baseline is the dirt block of the same tier. Dirt gives experience but no loot, so it sets the experience for simply breaking a block at that tier. Any block that gives more experience than its tier's dirt is treated as carrying that surplus as loot:</p>
 <pre>loot value (xp equivalent) = max(0, block_xp - same_tier_dirt_xp)</pre>
 <p>A Tier 2 common is measured against Tier 2 dirt, a Tier 2 rare against Tier 2 dirt, and so on, never against another tier. Legendary and divine use the same rule; they give far more experience than dirt, so their loot value is large. The block still pays its full experience to the experience total, and the surplus is added to the loot total for its rarity. Marking a rarity worthless in settings raises the baseline to the highest worthless rarity below the block, which drops loot you do not value.</p>
-<p>One consequence: the raw fragment count is the same for every rarity in a tier, so it cannot tell common loot from epic loot. The experience surplus is used as the stand-in for loot quality instead. Gain stats then scale each total, Intellect for experience and Perception for loot.</p>
+<p>This is deliberate. The tool does not decide what loot is worth to you. It measures reward against effort: clearing a block costs hits set by its HP, and the reward is what the game pays above the plain-dirt baseline for that block. HP, experience, and loot then sit in one effort-based currency, and you steer the result with goals and block preferences rather than the model picking loot's value for you. (The fragment count is the same for every rarity in a tier, so it could not separate common from epic loot in any case.) Gain stats scale each total, Intellect for experience and Perception for loot.</p>
 <h3>Mods</h3>
 <p>When a floor loads, every block rolls its mods and keeps them. A block can carry more than one. A mod adds its multiplier to the block reward only when it rolls, so the expected reward uses the mod chance:</p>
 <pre>chance:   xp mod   = base + 0.003*INT + 0.002*LUCK
@@ -199,15 +199,32 @@ hc, hp = expected crosshair hit and player hit damage (hc includes the gold fact
 </ul>
 <p>Numbers from the wiki and the game panel are treated as exact. The crosshair spawn rate is a community measurement and is exposed as an editable setting so it can be refined.</p>
 
-<h2 id="assumptions">15. Assumptions and limits</h2>
+<h2 id="assumptions">15. What is sourced, what is our method, what is estimated</h2>
+<p>Three kinds of input feed this tool. They are kept apart here so you can judge each on its own and trust the parts that deserve it.</p>
+
+<h3>Grounded in game data</h3>
 <ul>
-<li><strong>Tick efficiency, not real time.</strong> The score is reward per stamina tick. Attack speed enters only through the crosshair and ability terms.</li>
-<li><strong>Loot valued by experience surplus.</strong> A block's loot is valued as the experience it gives above its tier's dirt block, not by its fragment count (which is identical for every rarity in a tier). This assumes the experience scaling tracks loot quality. The worthless-loot settings move the baseline.</li>
-<li><strong>Crosshair score is an average.</strong> The optimizer's crosshair term assumes crosshair damage is fully used and ignores overkill and per-block armor in the damage ratio. The simulation handles these exactly, so trust the simulation when the two differ.</li>
-<li><strong>Idle player.</strong> Only auto-tap crosshairs are counted. Manual taps are ignored.</li>
-<li><strong>Mods roll at spawn.</strong> Each block fixes its mods when the floor loads, so the killer (player or crosshair) does not change the reward.</li>
-<li><strong>The guided search is a search, not a proof.</strong> It matched the full search on all tested cases, but for a hard guarantee on one case use Thorough.</li>
-<li><strong>Some card multipliers are neutral.</strong> Polychrome and infernal card values are recordable but treated as neutral until confirmed.</li>
+<li>Block HP, armor, experience, fragment counts, floor windows, per-floor spawn rates, and boss floors, from the wiki.</li>
+<li>Stat effects and caps, from the stat panel and wiki.</li>
+<li>The damage formula, the crit, super and ultra ladder, armor and penetration, stamina, stamina refunds, and the gleaming multiplier. These are game mechanics; the math layered on them is standard probability.</li>
+<li>Mods roll when a floor loads and stay on the block, so the killer (player or crosshair) does not change the reward.</li>
+</ul>
+
+<h3>Our modeling choices</h3>
+<ul>
+<li><strong>Effort, not stored value.</strong> The score is reward per attack tick, and tick cost follows a block's HP. We do not assign loot a value. Loot is measured as the experience a block pays above its tier's dirt, so HP, experience, and loot share one effort-based currency. You add bias with goals and block preferences. One detail: the baseline subtracted is dirt's own experience, not an HP-scaled version of it, so it is a surplus over dirt rather than a strict per-HP figure.</li>
+<li><strong>Speed is left out of efficiency.</strong> Attack speed changes attacks per second, not reward per stamina, so it only enters through the real-time crosshair and ability terms.</li>
+<li><strong>Averages for the search, exact replay for the simulation.</strong> Expected hits, ability uptime, and the crosshair term are averages so the search can score many builds quickly. The simulation runs the exact rules and is the better number when the two disagree.</li>
+<li><strong>The guided search is a search, not a proof.</strong> It matched the full search on every tested case; use Thorough for a guarantee on one case.</li>
+<li><strong>Idle play.</strong> Only auto-tap crosshairs are counted; manual taps are ignored.</li>
+</ul>
+
+<h3>Estimated or unconfirmed</h3>
+<ul>
+<li><strong>Crosshair spawn rate</strong> (about 2.175% per block every 1.005 seconds) is a community measurement, not an official figure. It sets how much crosshairs are worth, so it is an editable setting. The 2 second fire delay is observed.</li>
+<li><strong>Crosshair details.</strong> We assume auto crosshairs do not consume ability charges. The gold multiplier comes from your stats; its default is a placeholder.</li>
+<li><strong>The crosshair value inside the optimizer</strong> stacks several averages (live blocks per floor, full use of crosshair damage, armor left out of the damage ratio) on top of the estimated spawn rate. It is the least grounded number that can change which build is recommended. When in doubt, trust the simulation.</li>
+<li><strong>Polychrome and infernal cards</strong> are recordable but treated as neutral until their multipliers are confirmed.</li>
 </ul>
 
 <p style="margin-top:34px"><a href="index.html">Back to the app</a></p>
