@@ -2057,6 +2057,7 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
 }
 
 function scoreBuild(stats, inp, blocks){
+  stats = fullStats(stats);   // guarantee all attribute keys exist (missing -> 0)
   const der = getDerived(stats, inp);
   let remaining = der.stamina;
   let totalValue=0, used=0, floorReached=1;
@@ -2462,6 +2463,7 @@ function rollCritMult(rng, cc, cd, sc, sd, uc, ud){
 }
 
 function simulateOneRun(stats, inp, blocks, rng=Math.random){
+  stats = fullStats(stats);   // guarantee S/A/P/I/L/D/C are all present (missing keys -> 0)
   const der=getDerived(stats,inp);
   let stamina=der.stamina;
   let ticksSpent=0, totalValue=0, timeSec=0;
