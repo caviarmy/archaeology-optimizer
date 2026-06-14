@@ -2601,7 +2601,10 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
           const share = der.damage * ((sched.quake.a.dmgPct||0)/100); // % of base damage to all blocks
           for(const o of nodes){ if(o!==node && !o.cleared){ o.hp -= share; if(o.hp<=0) clearNode(o); } }
         }
-        const rate = atkSpeedBase * (flu ? 1+(sched.flurry.a.atkSpeedPct||0)/100 : 1) * (node.hasSpeed ? 2 : 1);
+        // Speed mod multiplies attack rate while a speed-modded block is up (uses the
+        // Speed Mod Atk Rate stat; default x2). Speed only shifts real-time timing.
+        const speedRate = inp.base.speedModAtkRate > 0 ? inp.base.speedModAtkRate : 2;
+        const rate = atkSpeedBase * (flu ? 1+(sched.flurry.a.atkSpeedPct||0)/100 : 1) * (node.hasSpeed ? speedRate : 1);
         timeSec += 1/Math.max(0.01, rate);
         processCrosshairs(nodes); // real-time crosshair spawns/fires as time advances
         if(enr) sched.enrage.left--;
