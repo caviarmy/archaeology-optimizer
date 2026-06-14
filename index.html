@@ -81,7 +81,9 @@ th,td{border-bottom:1px solid #e5e7eb;border-right:1px solid #eef2f7;padding:7px
 th{position:sticky;top:0;background:#f1f5f9;color:#111827;z-index:1}
 #monteRerankTable th[data-sort]{cursor:pointer;user-select:none}
 #monteRerankTable th[data-sort]:hover{background:#e2e8f0}
-#monteRerankTable th.sorted{background:#dbe7f3;text-decoration:underline}
+#monteRerankTable th.sorted{background:#dbe7f3}
+#monteRerankTable th.sort-desc::after{content:" \25BC";font-size:10px;opacity:.75}
+#monteRerankTable th.sort-asc::after{content:" \25B2";font-size:10px;opacity:.75}
 .stepper{display:flex;align-items:stretch;max-width:170px}
 .stepper input{text-align:center;border-radius:0;flex:1;min-width:0}
 .stepper-btn{width:38px;flex:none;border:1px solid var(--line);background:var(--soft);color:#111827;cursor:pointer;font-size:18px;font-weight:600;line-height:1;user-select:none;padding:0}
@@ -89,6 +91,9 @@ th{position:sticky;top:0;background:#f1f5f9;color:#111827;z-index:1}
 .stepper-btn:active{background:#cdd7e5}
 .stepper-btn:first-child{border-radius:8px 0 0 8px;border-right:none}
 .stepper-btn:last-child{border-radius:0 8px 8px 0;border-left:none}
+@keyframes btnspin{to{transform:rotate(360deg)}}
+button.btn-spin{pointer-events:none;opacity:.85}
+button.btn-spin::before{content:"";display:inline-block;width:14px;height:14px;margin-right:8px;vertical-align:-2px;border:2px solid rgba(127,127,127,.35);border-top-color:#2563eb;border-radius:50%;animation:btnspin .6s linear infinite}
 td:first-child,th:first-child{text-align:left}
 tr:nth-child(even) td{background:#fbfbfc}
 tr.best td{background:#e8f1ff!important;font-weight:800}
@@ -2217,7 +2222,7 @@ async function runExact(){
   const status = document.getElementById("status");
   const btn = document.getElementById("runExact");
   let thorough = !!document.getElementById("thoroughSearch")?.checked;
-  btn.disabled = true;
+  btn.disabled = true; btn.classList.add("btn-spin");
   showStatus(thorough ? "Searching every build..." : "Searching builds...", 30000);
   await new Promise(r=>setTimeout(r,20));
 
@@ -2246,7 +2251,7 @@ async function runExact(){
   lastExactSignature = exactSignature;
   renderBest(best, topBuilds.slice(0, 10), count);
   showStatus(`Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s (${count.toLocaleString()} build${count===1?"":"s"}${thorough?"":", smart search"})${extra}.`, 5000);
-  btn.disabled = false;
+  btn.disabled = false; btn.classList.remove("btn-spin");
   isRunningExact = false;
   updateSimButtonState();   // a fresh estimate now exists -> allow Simulate
 }
@@ -2277,25 +2282,32 @@ async function exhaustiveSearch(inp, blocks, level, topLimit, status){
   })(0, target);
   if(over) return {bailed:true, count:total};
 
-  const recs = []; let bestPrimary = -Infinity;
-  const acc = new Array(keys.length).fill(0);
+  // Enumerate every valid allocation (cheap), then score in chunks so we can
+  // yield to the UI and report live progress.
+  const combos = []; const acc = new Array(keys.length).fill(0);
   (function rec(i, rem){
-    if(i === keys.length-1){
-      if(rem<=caps[i]){
-        acc[i]=rem;
-        const st={S:0,A:0,I:0,P:0,L:0,D:0,C:0};
-        for(let j=0;j<keys.length;j++) st[keys[j]]=acc[j];
-        const sc=scoreBuild(st, inp, blocks);
-        recs.push({a:acc.slice(), pm:sc.primaryMetric, sm:sc.secondaryMetric, ar:metricValue(sc,"allRewards",inp), fr:sc.floorReached});
-        if(sc.primaryMetric>bestPrimary) bestPrimary=sc.primaryMetric;
-      }
-      return;
-    }
+    if(i === keys.length-1){ if(rem<=caps[i]){ acc[i]=rem; combos.push(acc.slice()); } return; }
     const lo=Math.max(0,rem-restCap[i]), hi=Math.min(caps[i],rem);
     for(let v=lo; v<=hi; v++){ acc[i]=v; rec(i+1, rem-v); }
   })(0, target);
 
-  if(status){ showStatus(`Ranking ${recs.length.toLocaleString()} builds...`, 30000); await new Promise(r=>setTimeout(r,0)); }
+  const recs = []; let bestPrimary = -Infinity;
+  const totalN = combos.length, CHUNK = 1500, t0 = performance.now();
+  for(let idx=0; idx<totalN; idx++){
+    const a = combos[idx];
+    const st={S:0,A:0,I:0,P:0,L:0,D:0,C:0};
+    for(let j=0;j<keys.length;j++) st[keys[j]]=a[j];
+    const sc=scoreBuild(st, inp, blocks);
+    recs.push({a, pm:sc.primaryMetric, sm:sc.secondaryMetric, ar:metricValue(sc,"allRewards",inp), fr:sc.floorReached});
+    if(sc.primaryMetric>bestPrimary) bestPrimary=sc.primaryMetric;
+    if(status && (idx % CHUNK === CHUNK-1)){
+      const pct = Math.round((idx+1)/totalN*100);
+      showStatus(`Searching every build… ${(idx+1).toLocaleString()} / ${totalN.toLocaleString()} (${pct}%)`, 30000);
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }
+
+  if(status){ showStatus(`Ranking ${recs.length.toLocaleString()} builds…`, 30000); await new Promise(r=>setTimeout(r,0)); }
 
   const threshold = bestPrimary - Math.abs(bestPrimary) * tol;
   recs.sort((x,y)=>{
@@ -2782,7 +2794,7 @@ async function runMonteRerank(){
     return;
   }
 
-  btn.disabled=true;
+  btn.disabled=true; btn.classList.add("btn-spin");
   tbody.innerHTML="";
   const builds=lastExactTopBuilds.slice(0, inp.mcTopCount);
   const runs=inp.mcRunsPerBuild;
@@ -2815,35 +2827,43 @@ async function runMonteRerank(){
     setTimeout(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}), 80);
     setTimeout(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}), 220);
   }
-  btn.disabled=false;
+  btn.disabled=false; btn.classList.remove("btn-spin");
 }
 
 // Render the simulation results table sorted by `sortKey` (descending unless dir=1),
 // and refresh the headline tiles + throughput detail for the current top build.
 let _simSortKey="rewardsPerHour", _simSortDir=-1, _simSortWired=false;
+// Rank columns sort ascending (1 first); metric columns sort descending (best first).
+function simSortNaturalDir(key){ return (key==="rank" || key==="detRank") ? 1 : -1; }
 function renderSimResults(sortKey, dir){
   const results = window.__simResults;
   const tbody=document.querySelector("#monteRerankTable tbody");
   if(!results || !results.length || !tbody) return;
-  if(sortKey){ _simSortKey=sortKey; _simSortDir=dir||-1; }
-  const key = _simSortKey==="rank" ? "rewardsPerHour" : _simSortKey, d=_simSortDir;
-  const sorted = results.slice().sort((a,b)=>{
-    const av=(a[key]==null?-Infinity:a[key]), bv=(b[key]==null?-Infinity:b[key]);
-    return (av-bv)*d;
-  });
+  if(sortKey){ _simSortKey=sortKey; _simSortDir = dir || simSortNaturalDir(sortKey); }
+  // Fixed rank: by the primary metric (rewards per real-time hour), stored on each
+  // record so sorting the table by another column doesn't change a build's rank.
+  results.slice().sort((a,b)=>b.rewardsPerHour-a.rewardsPerHour).forEach((r,i)=>{ r.simRank=i+1; });
+  // Display order for the chosen column (rank tiebreak keeps it stable).
+  const key=_simSortKey, d=_simSortDir;
+  const val=r=> key==="rank" ? r.simRank : (key==="detRank" ? (r.detRank||0) : (r[key]==null?-Infinity:r[key]));
+  const sorted = results.slice().sort((a,b)=>{ const av=val(a), bv=val(b); return av===bv ? a.simRank-b.simRank : (av-bv)*d; });
   tbody.innerHTML="";
-  sorted.forEach((r,i)=>{
+  sorted.forEach((r)=>{
     const s=r.stats, tr=document.createElement("tr");
-    if(i===0) tr.className="best";
-    const cells=[i+1, r.detRank, s.S,s.A,s.P,s.I,s.L,
+    if(r.simRank===1) tr.className="best";
+    const cells=[r.simRank, r.detRank, s.S,s.A,s.P,s.I,s.L,
       fmt(r.rewardsPerHour,1), fmt(r.rewardsPerTick,3), fmt(r.blocksPerHour,1),
       fmt(r.xpPerHour,1), fmt(r.allLootPerHour,1), fmt(r.rewardsPerStam,2),
       fmt(r.mcAvgFloor,2), fmt(r.targetPct,1)+"%", fmt(r.p10,1),fmt(r.p50,1),fmt(r.p90,1)];
     for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
     tbody.appendChild(tr);
   });
-  document.querySelectorAll("#monteRerankTable th[data-sort]").forEach(th=>th.classList.toggle("sorted", th.dataset.sort===_simSortKey));
-  const best=sorted[0];
+  document.querySelectorAll("#monteRerankTable th[data-sort]").forEach(th=>{
+    th.classList.remove("sorted","sort-asc","sort-desc");
+    if(th.dataset.sort===_simSortKey) th.classList.add("sorted", _simSortDir===1?"sort-asc":"sort-desc");
+  });
+  // Hero card always shows the fixed rank-1 build, regardless of table sort.
+  const best = results.find(r=>r.simRank===1) || sorted[0];
   document.getElementById("simBestBuild").textContent=buildLabel(best.stats);
   document.getElementById("simPerHour").textContent=fmt(best.rewardsPerHour,1);
   document.getElementById("simPerTick").textContent=fmt(best.rewardsPerTick,3);
@@ -2891,7 +2911,7 @@ function wireSimSort(){
     th.style.cursor="pointer";
     th.addEventListener("click",()=>{
       const key=th.dataset.sort;
-      const dir=(_simSortKey===key && _simSortDir===-1)?1:-1;
+      const dir = (_simSortKey===key) ? -_simSortDir : simSortNaturalDir(key);
       renderSimResults(key, dir);
     });
   });
@@ -2949,7 +2969,7 @@ async function runCustomSim(){
   const runs=inp.mcRunsPerBuild;
   const simRng=createSimulationRng(inp);
   const btn=document.getElementById("runCustomSim");
-  if(btn) btn.disabled=true;
+  if(btn){ btn.disabled=true; btn.classList.add("btn-spin"); }
   showStatus(`Simulating ${buildLabel(stats)}; ${runs.toLocaleString()} runs.`, 30000);
   await new Promise(r=>setTimeout(r,10));
   const row=aggregateBuildSim(stats, inp, blocks, runs, simRng.random);
@@ -2962,7 +2982,7 @@ async function runCustomSim(){
   const summary=document.getElementById("customSimSummary"); if(summary) summary.style.display="";
   renderThroughputDetail(row, document.getElementById("customDetailBody"));
   showStatus(`Simulated ${buildLabel(stats)} (${runs.toLocaleString()} runs).`, 5000);
-  if(btn) btn.disabled=false;
+  if(btn){ btn.disabled=false; btn.classList.remove("btn-spin"); }
 }
 
 
