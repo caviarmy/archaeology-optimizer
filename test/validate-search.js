@@ -32,12 +32,19 @@ const primaryOpts = ["target", ...REACHABLE].filter(g=>opts("primaryGoal").inclu
 const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").includes(g));
 
 (async () => {
+  if(W.populateCardSettings) W.populateCardSettings(); // create card inputs so infernal states can be set
   let pass=0, fail=0; const fails=[];
   for(let i=0;i<N;i++){
     // randomize a scenario
     const lvl = rndi(12,20), mf = rndi(10,20);
     set("selectedLevel", lvl); set("maxFloor", mf);
     set("ascension", pick(ascOpts));
+    // Randomly ignite some infernal cards + an infernal multiplier (only takes
+    // effect at A2). Exercises the multiplicative infernal layer in the search.
+    set("archInfernalMult", rnd(1, 2.5).toFixed(3));
+    doc.querySelectorAll('[id^="card_t"]').forEach(el=>{
+      if(el.tagName === "INPUT" && el.type === "hidden") el.value = Math.random() < 0.15 ? "infernal" : "none";
+    });
     set("primaryGoal", pick(primaryOpts));
     set("secondaryGoal", pick(secondaryOpts));
     set("targetFloor", rndi(5, mf));
