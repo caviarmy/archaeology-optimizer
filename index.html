@@ -94,6 +94,14 @@ summary{font-weight:900;cursor:pointer;color:#344054}
 .settings-top{grid-area:top;display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;padding:12px 16px;background:#fff;border-bottom:1px solid var(--line)}
 .settings-title{text-align:left;min-width:0}
 .settings-top h2{margin:0;font-size:20px}
+.settings-panel.no-nav{grid-template-columns:1fr;grid-template-rows:auto 1fr;grid-template-areas:"top" "body"}
+.settings-panel.no-nav .settings-nav{display:none}
+.ascension-control{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #edf0f5}
+.ascension-control label{font-size:11px;color:#667085;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+.ascension-control select{flex:1;max-width:320px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff}
+.calc-base{margin-top:14px;border-top:1px solid var(--line);padding-top:8px}
+.calc-base>summary{cursor:pointer;font-size:13px;font-weight:700;color:#667085}
+.calc-base input{background:#f1f4f9}
 .settings-back{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;background:#fff;color:#344054;border:1px solid #cbd5e1;border-radius:999px;padding:0;font-size:22px;line-height:1}
 .settings-footer{position:sticky;bottom:-16px;margin:18px -16px -16px;padding:12px 16px;background:#fff;border-top:1px solid #edf0f5;display:flex;justify-content:flex-end;z-index:3}
 .settings-confirm{background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:999px;padding:10px 16px;font-weight:900}
@@ -380,17 +388,24 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       </div>
       <button id="resetAllSettings" class="reset-btn" type="button">Reset all</button>
     </div>
+    <div class="ascension-control">
+      <label for="ascension">Ascension</label>
+      <select id="ascension">
+        <option value="0" selected>A0 — pre-ascension</option>
+        <option value="1">A1 — divine blocks</option>
+        <option value="2">A2 — divine + tier 4 blocks</option>
+      </select>
+    </div>
     <div class="settings-list">
-      <button class="setting-row" data-open-settings="settings-general"><span><span class="k">Ascension</span><span class="v" id="summaryAscension">Ascension 0: Base blocks only</span><span class="desc">Which blocks and stats are unlocked</span></span></button>
-      <button class="setting-row" data-open-settings="settings-base"><span><span class="k">Stats, skills &amp; upgrades</span><span class="v" id="summaryBase">Not set</span><span class="desc">Set manually or import from a screenshot</span></span></button>
+      <button class="setting-row" data-open-settings="stats"><span><span class="k">Stats, skills &amp; upgrades</span><span class="v" id="summaryBase">Not set</span><span class="desc">Set manually or import from a screenshot</span></span></button>
+      <button class="setting-row" data-open-settings="cards"><span><span class="k">Card bonuses</span><span class="v" id="summaryCards">No cards</span><span class="desc">Configure active archaeology cards</span></span></button>
     </div>
     <details class="advanced-settings">
       <summary>Advanced</summary>
       <div class="settings-list">
-        <button class="setting-row" data-open-settings="settings-cards"><span><span class="k">Card bonuses</span><span class="v" id="summaryCards">No cards</span><span class="desc">Configure active archaeology cards</span></span></button>
-        <button class="setting-row loot-setting" data-open-settings="settings-loot"><span><span class="k">Resource values</span><span class="v" id="summaryLoot">All kept</span><span class="desc">Ignore drops you don't care about</span></span></button>
-        <button class="setting-row" data-open-settings="settings-scaling"><span><span class="k">Stat scaling</span><span class="v">Per-point values &amp; caps</span><span class="desc">Advanced: how each attribute point scales</span></span></button>
-        <button class="setting-row" data-open-settings="settings-mc"><span><span class="k">Simulation</span><span class="v" id="summaryMC">—</span><span class="desc">Simulation sample sizes</span></span></button>
+        <button class="setting-row loot-setting" data-open-settings="loot"><span><span class="k">Resource values</span><span class="v" id="summaryLoot">All kept</span><span class="desc">Ignore drops you don't care about</span></span></button>
+        <button class="setting-row" data-open-settings="scaling"><span><span class="k">Stat scaling</span><span class="v">Per-point values &amp; caps</span><span class="desc">Advanced: how each attribute point scales</span></span></button>
+        <button class="setting-row" data-open-settings="sim"><span><span class="k">Simulation</span><span class="v" id="summaryMC">—</span><span class="desc">Simulation sample sizes</span></span></button>
       </div>
     </details>
   </section>
@@ -454,40 +469,12 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
 <div id="settingsModal" class="settings-modal" aria-hidden="true">
   <div class="settings-panel">
-    <nav class="settings-nav">
-      <button data-section="settings-general" class="active">Run scope</button>
-      <button class="loot-setting" data-section="settings-loot">Resource value</button>
-      <button data-section="settings-base">Base &amp; skills</button>
-      <button data-section="settings-cards">Card bonuses</button>
-      <button data-section="settings-scaling">Stat scaling</button>
-      <button data-section="settings-mc">Simulation</button>
-    </nav>
+    <nav class="settings-nav" id="settingsNav"></nav>
     <div class="settings-top">
       <button class="settings-back" data-cancel-settings type="button" aria-label="Back">←</button>
-      <div class="settings-title"><h2>Settings</h2></div>
+      <div class="settings-title"><h2 id="settingsTitle">Settings</h2></div>
     </div>
     <div class="settings-body">
-
-      <section id="settings-general" class="settings-section active">
-        <div class="form-grid">
-          <div>
-            <label>Ascension</label>
-            <select id="ascension">
-              <option value="0" selected>A0 — pre-ascension</option>
-              <option value="1">A1 — divine blocks</option>
-              <option value="2">A2 — divine + tier 4 blocks</option>
-            </select>
-          </div>
-          <div><label>Max floor</label><input id="maxFloor" type="number" min="1" max="200" placeholder="200" value=""></div>
-          <div>
-            <label>Node spawn model</label>
-            <select id="nodeSpawnModel">
-              <option value="activeCount" selected>Active count: 6–24 nodes</option>
-              <option value="slotChance">Slot chance: 24 independent slots</option>
-            </select>
-          </div>
-        </div>
-      </section>
 
       <section id="settings-loot" class="settings-section loot-setting">
         <div class="check-grid">
@@ -545,39 +532,43 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         </div>
         <div class="form-grid">
           <div><label>Archaeology level</label><input id="selectedLevel" type="number" min="0" max="200" value=""></div>
-          <div><label>Base damage</label><input id="baseDamage" type="number" step="0.001" value=""></div>
-          <div><label>Base stamina</label><input id="baseStamina" type="number" step="0.001" value=""></div>
-          <div><label>Base crit chance %</label><input id="baseCritChance" type="number" step="0.001" value=""></div>
-          <div><label>Base crit damage x</label><input id="baseCritDamage" type="number" step="0.001" value=""></div>
-          <div><label>Base super crit chance %</label><input id="baseSuperChance" type="number" step="0.001" value=""></div>
-          <div><label>Base super crit damage x</label><input id="baseSuperDamage" type="number" step="0.001" value=""></div>
-          <div><label>Base XP gain x</label><input id="baseXpGain" type="number" step="0.001" value=""></div>
-          <div><label>Base fragment gain x</label><input id="baseFragGain" type="number" step="0.001" value=""></div>
-          <div><label>Base XP mod %</label><input id="baseXpMod" type="number" step="0.001" value=""></div>
-          <div><label>Base XP mod gain x</label><input id="baseXpModGain" type="number" step="0.001" value=""></div>
-          <div><label>Base loot mod %</label><input id="baseLootMod" type="number" step="0.001" value=""></div>
-          <div><label>Base loot mod gain x</label><input id="baseLootModGain" type="number" step="0.001" value=""></div>
-          <div><label>Base speed mod %</label><input id="baseSpeedMod" type="number" step="0.001" value=""></div>
-          <div><label>Base stamina mod %</label><input id="baseStaminaMod" type="number" step="0.001" value=""></div>
+          <div><label>damage</label><input id="baseDamage" type="number" step="0.001" value=""></div>
+          <div><label>stamina</label><input id="baseStamina" type="number" step="0.001" value=""></div>
+          <div><label>crit chance %</label><input id="baseCritChance" type="number" step="0.001" value=""></div>
+          <div><label>crit damage x</label><input id="baseCritDamage" type="number" step="0.001" value=""></div>
+          <div><label>super crit chance %</label><input id="baseSuperChance" type="number" step="0.001" value=""></div>
+          <div><label>super crit damage x</label><input id="baseSuperDamage" type="number" step="0.001" value=""></div>
+          <div><label>XP gain x</label><input id="baseXpGain" type="number" step="0.001" value=""></div>
+          <div><label>fragment gain x</label><input id="baseFragGain" type="number" step="0.001" value=""></div>
+          <div><label>XP mod %</label><input id="baseXpMod" type="number" step="0.001" value=""></div>
+          <div><label>XP mod gain x</label><input id="baseXpModGain" type="number" step="0.001" value=""></div>
+          <div><label>loot mod %</label><input id="baseLootMod" type="number" step="0.001" value=""></div>
+          <div><label>loot mod gain x</label><input id="baseLootModGain" type="number" step="0.001" value=""></div>
+          <div><label>speed mod %</label><input id="baseSpeedMod" type="number" step="0.001" value=""></div>
+          <div><label>stamina mod %</label><input id="baseStaminaMod" type="number" step="0.001" value=""></div>
           <div><label>Stamina mod gain</label><input id="staminaModGain" type="number" step="0.001" value=""></div>
-          <div><label>Base armor pen (flat)</label><input id="baseArmorPenFlat" type="number" step="0.001" value=""></div>
-          <div><label>Base speed mod gain (flat)</label><input id="baseSpeedModGain" type="number" step="0.001" value=""></div>
-          <div><label>Base speed mod atk rate x</label><input id="baseSpeedModAtkRate" type="number" step="0.001" value=""></div>
-          <div><label>Base ultra crit chance %</label><input id="baseUltraChance" type="number" step="0.001" value=""></div>
-          <div><label>Base ultra crit damage x</label><input id="baseUltraDamage" type="number" step="0.001" value=""></div>
-          <div><label>Base ability instacharge %</label><input id="baseInstacharge" type="number" step="0.001" value=""></div>
-          <div><label>Base crosshair auto-tap %</label><input id="baseAutoTap" type="number" step="0.001" value=""></div>
-          <div><label>Base gold crosshair chance %</label><input id="baseGoldCrosshairChance" type="number" step="0.001" value=""></div>
-          <div><label>Base gold crosshair multi x</label><input id="baseGoldCrosshairMulti" type="number" step="0.001" value=""></div>
-          <div><label>Base gleaming floor chance %</label><input id="baseGleamingChance" type="number" step="0.001" value=""></div>
-          <div><label>Base gleaming floor multi x</label><input id="baseGleamingMulti" type="number" step="0.001" value=""></div>
-          <div><label>Crosshair spawn % / block</label><input id="crosshairSpawnPct" type="number" step="0.001" value="2.175"></div>
-          <div><label>Crosshair interval s</label><input id="crosshairInterval" type="number" step="0.001" value="1.005"></div>
-          <div><label>Crosshair fire delay s</label><input id="crosshairFireDelay" type="number" step="0.001" value="2"></div>
+          <div><label>armor pen (flat)</label><input id="baseArmorPenFlat" type="number" step="0.001" value=""></div>
+          <div><label>speed mod gain (flat)</label><input id="baseSpeedModGain" type="number" step="0.001" value=""></div>
+          <div><label>speed mod atk rate x</label><input id="baseSpeedModAtkRate" type="number" step="0.001" value=""></div>
+          <div><label>ultra crit chance %</label><input id="baseUltraChance" type="number" step="0.001" value=""></div>
+          <div><label>ultra crit damage x</label><input id="baseUltraDamage" type="number" step="0.001" value=""></div>
+          <div><label>ability instacharge %</label><input id="baseInstacharge" type="number" step="0.001" value=""></div>
+          <div><label>crosshair auto-tap %</label><input id="baseAutoTap" type="number" step="0.001" value=""></div>
+          <div><label>gold crosshair chance %</label><input id="baseGoldCrosshairChance" type="number" step="0.001" value=""></div>
+          <div><label>gold crosshair multi x</label><input id="baseGoldCrosshairMulti" type="number" step="0.001" value=""></div>
+          <div><label>gleaming floor chance %</label><input id="baseGleamingChance" type="number" step="0.001" value=""></div>
+          <div><label>gleaming floor multi x</label><input id="baseGleamingMulti" type="number" step="0.001" value=""></div>
         </div>
-        <h3>Skills (abilities)</h3>
+        <details class="calc-base"><summary>Calculated base stats (debug)</summary>
+          <p class="small">What the tool backs out after removing attribute points, upgrades, and infernal cards. Read-only.</p>
+          <div class="form-grid" id="calcBaseGrid"></div>
+        </details>
+      </section>
+
+      <section id="settings-skills" class="settings-section">
+        <h3>Abilities</h3>
         <div class="form-grid">
-          <div><label>Base atk speed /sec</label><input id="baseAtkSpeed" type="number" step="0.01" min="0.01" value="1"></div>
+          <div><label>atk speed /sec</label><input id="baseAtkSpeed" type="number" step="0.01" min="0.01" value="1"></div>
         </div>
         <label class="check-row"><input id="enrageOn" type="checkbox"> Auto-use Enrage</label>
         <div class="form-grid">
@@ -598,6 +589,12 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Quake +damage % (all blocks)</label><input id="quakeDmgPct" type="number" step="1" value="20"></div>
           <div><label>Quake charges</label><input id="quakeCharges" type="number" step="1" min="0" value="5"></div>
           <div><label>Quake cooldown s</label><input id="quakeCooldown" type="number" step="1" min="1" value="180"></div>
+        </div>
+      </section>
+
+      <section id="settings-upgrades" class="settings-section">
+        <div class="check-grid" style="margin-bottom:10px">
+          <label class="check-row"><input id="statCapBonus" type="checkbox" checked> +5 Stat Pt. Caps</label>
         </div>
         <h3>Attribute modifiers</h3>
         <div class="form-grid">
@@ -646,9 +643,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       </section>
 
 <section id="settings-scaling" class="settings-section">
-        <div class="check-grid" style="margin-bottom:10px">
-          <label class="check-row"><input id="statCapBonus" type="checkbox" checked> +5 Stat Pt. Caps</label>
-        </div>
         <div class="form-grid">
           <div><label>STR flat damage</label><input id="strFlatDamage" type="number" step="0.001" value="1"></div>
           <div><label>STR damage %</label><input id="strDamagePct" type="number" step="0.001" value="1"></div>
@@ -677,6 +671,17 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
       <section id="settings-mc" class="settings-section">
         <div class="form-grid">
+          <div><label>Max floor</label><input id="maxFloor" type="number" min="1" max="200" placeholder="200" value=""></div>
+          <div>
+            <label>Node spawn model</label>
+            <select id="nodeSpawnModel">
+              <option value="activeCount" selected>Active count: 6–24 nodes</option>
+              <option value="slotChance">Slot chance: 24 independent slots</option>
+            </select>
+          </div>
+          <div><label>Crosshair spawn % / block</label><input id="crosshairSpawnPct" type="number" step="0.001" value="2.175"></div>
+          <div><label>Crosshair interval s</label><input id="crosshairInterval" type="number" step="0.001" value="1.005"></div>
+          <div><label>Crosshair fire delay s</label><input id="crosshairFireDelay" type="number" step="0.001" value="2"></div>
           <div><label>Top reward builds to rerank</label><input id="mcTopCount" type="number" min="1" max="100" value="25"></div>
           <div><label>Runs per reward build</label><input id="mcRunsPerBuild" type="number" min="100" max="20000" value="1000"></div>
           <div><label>Simulation seed mode</label><select id="simSeedMode"><option value="random" selected>Random each run</option><option value="fixed">Fixed seed</option></select></div>
@@ -2774,22 +2779,69 @@ function cancelSettings(){
 function statString(s,a,p,i,l){
   return `${s}/${a}/${p}/${i}/${l}`;
 }
-function openSettings(sectionId){
-  if((v("objective") || "total") === "exp" && sectionId === "settings-loot") sectionId = "settings-general";
+// Each entry on the main page opens the modal showing only its group: the stats
+// group has three tabs, every other group is a single titled section with no nav.
+const SETTINGS_GROUPS = {
+  stats:   {title:"Stat / Skill / Upgrade Settings", tabs:[["settings-base","Stats"],["settings-skills","Skills"],["settings-upgrades","Upgrades"]]},
+  cards:   {title:"Card Settings", tabs:[["settings-cards","Cards"]]},
+  loot:    {title:"Resource Value Settings", tabs:[["settings-loot","Resource value"]]},
+  scaling: {title:"Stat Scaling Settings", tabs:[["settings-scaling","Stat scaling"]]},
+  sim:     {title:"Simulation Settings", tabs:[["settings-mc","Simulation"]]}
+};
+function activateSettingsSection(sectionId){
+  document.querySelectorAll(".settings-section").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll("#settingsNav button").forEach(b=>b.classList.toggle("active", b.dataset.section===sectionId));
+  const target=document.getElementById(sectionId);
+  if(target) target.classList.add("active");
+  const body=document.querySelector(".settings-body");
+  if(body) body.scrollTop = 0;
+  if(sectionId==="settings-base") populateCalcBaseStats();
+}
+function openSettings(key){
+  let group = SETTINGS_GROUPS[key];
+  if(!group){ for(const k in SETTINGS_GROUPS){ if(SETTINGS_GROUPS[k].tabs.some(t=>t[0]===key)){ group=SETTINGS_GROUPS[k]; break; } } }
+  if(!group) group = SETTINGS_GROUPS.stats;
+  if((v("objective") || "total") === "exp" && group === SETTINGS_GROUPS.loot) group = SETTINGS_GROUPS.stats;
   const modal=document.getElementById("settingsModal");
   if(!modal) return;
   if(!modal.classList.contains("open")) settingsSnapshot = captureSettingsSnapshot();
   modal.classList.add("open");
   modal.setAttribute("aria-hidden","false");
-  document.querySelectorAll(".settings-nav button").forEach(b=>b.classList.remove("active"));
-  document.querySelectorAll(".settings-section").forEach(s=>s.classList.remove("active"));
-  const target=document.getElementById(sectionId || "settings-general") || document.getElementById("settings-general");
-  target.classList.add("active");
-  const nav=document.querySelector(`.settings-nav button[data-section="${target.id}"]`);
-  if(nav) nav.classList.add("active");
-  const body=document.querySelector(".settings-body");
-  if(body) body.scrollTop = 0;
-  setTimeout(()=>target.scrollIntoView({block:"start", behavior:"auto"}), 0);
+  const titleEl=document.getElementById("settingsTitle");
+  if(titleEl) titleEl.textContent = group.title;
+  const nav=document.getElementById("settingsNav");
+  const multi = group.tabs.length > 1;
+  modal.querySelector(".settings-panel")?.classList.toggle("no-nav", !multi);
+  if(nav){
+    nav.innerHTML="";
+    if(multi){
+      group.tabs.forEach(([id,label])=>{
+        const btn=document.createElement("button");
+        btn.type="button"; btn.dataset.section=id; btn.textContent=label;
+        btn.addEventListener("click",()=>activateSettingsSection(id));
+        nav.appendChild(btn);
+      });
+    }
+  }
+  activateSettingsSection(group.tabs[0][0]);
+  setTimeout(()=>document.getElementById(group.tabs[0][0])?.scrollIntoView({block:"start", behavior:"auto"}), 0);
+}
+// Debug surface: show the true base the tool backs out (read-only).
+const CALC_BASE_FIELDS = [
+  ["damage","Damage"],["stamina","Stamina"],["critChance","Crit chance %",100],["critDamage","Crit damage x"],
+  ["superChance","Super crit chance %",100],["superDamage","Super crit damage x"],["xpGain","XP gain x"],
+  ["fragGain","Fragment gain x"],["armorPenFlat","Armor pen (flat)"]
+];
+function populateCalcBaseStats(){
+  const grid=document.getElementById("calcBaseGrid");
+  if(!grid) return;
+  let base;
+  try{ base = getInputs().base; }catch(_e){ return; }
+  grid.innerHTML = CALC_BASE_FIELDS.map(([k,label,scale])=>{
+    const v = base[k];
+    const shown = (typeof v==="number" && isFinite(v)) ? (v*(scale||1)).toFixed(3) : "-";
+    return `<div><label>${label}</label><input type="text" value="${shown}" readonly></div>`;
+  }).join("");
 }
 function closeSettings(){
   const modal=document.getElementById("settingsModal");
@@ -2828,9 +2880,9 @@ function updateSettingsSummary(){
       note.textContent = "⚠ You chose spent points but entered 0 — fill in your current attributes below.";
       note.classList.add("warn-note");
     }else if(spent){
-      note.textContent = "! Your base is calculated from the spent points below.";
+      note.textContent = "! Enter your stats as shown in game; the tool backs out the true starting values from the spent points below.";
     }else{
-      note.textContent = "! Screenshot with attribute points unspent so imported stats are your base.";
+      note.textContent = "! Enter your stats with attribute points unspent (at zero).";
     }
   }
 
@@ -3932,12 +3984,11 @@ document.getElementById("runExact").addEventListener("click",runExact);
 document.getElementById("runMonteRerank").addEventListener("click",runMonteRerank);
 document.getElementById("clearMonteRerank").addEventListener("click",clearMonteRerank);
 document.getElementById("resetAllSettings")?.addEventListener("click",resetAllSettings);
-document.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{updateGoalUI(); markOptimizerStale(); updateSettingsSummary();}));
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{updateGoalUI(); markOptimizerStale(); updateSettingsSummary(); if(document.getElementById("settings-base")?.classList.contains("active")) populateCalcBaseStats();}));
 document.querySelectorAll("[data-open-settings]").forEach(el=>el.addEventListener("click",()=>openSettings(el.dataset.openSettings)));
 document.querySelectorAll("[data-close-settings]").forEach(el=>el.addEventListener("click",confirmSettings));
 document.querySelectorAll("[data-confirm-settings]").forEach(el=>el.addEventListener("click",confirmSettings));
 document.querySelectorAll("[data-cancel-settings]").forEach(el=>el.addEventListener("click",cancelSettings));
-document.querySelectorAll(".settings-nav button").forEach(btn=>btn.addEventListener("click",()=>openSettings(btn.dataset.section)));
 document.getElementById("settingsModal")?.addEventListener("click",(e)=>{ if(e.target.id==="settingsModal") cancelSettings(); });
 document.getElementById("ascension")?.addEventListener("change",()=>{
   applyAscensionGating();
