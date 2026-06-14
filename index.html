@@ -103,6 +103,8 @@ summary{font-weight:900;cursor:pointer;color:#344054}
 .calc-base{margin-top:14px;border-top:1px solid var(--line);padding-top:8px}
 .calc-base>summary{cursor:pointer;font-size:13px;font-weight:700;color:#667085}
 .calc-base input{background:#f1f4f9}
+.up-help{margin-top:4px}
+.up-help>summary{cursor:pointer;color:var(--accent);font-weight:700;font-size:13px}
 .settings-back{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;background:#fff;color:#344054;border:1px solid #cbd5e1;border-radius:999px;padding:0;font-size:22px;line-height:1}
 .settings-footer{position:sticky;bottom:0;margin:8px -16px 0;padding:12px 16px;background:transparent;display:flex;justify-content:flex-end;z-index:3;pointer-events:none}
 .settings-confirm{pointer-events:auto;background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:999px;padding:10px 18px;font-weight:900;box-shadow:0 8px 20px rgba(0,0,0,.28)}
@@ -360,7 +362,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       </div>
       <div class="goal-target-field">
         <label>Target floor</label>
-        <input id="targetFloor" type="number" min="1" max="200" step="1" inputmode="numeric" value="13">
+        <input id="targetFloor" type="number" min="1" max="1000" step="1" inputmode="numeric" value="13">
       </div>
       <div>
         <label>Primary protection</label>
@@ -611,9 +613,13 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div class="req-a1"><label>A1 Damage, Archaeology Exp Gain (max 5): +10% dmg / lvl</label><input id="bonusDmgExpA1" type="number" min="0" max="5" step="1" value="0"></div>
           <div><label><img class="up-ico" alt="" src="data:image/png;base64,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cmcvc3RkL0lwdGM0eG1wRXh0LzIwMDgtMDItMjkvIgogICAgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iCiAgICB4bWxuczpzdEV2dD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlRXZlbnQjIgogICAgeG1sbnM6cGx1cz0iaHR0cDovL25zLnVzZXBsdXMub3JnL2xkZi94bXAvMS4wLyIKICAgIHhtbG5zOkdJTVA9Imh0dHA6Ly93d3cuZ2ltcC5vcmcveG1wLyIKICAgIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIKICAgIHhtbG5zOnRpZmY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vdGlmZi8xLjAvIgogICAgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIgogICB4bXBNTTpEb2N1bWVudElEPSJnaW1wOmRvY2lkOmdpbXA6MzEzZWExNjUtZjdjMy00NDlkLWI2Y2QtOTc4MmRmN2MyYTY3IgogICB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjUzMTAyZjg2LTRjMmYtNGVhNy1hMWJkLTc4ZjI0NmExOTEwYSIKICAgeG1wTU06T3JpZ2luYWxEb2N1bWVudElEPSJ4bXAuZGlkOmYyYzNjMjcwLThmZjktNDc3Ny1hZmE4LTBkMmNhMGY1NDI0NSIKICAgR0lNUDpBUEk9IjIuMCIKICAgR0lNUDpQbGF0Zm9ybT0iV2luZG93cyIKICAgR0lNUDpUaW1lU3RhbXA9IjE3NTE3NDQzNDk2MDU0NjMiCiAgIEdJTVA6VmVyc2lvbj0iMi4xMC4yMiIKICAgZGM6Rm9ybWF0PSJpbWFnZS9wbmciCiAgIHRpZmY6T3JpZW50YXRpb249IjEiCiAgIHhtcDpDcmVhdG9yVG9vbD0iR0lNUCAyLjEwIj4KICAgPGlwdGNFeHQ6TG9jYXRpb25DcmVhdGVkPgogICAgPHJkZjpCYWcvPgogICA8L2lwdGNFeHQ6TG9jYXRpb25DcmVhdGVkPgogICA8aXB0Y0V4dDpMb2NhdGlvblNob3duPgogICAgPHJkZjpCYWcvPgogICA8L2lwdGNFeHQ6TG9jYXRpb25TaG93bj4KICAgPGlwdGNFeHQ6QXJ0d29ya09yT2JqZWN0PgogICAgPHJkZjpCYWcvPgogICA8L2lwdGNFeHQ6QXJ0d29ya09yT2JqZWN0PgogICA8aXB0Y0V4dDpSZWdpc3RyeUlkPgogICAgPHJkZjpCYWcvPgogICA8L2lwdGNFeHQ6UmVnaXN0cnlJZD4KICAgPHhtcE1NOkhpc3Rvcnk+CiAgICA8cmRmOlNlcT4KICAgICA8cmRmOmxpCiAgICAgIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiCiAgICAgIHN0RXZ0OmNoYW5nZWQ9Ii8iCiAgICAgIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6OTdkNTA3MGEtMTA1Mi00OWE5LThhNDUtZDkzN2NiNjQyZjQ5IgogICAgICBzdEV2dDpzb2Z0d2FyZUFnZW50PSJHaW1wIDIuMTAgKFdpbmRvd3MpIgogICAgICBzdEV2dDp3aGVuPSIyMDI1LTA3LTA1VDEyOjM5OjA5Ii8+CiAgICA8L3JkZjpTZXE+CiAgIDwveG1wTU06SGlzdG9yeT4KICAgPHBsdXM6SW1hZ2VTdXBwbGllcj4KICAgIDxyZGY6U2VxLz4KICAgPC9wbHVzOkltYWdlU3VwcGxpZXI+CiAgIDxwbHVzOkltYWdlQ3JlYXRvcj4KICAgIDxyZGY6U2VxLz4KICAgPC9wbHVzOkltYWdlQ3JlYXRvcj4KICAgPHBsdXM6Q29weXJpZ2h0T3duZXI+CiAgICA8cmRmOlNlcS8+CiAgIDwvcGx1czpDb3B5cmlnaHRPd25lcj4KICAgPHBsdXM6TGljZW5zb3I+CiAgICA8cmRmOlNlcS8+CiAgIDwvcGx1czpMaWNlbnNvcj4KICA8L3JkZjpEZXNjcmlwdGlvbj4KIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAKPD94cGFja2V0IGVuZD0idyI/PmPoEogAAAAGYktHRAAAAAAAAPlDu38AAAAJcEhZcwAALiMAAC4jAXilP3YAAAAHdElNRQfpBwUTJwnFGNsgAAABP0lEQVRIx2P09Ir+z0ACuHPzMgMDAwPD7buXGBkYGBgU+PhR9D/49JERn34mBjoDFhjDytWVgYGBgSE02AVFweq1e1D4MHVz6/P/MzAwMDhoKzAwMDAwHLj6gCgL6e5DeHirKusRFZcq6rooPoWBRVP6UOJ28PmQWABLlZJC/AwMDAwMAlq2eFPx4EmlpPrs+buPDAwMDAxvoD4iFgxeH8J8pi4piOJDQqly8KdSSwW5/8g+g5UohMrMQeNDoi00lGZnMJRmp5+FNE+lsLiLMJFgYGBgYFhx5gXeuJMQM8RaFr94dZ5xaMQhsWDR7h0Mi3bvGMT5kNh8hyvOnr88BymZxI2GWFmKL84YGBgYXPXEsPp096VXDAwMDAxxrh4DHIe46jtS893wiUP0EgTmY1icDZqSBiMOie0jDJmyFAD+7XeBosZ6hQAAAABJRU5ErkJggg==">A0 Armor Penetration, Ability Cooldown (max 10): +2% pen / lvl</label><input id="bonusArpenCdA0" type="number" min="0" max="10" step="1" value="0"></div>
         </div>
+        <p class="small" style="margin-top:6px">These are the % buffs (damage / armor pen) only — the rest of each upgrade is already in your entered stats.</p>
+        <details class="up-help"><summary>Where's the rest of my upgrades?</summary>
+          <p class="small">We only need to grab upgrades that give a percentage buff not shown on the stats page. Everything else is already accounted for in your stats page!</p>
+        </details>
       </section>
 
-      
+
       <section id="settings-cards" class="settings-section">
         <div class="form-grid">
           <div><label>Archaeology infernal multiplier x</label><input id="archInfernalMult" type="number" step="0.0001" min="0" value="1"></div>
@@ -673,7 +679,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
       <section id="settings-mc" class="settings-section">
         <div class="form-grid">
-          <div><label>Max floor</label><input id="maxFloor" type="number" min="1" max="200" placeholder="200" value=""></div>
+          <div><label>Max floor</label><input id="maxFloor" type="number" min="1" max="1000" placeholder="as deep as stamina allows" value=""></div>
           <div>
             <label>Node spawn model</label>
             <select id="nodeSpawnModel">
@@ -896,6 +902,9 @@ function syncSecondaryGoalOptions(){
   }
 }
 
+// Deepest floor the model supports. Block HP/armor keep scaling past it
+// (stageScale), so this is just the input ceiling.
+const FLOOR_CAP = 1000;
 function validateTargetFloor(){
   const input = document.getElementById("targetFloor");
   if(!input) return 1;
@@ -914,7 +923,7 @@ function validateTargetFloor(){
 
   let value = Math.floor(Number(raw));
   if(!Number.isFinite(value)) value = 1;
-  value = Math.max(1, Math.min(200, value));
+  value = Math.max(1, Math.min(FLOOR_CAP, value));
   input.value = String(value);
   input.setCustomValidity("");
   return value;
@@ -1367,8 +1376,8 @@ function getInputs(){
     mode:v("mode"),
     objective:v("objective") || "total",
     selectedLevel:Math.max(0, Math.floor(n("selectedLevel"))),
-    targetFloor:validateTargetFloor(),
-    maxFloor:Math.max(1, Math.min(200, Math.floor(numOr("maxFloor", 200)) || 200)),
+    targetFloor:Math.max(1, Math.min(FLOOR_CAP, Math.floor(numOr("targetFloor", 1)) || 1)),  // pure read; validateTargetFloor handles the DOM rewrite on edit
+    maxFloor:Math.max(1, Math.min(FLOOR_CAP, Math.floor(numOr("maxFloor", FLOOR_CAP)) || FLOOR_CAP)),
     ascension:currentAscension(),
     polyUpgrade:checked("polyUpgrade"),
     archInfernalMult:Math.max(0, n("archInfernalMult") || 1),
@@ -1413,8 +1422,7 @@ function getInputs(){
       speedModAtkRate:n("baseSpeedModAtkRate"),
       staminaMod:pct("baseStaminaMod"),
       armorPenFlat:n("baseArmorPenFlat") || 0,
-      // Ascension-2 stats: captured for display/persistence only. Not yet
-      // consumed by getDerived/scoring (deferred to a later integration pass).
+      // Ascension 1/2 stats, all consumed by getDerived/scoring.
       ultraChance:pct("baseUltraChance"),
       ultraDamage:n("baseUltraDamage"),
       instacharge:pct("baseInstacharge"),
@@ -1510,28 +1518,34 @@ function reverseBaseStats(b, pts, inc, inf={}){
   const corrStam = Math.max(0.05, 1 - C*(inc.corrMaxStaminaPct||0));
   const modMulti = 1 + C*(inc.corrAllModMultiPct||0);
   const infv = k => inf[k] || 0;
-  return {
+  // cl floors a recovered value and records the field name when the pre-clamp
+  // value was below the floor (entered stat is lower than the spent points imply).
+  const clamped = [];
+  const cl = (name, val, floor) => { if(val < floor - 1e-9){ clamped.push(name); return floor; } return val; };
+  const out = {
     ...b,
     // Invert getDerived. Damage: (base + S*flat + D*divFlat + infFlat)(1 + infDmg%)(1 + nonAttr% + S*str% + C*corr%).
-    damage: Math.max(0, b.damage / ((1 + infv("dmgPct")) * (1 + (inc.nonAttrDmgPct||0) + S*inc.strDamagePct + C*(inc.corrDamagePct||0))) - S*inc.strFlatDamage - D*(inc.divFlatDamage||0) - infv("flatDamage")),
-    stamina: Math.max(0, b.stamina / (corrStam*(1+infv("staminaPct"))) - A*inc.agiStamina - infv("staminaFlat")),
-    critChance: Math.max(0, b.critChance - A*inc.agiCritPct - L*inc.luckCritPct),
-    critDamage: Math.max(1, b.critDamage/(1+infv("critDmgPct")) - S*inc.strCritDamage),
-    superChance: Math.max(0, (b.superChance||0) - D*(inc.divSuperCritPct||0)),
-    xpGain: Math.max(0, b.xpGain/(1+infv("xpGainPct")) - I*inc.intXpGain),
-    fragGain: Math.max(0, b.fragGain/(1+infv("fragGainPct")) - P*inc.perFragGain),
-    xpMod: Math.max(0, b.xpMod - I*inc.intXpModPct - L*inc.luckXpModPct),
-    lootMod: Math.max(0, b.lootMod - P*inc.perLootModPct - L*inc.luckLootModPct),
-    speedMod: Math.max(0, b.speedMod - A*inc.agiSpeedPct - L*inc.luckAllModPct - C*(inc.corrSpeedPct||0)),
-    staminaMod: Math.max(0, b.staminaMod - L*inc.luckAllModPct),
+    damage: cl("Damage", b.damage / ((1 + infv("dmgPct")) * (1 + (inc.nonAttrDmgPct||0) + S*inc.strDamagePct + C*(inc.corrDamagePct||0))) - S*inc.strFlatDamage - D*(inc.divFlatDamage||0) - infv("flatDamage"), 0),
+    stamina: cl("Max stamina", b.stamina / (corrStam*(1+infv("staminaPct"))) - A*inc.agiStamina - infv("staminaFlat"), 0),
+    critChance: cl("Crit chance", b.critChance - A*inc.agiCritPct - L*inc.luckCritPct, 0),
+    critDamage: cl("Crit damage", b.critDamage/(1+infv("critDmgPct")) - S*inc.strCritDamage, 1),
+    superChance: cl("Super crit chance", (b.superChance||0) - D*(inc.divSuperCritPct||0), 0),
+    xpGain: cl("XP gain", b.xpGain/(1+infv("xpGainPct")) - I*inc.intXpGain, 0),
+    fragGain: cl("Fragment gain", b.fragGain/(1+infv("fragGainPct")) - P*inc.perFragGain, 0),
+    xpMod: cl("XP mod chance", b.xpMod - I*inc.intXpModPct - L*inc.luckXpModPct, 0),
+    lootMod: cl("Loot mod chance", b.lootMod - P*inc.perLootModPct - L*inc.luckLootModPct, 0),
+    speedMod: cl("Speed mod chance", b.speedMod - A*inc.agiSpeedPct - L*inc.luckAllModPct - C*(inc.corrSpeedPct||0), 0),
+    staminaMod: cl("Stamina mod chance", b.staminaMod - L*inc.luckAllModPct, 0),
     // Displayed pen = (trueFlat + P*perFlat + infFlat)(1 + infPen%)(1 + nonAttr% + I*int%).
-    armorPenFlat: Math.max(0, (b.armorPenFlat || 0) / ((1+infv("armorPenMultPct")) * (1 + (inc.nonAttrPenPct||0) + I*(inc.intArmorPenPct||0))) - P*(inc.perArmorPen || 0) - infv("armorPenFlat")),
+    armorPenFlat: cl("Armor penetration", (b.armorPenFlat || 0) / ((1+infv("armorPenMultPct")) * (1 + (inc.nonAttrPenPct||0) + I*(inc.intArmorPenPct||0))) - P*(inc.perArmorPen || 0) - infv("armorPenFlat"), 0),
     // Corruption scales the mod-gain multipliers; infernal scales loot-mod gain.
     xpModGain: (b.xpModGain || 3) / modMulti,
     lootModGain: ((b.lootModGain || 3.8) / (1+infv("lootModGainPct"))) / modMulti
     // superDamage, ultra*, gold/gleaming multi, additive infernal chances: no
     // attribute interaction, so they ride along in the base unchanged.
   };
+  out.clampedFields = clamped;
+  return out;
 }
 
 function baseStatModeSpent(){
@@ -2888,8 +2902,13 @@ function updateSettingsSummary(){
   const note = document.getElementById("baseModeNote");
   if(note){
     note.classList.remove("warn-note");
+    let clamped = [];
+    if(spent){ try{ clamped = getInputs().base.clampedFields || []; }catch(_e){} }
     if(spent && spentPointsSum() <= 0){
       note.textContent = "⚠ You chose spent points but entered 0 — fill in your current attributes below.";
+      note.classList.add("warn-note");
+    }else if(spent && clamped.length){
+      note.textContent = "⚠ Lower than your spent points imply: " + clamped.join(", ") + ". Check those stat values and your upgrade levels — the backed-out base was floored to zero.";
       note.classList.add("warn-note");
     }else if(spent){
       note.textContent = "! Enter your stats as shown in game; the tool backs out the true starting values from the spent points below.";
