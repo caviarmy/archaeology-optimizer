@@ -427,9 +427,10 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       </div>
       <div class="metrics">
         <div class="metric good"><div class="k">Best build</div><div class="v" id="bestBuild">—</div></div>
-        <div class="metric"><div class="k" id="bestValueLabel">Primary score</div><div class="v" id="bestRph">—</div></div>
+        <div class="metric"><div class="k" id="bestValueLabel">Rewards / real-time hour</div><div class="v" id="bestRph">—</div></div>
+        <div class="metric"><div class="k">Rewards / tick</div><div class="v" id="bestPerTick">—</div></div>
         <div class="metric"><div class="k">Expected floor</div><div class="v" id="bestFloor">—</div></div>
-        <div class="metric"><div class="k">Mode</div><div class="v" id="bestModeLabel">Reward</div></div>
+        <div class="metric"><div class="k">Goal</div><div class="v" id="bestModeLabel">Reward</div></div>
         <div class="metric"><div class="k">Candidates</div><div class="v" id="candidateCount">—</div></div>
         <div class="metric"><div class="k">Primary protection floor</div><div class="v" id="primaryBandFloor">—</div></div>
       </div>
@@ -437,7 +438,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <summary>Top candidate builds</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="topBuildsTable">
-            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>EV value per stamina</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
+            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>EV rewards / hr</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -1666,6 +1667,11 @@ function getDerived(stats, inp){
   // this is stamina returned per player swing. (Its speed buff only shifts timing.)
   const fl = inp.abilities?.flurry;
   const flurryStamPerHit = (fl && fl.on) ? (fl.staminaOnCast || 0) / Math.max(1e-9, atkSpd * (fl.cooldown || 1) * (1 - icCd)) : 0;
+  // Effective attack rate (avg ticks per real second) for per-real-time-hour metrics.
+  // Approximates Flurry's faster swings and speed-modded blocks; the simulation is exact.
+  const flurryUptime = (fl && fl.on) ? Math.min(1, (fl.charges || 0) / Math.max(1e-9, atkSpd * (fl.cooldown || 1) * (1 - icCd))) : 0;
+  const speedModRate = inp.base?.speedModAtkRate > 0 ? inp.base.speedModAtkRate : 1;
+  const effectiveAtkRate = atkSpd * (1 + flurryUptime * ((fl?.atkSpeedPct || 0) / 100)) * (1 + clamp(speedChance,0,0.95) * Math.max(0, speedModRate - 1));
   // Crosshairs as an average tick-efficiency gain. Auto-crosshairs are free hits
   // (real time, ~2.175%/block/1.005s), doing part of each floor's damage so the
   // player spends fewer ticks. Per floor: M = 1 + (avgLiveBlocks/atkSpeed) * lambda
@@ -1682,7 +1688,7 @@ function getDerived(stats, inp){
   const atkS = Math.max(0.01, inp.atkSpeed || 1);
   const chLambda = (inp.crosshair?.spawnPct ?? 0.02175) / (inp.crosshair?.interval || 1.005);
   const chFactorPerBlock = autoTapEff>0 ? chLambda * autoTapEff * chRatio / (2*atkS) : 0;
-  return {damage,flatDamage,dmgPctPool,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage,autoTapEff,chFactorPerBlock,staminaRefundPerNode,quakeOn,quakeShare,quakeUptime,flurryStamPerHit};
+  return {damage,flatDamage,dmgPctPool,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage,autoTapEff,chFactorPerBlock,staminaRefundPerNode,quakeOn,quakeShare,quakeUptime,flurryStamPerHit,effectiveAtkRate};
 }
 
 // Effective block armor after the player's penetration. Percent armor pen buffs
@@ -2077,7 +2083,7 @@ function scoreBuild(stats, inp, blocks){
   const der = getDerived(stats, inp);
   let remaining = der.stamina;
   let totalValue=0, used=0, floorReached=1;
-  let totalNodes=0;
+  let totalNodes=0, totalTicks=0;
   const channels=blankChannels();
   for(let floor=1; floor<=FLOOR_CAP; floor++){   // a dig runs until stamina is spent; FLOOR_CAP is just a safety bound
     const fv = floorCostValue(floor, der, inp, blocks);
@@ -2096,6 +2102,7 @@ function scoreBuild(stats, inp, blocks){
       totalValue += fv.value;
       addChannels(channels, fv.channels);
       totalNodes += fv.nodes;
+      totalTicks += fv.tickCost;
       floorReached = floor + 1;
     } else {
       const pv = partialFloorCostValue(floor, der, inp, blocks, remaining);
@@ -2103,15 +2110,26 @@ function scoreBuild(stats, inp, blocks){
       addChannels(channels, pv.channels);
       used += pv.staminaCost;
       totalNodes += pv.nodes;
+      totalTicks += pv.tickCost;
       floorReached = floor + pv.floorFrac;
       remaining = 0;
       break;
     }
   }
   if(used <= 0) used = Math.max(1, der.stamina - remaining);
-  const metrics = finalizeMetrics(channels, used);
+  // Default objective is reward per real-time hour. A dig restarts at floor 1 with
+  // full stamina the instant it empties (no downtime), so the rate is one run's
+  // total over its elapsed seconds = ticks / effective attack rate.
+  const realtimeSec = Math.max(1e-9, totalTicks / Math.max(1e-9, der.effectiveAtkRate));
+  const hourScale = 3600 / realtimeSec;
+  const metrics = {};
+  for(const k of Object.keys(channels)) metrics[k] = channels[k] * hourScale;
+  metrics.allLoot = metrics.common + metrics.rare + metrics.epic + metrics.legendary + metrics.mythic + metrics.divine;
+  metrics.allRewards = metrics.xp + metrics.allLoot;
+  const perStam = finalizeMetrics(channels, used);
   const targetDiff = Math.abs(floorReached - inp.targetFloor);
-  const out = {stats:{...stats}, der, rewardHr:metrics.allRewards, floorReached, targetDiff, totalValue, used, totalNodes, channels, metrics};
+  const out = {stats:{...stats}, der, rewardHr:metrics.allRewards, floorReached, targetDiff, totalValue, used, totalNodes, totalTicks, channels, metrics,
+    rewardsPerHour:metrics.allRewards, rewardsPerTick:totalValue/Math.max(1,totalTicks), rewardsPerStam:perStam.allRewards};
   out.primaryMetric = metricValue(out, primaryFocusKey(inp), inp);
   out.secondaryMetric = metricValue(out, secondaryFocusKey(inp), inp);
   out.rewardHr = out.primaryMetric;
@@ -2412,6 +2430,8 @@ function renderBest(best, top, count){
   const s=best.stats, d=best.der;
   document.getElementById("bestBuild").textContent = buildLabel(s);
   document.getElementById("bestRph").textContent = fmt(best.rewardHr,1);
+  const ptEl = document.getElementById("bestPerTick");
+  if(ptEl) ptEl.textContent = fmt(best.rewardsPerTick != null ? best.rewardsPerTick : 0, 3);
   document.getElementById("bestFloor").textContent = fmt(best.floorReached,2);
   const inp = getInputs();
   const modeLabel = document.getElementById("bestModeLabel");
@@ -2419,7 +2439,7 @@ function renderBest(best, top, count){
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
   const valueLabel = document.getElementById("bestValueLabel");
-  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))}/stamina`;
+  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))} / hr`;
   document.getElementById("candidateCount").textContent = count.toLocaleString();
   const bandEl = document.getElementById("primaryBandFloor");
   if(bandEl && top.length){
