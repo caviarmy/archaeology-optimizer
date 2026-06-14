@@ -55,6 +55,11 @@ const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").inc
     set("baseLootMod", rnd(0,20).toFixed(2)); set("baseLootModGain", rnd(3,9).toFixed(2));
     set("baseSpeedMod", rnd(0,15).toFixed(2)); set("baseStaminaMod", rnd(0,15).toFixed(2));
     set("staminaModGain", rndi(3,15)); set("baseArmorPenFlat", rndi(0,900));
+    // Non-attribute damage%/armor-pen% upgrades (additive-stacking model).
+    set("modStrA0", rndi(0,5)); set("modStrA1", rndi(0,1));
+    set("modCorrA2", rndi(0,10)); set("modDivA2", rndi(0,5));
+    set("bonusDmgArpenA0", rndi(0,20)); set("bonusDmgExpA1", rndi(0,5));
+    set("bonusArpenCdA0", rndi(0,10));
 
     const inp = W.getInputs();
     const blocks = W.visibleBlocks(inp);

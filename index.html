@@ -587,6 +587,19 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Quake charges</label><input id="quakeCharges" type="number" step="1" min="0" value="5"></div>
           <div><label>Quake cooldown s</label><input id="quakeCooldown" type="number" step="1" min="1" value="180"></div>
         </div>
+        <h3>Attribute modifiers</h3>
+        <div class="form-grid">
+          <div><label>A0 Strength Skill Buff (max 5): STR +0.2 flat, +0.1% dmg / lvl</label><input id="modStrA0" type="number" min="0" max="5" step="1" value="0"></div>
+          <div class="req-a1"><label>A1 Strength Skill Buff (max 1): STR +1% dmg, +1% crit dmg</label><input id="modStrA1" type="number" min="0" max="1" step="1" value="0"></div>
+          <div class="req-a2"><label>A2 Corruption Skill Buff (max 10): CORR +0.2% dmg / lvl</label><input id="modCorrA2" type="number" min="0" max="10" step="1" value="0"></div>
+          <div class="req-a2"><label>A2 Divinity Skill Buff (max 5): DIV +0.20 per stat / lvl</label><input id="modDivA2" type="number" min="0" max="5" step="1" value="0"></div>
+        </div>
+        <h3>Damage % / armor pen % bonuses</h3>
+        <div class="form-grid">
+          <div><label>A0 Damage, Armor Penetration (max 20): +2% dmg / lvl</label><input id="bonusDmgArpenA0" type="number" min="0" max="20" step="1" value="0"></div>
+          <div class="req-a1"><label>A1 Damage, Archaeology Exp Gain (max 5): +10% dmg / lvl</label><input id="bonusDmgExpA1" type="number" min="0" max="5" step="1" value="0"></div>
+          <div><label>A0 Armor Penetration, Ability Cooldown (max 10): +2% pen / lvl</label><input id="bonusArpenCdA0" type="number" min="0" max="10" step="1" value="0"></div>
+        </div>
       </section>
 
       
@@ -1390,6 +1403,23 @@ function getInputs(){
     },
     cardStates:Object.fromEntries(ARCHAEOLOGY_CARD_KEYS.map(c => [c.key, (document.getElementById(cardSettingId(c.key))?.value || "none")]))
   };
+  // Non-attribute damage% / armor-pen% upgrades. Attribute modifiers raise what
+  // each attribute point gives (flat additive to the per-point coefficients).
+  // Bonus upgrades grant flat damage% / armor-pen% that pool with the attribute
+  // percentages and apply once to the true base (matching the game's additive
+  // stacking), instead of multiplying on top of an already-inflated number.
+  const lvl = (id, max) => Math.max(0, Math.min(max, Math.floor(numOr(id, 0))));
+  const mStrA0 = lvl("modStrA0", 5), mStrA1 = lvl("modStrA1", 1);
+  const mCorrA2 = lvl("modCorrA2", 10), mDivA2 = lvl("modDivA2", 5);
+  out.inc.strFlatDamage   += 0.20  * mStrA0;                 // +0.2 flat / lvl
+  out.inc.strDamagePct    += 0.001 * mStrA0 + 0.01 * mStrA1; // +0.1% , +1% / lvl
+  out.inc.strCritDamage   += 0.01  * mStrA1;                 // +1% / lvl
+  out.inc.corrDamagePct   += 0.002 * mCorrA2;                // +0.2% / lvl
+  out.inc.divFlatDamage   += 0.20  * mDivA2;                 // +0.20 / lvl
+  out.inc.divSuperCritPct += 0.002 * mDivA2;                 // +0.20 pct-pt / lvl
+  out.inc.divAutoTapPct   += 0.002 * mDivA2;                 // +0.20 pct-pt / lvl
+  out.inc.nonAttrDmgPct = 0.02 * lvl("bonusDmgArpenA0", 20) + 0.10 * lvl("bonusDmgExpA1", 5);
+  out.inc.nonAttrPenPct = 0.02 * lvl("bonusArpenCdA0", 10);
   // "Attributes spent" mode: the entered base fields are the displayed TOTALS
   // (which include the current attribute points), so back out the attribute
   // contributions to recover the true base before any scoring.
@@ -1404,6 +1434,15 @@ function getInputs(){
       C:Math.max(0, Math.floor(n("spentCorruption")))
     };
     out.base = reverseBaseStats(out.base, pts, out.inc);
+  } else {
+    // Base mode: the entered values are at 0 attribute points, but the always-on
+    // upgrade percentages are still folded into the displayed numbers, so strip
+    // them out to recover the true (percent-free) flat base.
+    out.base = {
+      ...out.base,
+      damage: Math.max(0, out.base.damage / (1 + out.inc.nonAttrDmgPct)),
+      armorPenFlat: Math.max(0, (out.base.armorPenFlat || 0) / (1 + out.inc.nonAttrPenPct))
+    };
   }
   return out;
 }
@@ -1416,8 +1455,8 @@ function reverseBaseStats(b, pts, inc){
   const modMulti = 1 + C*(inc.corrAllModMultiPct||0);
   return {
     ...b,
-    // Invert getDerived: damage = (base + S*flat + D*divFlat)(1 + S*str% + C*corr%).
-    damage: Math.max(0, (b.damage / (1 + S*inc.strDamagePct + C*(inc.corrDamagePct||0))) - S*inc.strFlatDamage - D*(inc.divFlatDamage||0)),
+    // Invert getDerived: damage = (base + S*flat + D*divFlat)(1 + nonAttr% + S*str% + C*corr%).
+    damage: Math.max(0, (b.damage / (1 + (inc.nonAttrDmgPct||0) + S*inc.strDamagePct + C*(inc.corrDamagePct||0))) - S*inc.strFlatDamage - D*(inc.divFlatDamage||0)),
     stamina: Math.max(0, b.stamina / corrStam - A*inc.agiStamina),
     critChance: Math.max(0, b.critChance - A*inc.agiCritPct - L*inc.luckCritPct),
     critDamage: Math.max(1, b.critDamage - S*inc.strCritDamage),
@@ -1428,7 +1467,8 @@ function reverseBaseStats(b, pts, inc){
     lootMod: Math.max(0, b.lootMod - P*inc.perLootModPct - L*inc.luckLootModPct),
     speedMod: Math.max(0, b.speedMod - A*inc.agiSpeedPct - L*inc.luckAllModPct),
     staminaMod: Math.max(0, b.staminaMod - L*inc.luckAllModPct),
-    armorPenFlat: Math.max(0, (b.armorPenFlat || 0) - P*(inc.perArmorPen || 0)),
+    // Displayed pen = (trueFlat + P*perFlat)(1 + nonAttr% + I*int%); strip % then flats.
+    armorPenFlat: Math.max(0, (b.armorPenFlat || 0) / (1 + (inc.nonAttrPenPct||0) + I*(inc.intArmorPenPct||0)) - P*(inc.perArmorPen || 0)),
     // Corruption scales the mod-gain multipliers; back that out too.
     xpModGain: (b.xpModGain || 3) / modMulti,
     lootModGain: (b.lootModGain || 3.8) / modMulti
@@ -1451,8 +1491,12 @@ function getDerived(stats, inp){
   const S=stats.S, A=stats.A, I=stats.I, P=stats.P, L=stats.L;
   const D=stats.D||0, C=stats.C||0;                  // Divinity (A1), Corruption (A2)
   const b=inp.base, inc=inp.inc;
-  // STR flat dmg + Divinity flat dmg (+2/pt), then STR% + Corruption% (+6%/pt).
-  const damage = (b.damage + S*inc.strFlatDamage + D*(inc.divFlatDamage||0)) * (1 + S*inc.strDamagePct + C*(inc.corrDamagePct||0));
+  // Flat damage (true base + STR flat + Divinity flat). All damage percentages
+  // pool first (non-attribute upgrades + STR% + Corruption%), then apply once to
+  // the flat, so percent sources stack additively the way the game does.
+  const flatDamage = b.damage + S*inc.strFlatDamage + D*(inc.divFlatDamage||0);
+  const dmgPctPool = (inc.nonAttrDmgPct||0) + S*inc.strDamagePct + C*(inc.corrDamagePct||0);
+  const damage = flatDamage * (1 + dmgPctPool);
   const critChance = clamp(b.critChance + A*inc.agiCritPct + L*inc.luckCritPct,0,0.995);
   const critDamage = b.critDamage + S*inc.strCritDamage;
   // Crits are nested & conditional: super crit can only land on a crit, ultra
@@ -1484,7 +1528,7 @@ function getDerived(stats, inp){
   // PER gives flat armor penetration (+2/level), INT gives percent (+3%/level).
   // Percent armor pen buffs the flat armor-pen stat (e.g. 100 pen +9% = 109 pen).
   const armorPenFlat = (b.armorPenFlat || 0) + P*(inc.perArmorPen || 0);
-  const armorPenPct = Math.max(0, (b.armorPenPct || 0) + I*(inc.intArmorPenPct || 0));
+  const armorPenPct = Math.max(0, (inc.nonAttrPenPct || 0) + (b.armorPenPct || 0) + I*(inc.intArmorPenPct || 0));
   // EV approximation of Enrage: average its damage/crit-damage buff over its
   // uptime (charges per cooldown). Used only by the expected-value hit model;
   // the simulation schedules Enrage per-attack. Flurry/Quake are simulation-only.
@@ -1496,7 +1540,8 @@ function getDerived(stats, inp){
     const ic = clamp(inp.base?.instacharge || 0, 0, 0.99);
     const cd = Math.max(1e-9, (en.cooldown || 1) * (1 - ic));
     const uptime = Math.min(1, (en.charges || 0) / Math.max(1e-9, atk * cd));
-    evDamage = damage * (1 + uptime * ((en.dmgPct || 0) / 100));
+    // Enrage's +damage% is additive: it joins the percent pool, not multiplied on.
+    evDamage = flatDamage * (1 + dmgPctPool + uptime * ((en.dmgPct || 0) / 100));
     evCritDamage = critDamage + uptime * ((en.critDmgPct || 0) / 100);
   }
   // Crosshairs as an average tick-efficiency gain. Auto-crosshairs are free hits
@@ -1515,7 +1560,7 @@ function getDerived(stats, inp){
   const atkS = Math.max(0.01, inp.atkSpeed || 1);
   const chLambda = (inp.crosshair?.spawnPct ?? 0.02175) / (inp.crosshair?.interval || 1.005);
   const chFactorPerBlock = autoTapEff>0 ? chLambda * autoTapEff * chRatio / (2*atkS) : 0;
-  return {damage,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage,autoTapEff,chFactorPerBlock};
+  return {damage,flatDamage,dmgPctPool,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage,autoTapEff,chFactorPerBlock};
 }
 
 // Effective block armor after the player's penetration. Percent armor pen buffs
@@ -2393,7 +2438,8 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
         tryCast();
         const enr = sched.enrage.left>0, flu = sched.flurry.left>0, qk = sched.quake.left>0;
         let dmg = der.damage, cdmg = der.critDamage;
-        if(enr){ dmg *= 1 + (sched.enrage.a.dmgPct||0)/100; cdmg += (sched.enrage.a.critDmgPct||0)/100; }
+        // Enrage's +damage% is additive: it joins the percent pool, not multiplied on.
+        if(enr){ dmg = der.flatDamage * (1 + der.dmgPctPool + (sched.enrage.a.dmgPct||0)/100); cdmg += (sched.enrage.a.critDmgPct||0)/100; }
         // Nested crit ladder (crit -> super -> ultra), matching the EV model.
         const hitDmg = dmg * rollCritMult(rng, der.critChance, cdmg, der.superChance, der.superDamage, der.ultraChance, der.ultraDamage);
         node.hp -= Math.max(0, hitDmg - node.armor);
