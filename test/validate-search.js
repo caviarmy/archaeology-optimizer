@@ -32,12 +32,19 @@ const primaryOpts = ["target", ...REACHABLE].filter(g=>opts("primaryGoal").inclu
 const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").includes(g));
 
 (async () => {
+  if(W.populateCardSettings) W.populateCardSettings(); // create card inputs so infernal states can be set
   let pass=0, fail=0; const fails=[];
   for(let i=0;i<N;i++){
     // randomize a scenario
     const lvl = rndi(12,20), mf = rndi(10,20);
     set("selectedLevel", lvl); set("maxFloor", mf);
     set("ascension", pick(ascOpts));
+    // Randomly ignite some infernal cards + an infernal multiplier (only takes
+    // effect at A2). Exercises the multiplicative infernal layer in the search.
+    set("archInfernalMult", rnd(1, 2.5).toFixed(3));
+    doc.querySelectorAll('[id^="card_t"]').forEach(el=>{
+      if(el.tagName === "INPUT" && el.type === "hidden") el.value = Math.random() < 0.15 ? "infernal" : "none";
+    });
     set("primaryGoal", pick(primaryOpts));
     set("secondaryGoal", pick(secondaryOpts));
     set("targetFloor", rndi(5, mf));
@@ -55,6 +62,11 @@ const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").inc
     set("baseLootMod", rnd(0,20).toFixed(2)); set("baseLootModGain", rnd(3,9).toFixed(2));
     set("baseSpeedMod", rnd(0,15).toFixed(2)); set("baseStaminaMod", rnd(0,15).toFixed(2));
     set("staminaModGain", rndi(3,15)); set("baseArmorPenFlat", rndi(0,900));
+    // Non-attribute damage%/armor-pen% upgrades (additive-stacking model).
+    set("modStrA0", rndi(0,5)); set("modStrA1", rndi(0,1));
+    set("modCorrA2", rndi(0,10)); set("modDivA2", rndi(0,5));
+    set("bonusDmgArpenA0", rndi(0,20)); set("bonusDmgExpA1", rndi(0,5));
+    set("bonusArpenCdA0", rndi(0,10));
 
     const inp = W.getInputs();
     const blocks = W.visibleBlocks(inp);
