@@ -79,6 +79,9 @@ body[data-workflow="target"] .target-only{display:flex}
 table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{border-bottom:1px solid #e5e7eb;border-right:1px solid #eef2f7;padding:7px 8px;text-align:right;white-space:nowrap}
 th{position:sticky;top:0;background:#f1f5f9;color:#111827;z-index:1}
+#monteRerankTable th[data-sort]{cursor:pointer;user-select:none}
+#monteRerankTable th[data-sort]:hover{background:#e2e8f0}
+#monteRerankTable th.sorted{background:#dbe7f3;text-decoration:underline}
 td:first-child,th:first-child{text-align:left}
 tr:nth-child(even) td{background:#fbfbfc}
 tr.best td{background:#e8f1ff!important;font-weight:800}
@@ -445,20 +448,33 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       <div class="sim-card-head"><h2>Simulated result</h2><button id="clearMonteRerank" class="clear-chip">Clear simulation</button></div>
       <div class="metrics simulation-summary">
         <div class="metric good"><div class="k">Best simulated build</div><div class="v" id="simBestBuild">—</div></div>
-        <div class="metric"><div class="k" id="simPrimaryLabel">Sim primary score</div><div class="v" id="simPrimaryScore">—</div></div>
-        <div class="metric"><div class="k">Avg simulated floor</div><div class="v" id="simAvgFloor">—</div></div>
+        <div class="metric"><div class="k">Rewards / real-time hour</div><div class="v" id="simPerHour">—</div></div>
+        <div class="metric"><div class="k">Rewards / tick</div><div class="v" id="simPerTick">—</div></div>
+        <div class="metric"><div class="k">Expected floor</div><div class="v" id="simAvgFloor">—</div></div>
         <div class="metric"><div class="k">Target hit chance</div><div class="v" id="simTargetChance">—</div></div>
         <div class="metric"><div class="k">EV rank</div><div class="v" id="simDetRank">—</div></div>
         <div class="metric"><div class="k">Seed used</div><div class="v" id="simSeedUsed">—</div></div>
       </div>
-      <details id="simulationDetails">
-        <summary>Detailed simulation table</summary>
+      <details id="simulationDetails" open>
+        <summary>Detailed simulation table (click a column to sort)</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="monteRerankTable">
-            <thead><tr><th>Sim Rank</th><th>EV Rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th>Sim all rewards/stamina</th><th>Sim avg floor</th><th>Target hit %</th><th>P10 floor</th><th>P50 floor</th><th>P90 floor</th><th>EV primary score</th><th>EV expected floor</th></tr></thead>
+            <thead><tr>
+              <th data-sort="rank">Sim Rank</th><th data-sort="detRank">EV Rank</th>
+              <th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th>
+              <th data-sort="rewardsPerHour">Rewards / hr</th><th data-sort="rewardsPerTick">Rewards / tick</th>
+              <th data-sort="blocksPerHour">Blocks / hr</th><th data-sort="xpPerHour">XP / hr</th><th data-sort="allLootPerHour">Loot / hr</th>
+              <th data-sort="rewardsPerStam">Rewards / stam</th>
+              <th data-sort="mcAvgFloor">Avg floor</th><th data-sort="targetPct">Target %</th>
+              <th>P10</th><th>P50</th><th>P90</th>
+            </tr></thead>
             <tbody></tbody>
           </table>
         </div>
+      </details>
+      <details id="throughputDetails">
+        <summary>Throughput detail (best simulated build): blocks &amp; loot per real-time hour</summary>
+        <div id="throughputDetailBody" style="margin-top:8px"></div>
       </details>
     </div>
   </section>
@@ -2468,6 +2484,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
   let stamina=der.stamina;
   let ticksSpent=0, totalValue=0, timeSec=0;
   const channels=blankChannels();
+  const blockCounts=Object.create(null);   // 't{tier}_{rarity}' -> blocks cleared this run
   let floorReached=1;
   const slot = spawnModel(inp)==="slotChance";
   const atkSpeedBase = Math.max(0.01, inp.atkSpeed || 1);
@@ -2512,6 +2529,8 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
     channels.xp += xpValue;
     if(channels[node.type] !== undefined) channels[node.type] += lootValue;
     totalValue += xpValue + lootValue;
+    const ck = "t"+node.b.tier+"_"+node.type;
+    blockCounts[ck] = (blockCounts[ck] || 0) + 1;   // count cleared blocks by tier x rarity
     // Stamina mod refunds stamina when the block is cleared, but can't exceed max (wiki).
     if(node.staminaMod) stamina = Math.min(der.stamina, stamina + inp.inc.staminaModGain);
   }
@@ -2632,6 +2651,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
     staminaUsed:usedStamina,
     timeSec,
     channels,
+    blockCounts,
     metrics,
     rewardHr:metrics.allRewards
   };
@@ -2669,16 +2689,20 @@ async function runMonteRerank(){
   for(let b=0; b<builds.length; b++){
     const det=builds[b];
     const stats=det.stats;
-    let sumValue=0, sumStamina=0, sumFloor=0, hitTarget=0;
+    let sumValue=0, sumStamina=0, sumFloor=0, hitTarget=0, sumTime=0, sumTicks=0;
     const floors=[];
     const simChannels=blankChannels();
+    const sumCounts=Object.create(null);
 
     for(let r=0; r<runs; r++){
       const sim=simulateOneRun(stats, inp, blocks, rng);
       sumValue += sim.totalValue;
       sumStamina += sim.staminaUsed;
       sumFloor += sim.floorReached;
+      sumTime += sim.timeSec;
+      sumTicks += sim.ticksSpent;
       addChannels(simChannels, sim.channels);
+      for(const k in sim.blockCounts) sumCounts[k]=(sumCounts[k]||0)+sim.blockCounts[k];
       floors.push(sim.floorReached);
       if(sim.floorReached >= inp.targetFloor) hitTarget++;
     }
@@ -2687,61 +2711,39 @@ async function runMonteRerank(){
     const pct = p => floors[Math.max(0, Math.min(floors.length-1, Math.floor((floors.length-1)*p)))];
     const mcAvgFloor = sumFloor/runs;
     const mcMetrics = finalizeMetrics(simChannels, Math.max(1,sumStamina));
-    const mcAggregate = {metrics:mcMetrics, floorReached:mcAvgFloor};
-    const row={
+    // Real time is continuous: at 0 stamina you restart at floor 1 with full stamina,
+    // so the steady-state rate is one run's total over one run's elapsed seconds.
+    const sec = Math.max(1e-9, sumTime), perHr = x => x/sec*3600;
+    const countsPerHour={}; let totalBlocks=0;
+    for(const k in sumCounts){ countsPerHour[k]=perHr(sumCounts[k]); totalBlocks+=sumCounts[k]; }
+    const lootPerHour={}; let lootVal=0;
+    for(const t of ["common","rare","epic","legendary","mythic","divine"]){ lootPerHour[t]=perHr(simChannels[t]); lootVal+=simChannels[t]; }
+    results.push({
       detRank:det.detRank || (b+1),
       stats:{...stats},
       metrics:mcMetrics,
       floorReached:mcAvgFloor,
-      rewardHr:metricValue(mcAggregate, primaryFocusKey(inp), inp),
-      mcRewardHr:mcMetrics.allRewards,
-      primaryMetric:metricValue(mcAggregate, primaryFocusKey(inp), inp),
-      secondaryMetric:metricValue(mcAggregate, secondaryFocusKey(inp), inp),
       mcAvgFloor,
       targetPct:hitTarget/runs*100,
-      p10:pct(0.10),
-      p50:pct(0.50),
-      p90:pct(0.90),
-      detRewardHr:det.rewardHr,
-      detFloor:det.floorReached
-    };
-    results.push(row);
+      p10:pct(0.10), p50:pct(0.50), p90:pct(0.90),
+      detRewardHr:det.rewardHr, detFloor:det.floorReached,
+      rewardsPerHour:perHr(sumValue),
+      rewardsPerTick:sumValue/Math.max(1,sumTicks),
+      rewardsPerStam:mcMetrics.allRewards,
+      blocksPerHour:perHr(totalBlocks),
+      xpPerHour:perHr(simChannels.xp),
+      allLootPerHour:perHr(lootVal),
+      countsPerHour, lootPerHour
+    });
 
     showStatus(`Simulation ${b+1}/${builds.length}; ${runs.toLocaleString()} runs/build.`, 30000);
     await new Promise(res=>setTimeout(res,0));
   }
 
-  rankCandidates(results, inp);
-
-  const bestSim = results[0];
-  if(bestSim){
-    const s = bestSim.stats;
-    document.getElementById("simBestBuild").textContent = buildLabel(s);
-    document.getElementById("simPrimaryLabel").textContent = primaryFocusKey(inp)==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(inp))}/stamina`;
-    document.getElementById("simPrimaryScore").textContent = primaryFocusKey(inp)==="target" ? fmt(bestSim.targetPct,1)+"%" : fmt(bestSim.primaryMetric,1);
-    document.getElementById("simAvgFloor").textContent = fmt(bestSim.mcAvgFloor,2);
-    document.getElementById("simTargetChance").textContent = fmt(bestSim.targetPct,1)+"%";
-    document.getElementById("simDetRank").textContent = String(bestSim.detRank);
-    const seedEl=document.getElementById("simSeedUsed"); if(seedEl) seedEl.textContent=simRng.seed;
-  }
-
-  results.forEach((r,i)=>{
-    const tr=document.createElement("tr");
-    if(i===0) tr.className="best";
-    const s=r.stats;
-    const cells=[
-      i+1,r.detRank,s.S,s.A,s.P,s.I,s.L,
-      fmt(r.mcRewardHr,1),fmt(r.mcAvgFloor,2),fmt(r.targetPct,1)+"%",
-      fmt(r.p10,2),fmt(r.p50,2),fmt(r.p90,2),
-      fmt(r.detRewardHr,1),fmt(r.detFloor,2)
-    ];
-    for(const c of cells){
-      const td=document.createElement("td");
-      td.textContent=c;
-      tr.appendChild(td);
-    }
-    tbody.appendChild(tr);
-  });
+  window.__simResults = results;
+  window.__simSeed = simRng.seed;
+  wireSimSort();
+  renderSimResults("rewardsPerHour", -1);   // default: rank by rewards per real-time hour
 
   document.body.dataset.simulationReady = "true";
   showStatus(`Simulation complete in ${((performance.now()-start)/1000).toFixed(2)}s.`, 5000);
@@ -2753,15 +2755,91 @@ async function runMonteRerank(){
   btn.disabled=false;
 }
 
+// Render the simulation results table sorted by `sortKey` (descending unless dir=1),
+// and refresh the headline tiles + throughput detail for the current top build.
+let _simSortKey="rewardsPerHour", _simSortDir=-1, _simSortWired=false;
+function renderSimResults(sortKey, dir){
+  const results = window.__simResults;
+  const tbody=document.querySelector("#monteRerankTable tbody");
+  if(!results || !results.length || !tbody) return;
+  if(sortKey){ _simSortKey=sortKey; _simSortDir=dir||-1; }
+  const key = _simSortKey==="rank" ? "rewardsPerHour" : _simSortKey, d=_simSortDir;
+  const sorted = results.slice().sort((a,b)=>{
+    const av=(a[key]==null?-Infinity:a[key]), bv=(b[key]==null?-Infinity:b[key]);
+    return (av-bv)*d;
+  });
+  tbody.innerHTML="";
+  sorted.forEach((r,i)=>{
+    const s=r.stats, tr=document.createElement("tr");
+    if(i===0) tr.className="best";
+    const cells=[i+1, r.detRank, s.S,s.A,s.P,s.I,s.L,
+      fmt(r.rewardsPerHour,1), fmt(r.rewardsPerTick,3), fmt(r.blocksPerHour,1),
+      fmt(r.xpPerHour,1), fmt(r.allLootPerHour,1), fmt(r.rewardsPerStam,2),
+      fmt(r.mcAvgFloor,2), fmt(r.targetPct,1)+"%", fmt(r.p10,1),fmt(r.p50,1),fmt(r.p90,1)];
+    for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
+    tbody.appendChild(tr);
+  });
+  document.querySelectorAll("#monteRerankTable th[data-sort]").forEach(th=>th.classList.toggle("sorted", th.dataset.sort===_simSortKey));
+  const best=sorted[0];
+  document.getElementById("simBestBuild").textContent=buildLabel(best.stats);
+  document.getElementById("simPerHour").textContent=fmt(best.rewardsPerHour,1);
+  document.getElementById("simPerTick").textContent=fmt(best.rewardsPerTick,3);
+  document.getElementById("simAvgFloor").textContent=fmt(best.mcAvgFloor,2);
+  document.getElementById("simTargetChance").textContent=fmt(best.targetPct,1)+"%";
+  document.getElementById("simDetRank").textContent=String(best.detRank);
+  const seedEl=document.getElementById("simSeedUsed"); if(seedEl) seedEl.textContent=window.__simSeed;
+  renderThroughputDetail(best);
+}
+
+function renderThroughputDetail(row){
+  const body=document.getElementById("throughputDetailBody");
+  if(!body || !row) return;
+  const rarities=["dirt","common","rare","epic","legendary","mythic","divine"];
+  const tiers=[1,2,3,4];
+  const cph=row.countsPerHour||{};
+  const cap=s=>s[0].toUpperCase()+s.slice(1);
+  let h='<div class="table-wrap"><table><thead><tr><th>Blocks / hr</th>';
+  for(const t of tiers) h+=`<th>T${t}</th>`;
+  h+='<th>All tiers</th></tr></thead><tbody>';
+  for(const rar of rarities){
+    let rowTotal=0, cellsHtml="";
+    for(const t of tiers){ const v=cph["t"+t+"_"+rar]||0; rowTotal+=v; cellsHtml+=`<td>${v>0?fmt(v,1):"—"}</td>`; }
+    if(rowTotal<=0) continue;
+    h+=`<tr><td>${cap(rar)}</td>${cellsHtml}<td>${fmt(rowTotal,1)}</td></tr>`;
+  }
+  let grand=0, totRow="";
+  for(const t of tiers){ let tt=0; for(const rar of rarities) tt+=cph["t"+t+"_"+rar]||0; grand+=tt; totRow+=`<td>${fmt(tt,1)}</td>`; }
+  h+=`<tr class="best"><td>All blocks</td>${totRow}<td>${fmt(grand,1)}</td></tr></tbody></table></div>`;
+  h+='<div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>Value / hr</th><th>XP</th>';
+  for(const rar of ["common","rare","epic","legendary","mythic","divine"]) h+=`<th>${cap(rar)} loot</th>`;
+  h+='<th>All loot</th></tr></thead><tbody><tr><td>Reward</td>';
+  h+=`<td>${fmt(row.xpPerHour,1)}</td>`;
+  for(const rar of ["common","rare","epic","legendary","mythic","divine"]) h+=`<td>${fmt((row.lootPerHour||{})[rar]||0,1)}</td>`;
+  h+=`<td>${fmt(row.allLootPerHour,1)}</td></tr></tbody></table></div>`;
+  body.innerHTML=h;
+}
+
+function wireSimSort(){
+  if(_simSortWired) return; _simSortWired=true;
+  document.querySelectorAll("#monteRerankTable th[data-sort]").forEach(th=>{
+    th.style.cursor="pointer";
+    th.addEventListener("click",()=>{
+      const key=th.dataset.sort;
+      const dir=(_simSortKey===key && _simSortDir===-1)?1:-1;
+      renderSimResults(key, dir);
+    });
+  });
+}
+
 function clearMonteRerank(silent=false){
   const tbody=document.querySelector("#monteRerankTable tbody");
   if(tbody) tbody.innerHTML="";
-  ["simBestBuild","simPrimaryScore","simAvgFloor","simTargetChance","simDetRank","simSeedUsed"].forEach(id=>{
+  ["simBestBuild","simPerHour","simPerTick","simAvgFloor","simTargetChance","simDetRank","simSeedUsed"].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.textContent="—";
   });
-  const label=document.getElementById("simPrimaryLabel");
-  if(label) label.textContent="Sim primary score";
+  const td=document.getElementById("throughputDetailBody"); if(td) td.innerHTML="";
+  window.__simResults=null;
   document.body.dataset.simulationReady = "false";
   if(!silent) document.getElementById("status").textContent="Simulation results cleared.";
 }
