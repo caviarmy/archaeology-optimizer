@@ -24,6 +24,8 @@
 - Removed unused tools (floor-push, greedy path, manual build advisor, node table).
 
 ### Fixed
+- **Live search progress + spinners.** Thorough search now reports "Searching every build… X / Y (Z%)" as it goes, and the Estimate / Simulate / Simulate-this-build buttons show a spinner while running.
+- **Sim table sorting fixed.** Sim Rank is now a fixed property of each build (ranked by rewards per real-time hour), so sorting by another column reorders rows without changing ranks; headers show a ▲/▼ sort arrow; and the hero card always shows the rank-1 build regardless of how you sort.
 - **Upgrade-level fields are now −/+ steppers** (Attribute modifiers and damage/armor-pen bonuses), so it's clear you enter a whole level, not a free value.
 - **Primary protection only appears when a secondary goal is set** (it has no effect without one).
 - **Simulate best build is disabled until a fresh estimate exists**, and re-disables whenever a setting changes, so you can't simulate stale builds.
