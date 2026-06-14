@@ -1621,7 +1621,8 @@ function getDerived(stats, inp){
   const armorPenPct = Math.max(0, (inc.nonAttrPenPct || 0) + (b.armorPenPct || 0) + I*(inc.intArmorPenPct || 0));
   // EV approximation of Enrage: average its damage/crit-damage buff over its
   // uptime (charges per cooldown). Used only by the expected-value hit model;
-  // the simulation schedules Enrage per-attack. Flurry/Quake are simulation-only.
+  // the simulation schedules Enrage per-attack. Quake's AoE and Flurry's stamina
+  // refund are approximated for the EV below (quakeHitsSaved / flurryStamPerHit).
   let evDamage = damage, evCritDamage = critDamage;
   const en = inp.abilities?.enrage;
   if(en && en.on){
@@ -1634,6 +1635,24 @@ function getDerived(stats, inp){
     evDamage = flatDamage * (1 + dmgPctPool + uptime * ((en.dmgPct || 0) / 100));
     evCritDamage = critDamage + uptime * ((en.critDmgPct || 0) / 100);
   }
+  // Stamina mod: a block that rolls it returns staminaModGain stamina when cleared.
+  // It is a refund POOLED into the run budget (it lets the dig reach further), not a
+  // per-block cost discount. Expected refund per block cleared:
+  const staminaRefundPerNode = staminaModChance * (inc.staminaModGain || 0);
+  // Abilities that affect reward-per-stamina. Cooldowns run on the real-time clock,
+  // so attack speed sets how many swings fit in a cooldown; instacharge shortens it.
+  const atkSpd = Math.max(0.01, inp.atkSpeed || 1);
+  const icCd = clamp(inp.base?.instacharge || 0, 0, 0.99);
+  // Quake: while active, every swing also deals `share` to each OTHER block still
+  // alive on the floor. quakeUptime = fraction of swings that are Quake-active.
+  const qk = inp.abilities?.quake;
+  const quakeOn = !!(qk && qk.on);
+  const quakeShare = quakeOn ? damage * ((qk.dmgPct || 0) / 100) : 0;
+  const quakeUptime = quakeOn ? Math.min(1, (qk.charges || 0) / Math.max(1e-9, atkSpd * (qk.cooldown || 1) * (1 - icCd))) : 0;
+  // Flurry: refunds stamina on each cast. Casts scale with swings (real-time cd), so
+  // this is stamina returned per player swing. (Its speed buff only shifts timing.)
+  const fl = inp.abilities?.flurry;
+  const flurryStamPerHit = (fl && fl.on) ? (fl.staminaOnCast || 0) / Math.max(1e-9, atkSpd * (fl.cooldown || 1) * (1 - icCd)) : 0;
   // Crosshairs as an average tick-efficiency gain. Auto-crosshairs are free hits
   // (real time, ~2.175%/block/1.005s), doing part of each floor's damage so the
   // player spends fewer ticks. Per floor: M = 1 + (avgLiveBlocks/atkSpeed) * lambda
@@ -1650,7 +1669,7 @@ function getDerived(stats, inp){
   const atkS = Math.max(0.01, inp.atkSpeed || 1);
   const chLambda = (inp.crosshair?.spawnPct ?? 0.02175) / (inp.crosshair?.interval || 1.005);
   const chFactorPerBlock = autoTapEff>0 ? chLambda * autoTapEff * chRatio / (2*atkS) : 0;
-  return {damage,flatDamage,dmgPctPool,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage,autoTapEff,chFactorPerBlock};
+  return {damage,flatDamage,dmgPctPool,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage,autoTapEff,chFactorPerBlock,staminaRefundPerNode,quakeOn,quakeShare,quakeUptime,flurryStamPerHit};
 }
 
 // Effective block armor after the player's penetration. Percent armor pen buffs
@@ -1885,12 +1904,31 @@ function expectedHitsFull(hp, der, inp, armor=0){
 }
 
 function nodeCosts(hits, der, inp){
-  // Tick-efficiency scope: speed/ticks-per-second effects are excluded.
-  // A hit always costs one base tick of time. Stamina refunds can extend a run,
-  // but they do not reduce the time already spent attacking that node.
+  // Gross cost only: a block costs its expected hits (one swing = one stamina).
+  // Stamina-mod and Flurry refunds are pooled into the run budget at the floor
+  // level (see floorCostValue / scoreBuild), not subtracted per block.
   const tickCost = Math.max(0.05, hits);
-  const staminaCost = Math.max(0.05, hits - der.staminaModChance * inp.inc.staminaModGain);
-  return {tickCost, staminaCost};
+  return {tickCost, staminaCost: tickCost};
+}
+
+// Quake EV: while active (uptime fraction of swings), each swing deals `share` to
+// every OTHER block still alive on the floor. Quake fires at random times, so the
+// number of blocks still alive when it lands is random — averaged here as half the
+// floor's blocks. Returns the expected player hits saved on a floor.
+function quakeHitsSaved(grossHits, nodes, floorHP, der){
+  if(!der.quakeOn || der.quakeShare <= 0 || nodes <= 1 || grossHits <= 0 || floorHP <= 0) return 0;
+  const avgHP = floorHP / nodes;                         // average block HP
+  const effShare = Math.min(der.quakeShare, avgHP);      // damage past a block's HP is wasted
+  const avgBystanders = (nodes - 1) / 2;                 // ~half the floor alive at a random activation
+  const hpPerPlayerHit = floorHP / grossHits;            // HP the player removes per swing on its target
+  // Each swing removes the player's hit plus, with prob = uptime, Quake's share from
+  // each live bystander. Swings to clear the floor shrink toward floorHP / (per-swing
+  // removal), which saturates: even at full uptime it can't go below clearing the
+  // bystanders for free. This avoids over-crediting at high uptime.
+  const aoePerSwing = der.quakeUptime * effShare * avgBystanders;
+  const saved = grossHits * aoePerSwing / (hpPerPlayerHit + aoePerSwing);
+  // Quake can clear the bystanders but never the block you are actively hitting.
+  return Math.min(saved, grossHits * (nodes - 1) / nodes);
 }
 
 function blankChannels(){
@@ -1911,7 +1949,7 @@ function finalizeMetrics(channels, used){
 
 function floorCostValue(floor, der, inp, blocks){
   const rates = ratesForFloor(floor, inp);
-  let staminaCost=0, tickCost=0, nodes=0;
+  let grossHits=0, nodes=0, floorHP=0;
   const channels=blankChannels();
   for(const type of rarityOrder){
     const rate = rates[type] || 0;
@@ -1920,21 +1958,26 @@ function floorCostValue(floor, der, inp, blocks){
     const b = blockForFloor(type, floor, blocks);
     if(!b) continue;
     const hits = expectedHitsFull(b.hp, der, inp, effectiveArmor(b.armor, der, inp));
-    const costs = nodeCosts(hits, der, inp);
     const xpValue = b.xp0 * der.xpMult * der.gleamingMult;
     const lootValue = b.lootXpEq * der.lootMult * der.gleamingMult;
-    staminaCost += expectedCount * costs.staminaCost;
-    tickCost += expectedCount * costs.tickCost;
+    grossHits += expectedCount * hits;
+    floorHP += expectedCount * b.hp;
     channels.xp += expectedCount * xpValue;
     if(channels[type] !== undefined) channels[type] += expectedCount * lootValue;
     nodes += expectedCount;
   }
   const value = channels.xp + channels.common + channels.rare + channels.epic + channels.legendary + channels.mythic + channels.divine;
+  // Quake: free AoE damage to other live blocks cuts the player's hits on this floor.
+  let playerHits = Math.max(0, grossHits - quakeHitsSaved(grossHits, nodes, floorHP, der));
   // Crosshair efficiency: free auto-crosshair hits do part of the floor's damage,
-  // cutting the player's stamina+tick cost (avg over the floor's live blocks).
+  // cutting the player's swing count (avg over the floor's live blocks).
   const Mch = 1 + (nodes+1) * (der.chFactorPerBlock||0);
-  staminaCost /= Mch; tickCost /= Mch;
-  return {cost:staminaCost, staminaCost, tickCost, value, nodes, channels};
+  playerHits /= Mch;
+  // Pooled refunds: stamina mod pays out for every block cleared (player or crosshair),
+  // Flurry pays out per player swing. Net floor stamina can go negative (refunds win).
+  const refund = nodes * der.staminaRefundPerNode + playerHits * der.flurryStamPerHit;
+  const netStamina = playerHits - refund;
+  return {cost:netStamina, staminaCost:netStamina, grossStamina:playerHits, refund, tickCost:playerHits, value, nodes, channels};
 }
 
 function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
@@ -1949,10 +1992,24 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
   const emptyProb = spawnModel(inp)==="slotChance" ? Math.max(0, 1 - Math.min(100, totalRateForFloorRates(rates))/100) : 0;
   // Crosshair efficiency: free auto-crosshair hits cut the player's per-block cost.
   const Mch = 1 + (expectedActive+1) * (der.chFactorPerBlock||0);
+  // Quake reduction factor for this floor (same model as floorCostValue, but applied
+  // as a uniform per-node factor since this floor is walked block by block).
+  let avgNodeHits = 0, avgNodeHP = 0;
+  for(const type of rarityOrder){
+    const p = typeProbabilityForFloor(type, floor, rates, inp);
+    if(p<=0) continue;
+    const b = blockForFloor(type, floor, blocks);
+    if(!b) continue;
+    const hits = expectedHitsFull(b.hp, der, inp, effectiveArmor(b.armor, der, inp));
+    avgNodeHits += p * hits;
+    avgNodeHP += p * b.hp;
+  }
+  const floorGross = expectedActive * avgNodeHits;
+  const quakeFactor = floorGross > 0 ? Math.max(0.02, 1 - quakeHitsSaved(floorGross, expectedActive, expectedActive*avgNodeHP, der)/floorGross) : 1;
 
   for(let node=0; node<expectedActive && remaining>0; node++){
     clearedNodes += emptyProb;
-    let nodeGross = 0, nodeNet = 0, nodeTick = 0, nodeValue = 0;
+    let nodeGross = 0, nodeTick = 0, nodeValue = 0;
     const nodeChannels = blankChannels();
 
     for(const type of rarityOrder){
@@ -1964,8 +2021,7 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
       const costs = nodeCosts(hits, der, inp);
       const xpValue = b.xp0 * der.xpMult * der.gleamingMult;
       const lootValue = b.lootXpEq * der.lootMult * der.gleamingMult;
-      nodeGross += p * hits;
-      nodeNet += p * costs.staminaCost;
+      nodeGross += p * costs.staminaCost;
       nodeTick += p * costs.tickCost;
       nodeValue += p * (xpValue + lootValue);
       nodeChannels.xp += p * xpValue;
@@ -1973,7 +2029,9 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
     }
 
     if(nodeGross <= 0) continue;
-    nodeGross /= Mch; nodeNet /= Mch; nodeTick /= Mch;
+    nodeGross = nodeGross * quakeFactor / Mch; nodeTick = nodeTick * quakeFactor / Mch;
+    // Pooled refunds: stamina mod per block cleared + Flurry per player swing.
+    const nodeNet = nodeGross - (der.staminaRefundPerNode + nodeGross * der.flurryStamPerHit);
 
     if(remaining >= nodeGross){
       remaining -= nodeNet;
@@ -2009,11 +2067,13 @@ function scoreBuild(stats, inp, blocks){
   const channels=blankChannels();
   for(let floor=1; floor<=inp.maxFloor; floor++){
     const fv = floorCostValue(floor, der, inp, blocks);
-    if(fv.staminaCost <= 0) {
+    if(fv.grossStamina <= 0) {           // empty floor (no breakable blocks): free pass
       floorReached = floor + 1;
       continue;
     }
-    if(remaining >= fv.staminaCost){
+    // Net cost can be <= 0 when refunds (stamina mod / Flurry) exceed the gross spend;
+    // those floors are always affordable and feed stamina back into the pool.
+    if(fv.staminaCost <= 0 || remaining >= fv.staminaCost){
       remaining -= fv.staminaCost;
       totalValue += fv.value;
       addChannels(channels, fv.channels);
