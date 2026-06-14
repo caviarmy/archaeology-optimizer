@@ -3,6 +3,7 @@
 ## 2026-06-14
 
 ### Added
+- **Simulate a specific build.** A collapsed section at the bottom lets you enter an attribute distribution (STR/AGI/PER/INT/Luck, plus Divinity/Corruption when unlocked) and simulate it directly — no estimate or search needed. It uses your entered stats for everything else and reports the same metrics as the main simulation (rewards per real-time hour, per tick, expected floor, target hit %, and the full throughput breakdown). These fields are independent and never affect the estimate.
 - **Real-time throughput metrics.** Both the estimate and the simulation now headline rewards per real-time hour and rewards per tick (a run restarts at floor 1 with full stamina when it empties, so the rate is one run's total over its elapsed seconds; attack speed, Flurry, and speed mods all raise it). The estimate ranks builds by rewards per real-time hour; the estimate's number is approximate (the simulation is exact). The simulation's results table is sortable by any column and defaults to rewards per real-time hour, and its expandable Throughput detail shows blocks per hour by tier and rarity, plus XP and loot value per hour.
 - **How it works page** (`about.html`, opened with the `?` button). It explains each mechanic in plain language, gives worked numeric examples (damage, crit, armor, mods, gleaming, crosshairs), and includes a calculator to check the math.
 - **Abilities in the build search.** Enrage uptime, Flurry stamina refund, and Quake area damage are now scored in Estimate best build as well as in the simulation.
