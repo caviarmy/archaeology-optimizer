@@ -149,6 +149,7 @@ average hit damage = damage * m   (before armor)</pre>
 effective armor = max(0, block_armor - pen)
 damage to the block per hit = max(0, hit_damage - effective armor)</pre>
 <p>A hit that cannot beat the armor does nothing but still costs a swing. A block that no hit can beat is unbreakable, and the tool skips it.</p>
+<p>For example, 800 flat pen with 10 Perception and 25% Intellect gives <code>(800 + 20) * 1.25 = 1025</code> pen; against a block with 1200 armor that leaves 175 effective armor, so a 600 hit deals 425 to the block.</p>
 
 <h2 id="hits">7. Breaking a block</h2>
 <p>The tool counts whole hits. Starting from the block's full HP, it takes one hit (which lands one of the crit results, minus armor), subtracts it, and repeats until the HP is gone. Averaged over every possible run of crits and non-crits, that is the expected number of hits:</p>
@@ -174,10 +175,12 @@ damage to the block per hit = max(0, hit_damage - effective armor)</pre>
 gain:    the multiplier when it rolls, raised by Corruption: gain * (1 + 1%*COR)
 
 average block reward = base_value * gain_stat * (1 + (mod_gain - 1) * mod_chance)</pre>
+<p>For example, a block worth 1 experience with a 20% experience-mod chance and a 4x gain averages <code>1 * (1 + (4 - 1) * 0.20) = 1.6</code> experience.</p>
 <p>Because each block fixes its mods when the floor loads, a block destroyed by a crosshair pays the same reward as one you break yourself.</p>
 <h3>Gleaming floors</h3>
 <p>A floor can be gleaming, with a set chance, which multiplies all of that floor's rewards, mods included:</p>
 <pre>reward factor = 1 + gleaming_chance * (gleaming_multiplier - 1)</pre>
+<p>For example, a 3% gleaming chance with a 3.72x multiplier lifts every floor's reward by <code>1 + 0.03 * (3.72 - 1) = 1.082</code>, about 8%.</p>
 
 <h2 id="stamina">9. Stamina and run length</h2>
 <p>Your maximum stamina, after Agility and the Corruption penalty:</p>
@@ -218,6 +221,7 @@ v      = attacks per second
 lambda = 0.02175 / 1.005   (crosshairs per block per second)
 t      = auto-tap fraction (base + 2%*DIV)
 hc, hp = average crosshair hit and player hit damage (hc includes gold)</pre>
+<p>For example, 15 blocks at 2 attacks/second with a 50% auto-tap fraction and crosshair hits about as hard as your own give <code>M = 1 + (16 / 4) * 0.0216 * 0.5 * 1 = 1.04</code>, a 4% stamina saving on that floor.</p>
 <p>The floor's stamina cost is divided by M. The simulation does not estimate; it plays out each crosshair with its 2 second delay and counts the ones wasted on blocks that died first, so it is the more accurate of the two.</p>
 
 <h2 id="cards">13. Cards and infernal buffs</h2>
@@ -298,7 +302,7 @@ hc, hp = average crosshair hit and player hit damage (hc includes gold)</pre>
 <li>Mods roll when a floor loads and stay on the block, so who lands the kill does not change the reward.</li>
 </ul>
 
-<h3>Our method where the game gives no answer</h3>
+<h3>The tool's choices where the game gives no answer</h3>
 <ul>
 <li><strong>One neutral bridge between experience and loot.</strong> With no rate given, the tool values a block's loot at the block's own experience (equal weight, default 1), takes the rarity scaling from the game's experience numbers, and exposes the experience-to-loot weight as one setting. Reward is scored per stamina spent, after stamina refunds.</li>
 <li><strong>Speed is left out of efficiency.</strong> Attack speed changes attacks per second, not reward per stamina, so it only enters through the crosshair and ability parts.</li>
@@ -313,6 +317,8 @@ hc, hp = average crosshair hit and player hit damage (hc includes gold)</pre>
 <li><strong>Crosshair details.</strong> The tool assumes auto crosshairs do not use up ability charges. The gold multiplier comes from your stats, and its starting value is a placeholder.</li>
 <li><strong>The crosshair boost in the quick score</strong> stacks several estimates (blocks per floor, every crosshair hit fully used, armor left out of the damage compare, and manual crosshairs not blocking blocks) on top of the estimated spawn rate. It is the least certain number that can change which build is recommended, so when the quick score and the simulation disagree about crosshairs, trust the simulation.</li>
 <li><strong>Infernal stacking and the multiplier.</strong> Each infernal buff is taken as a multiplier scaled by your archaeology infernal multiplier; whether two cards of the same buff add or compound is taken as adding. Whether a percent buff (such as armor pen) multiplies its stat rather than adding to its pool is a reading of how these combine, applied consistently.</li>
+<li><strong>The speed mod</strong> appears only in the simulation, where a speed-modded block raises your attack rate by the Speed Mod Atk Rate while it is up. Because speed only shifts the real-time clock, it changes the crosshair and ability parts, not reward per stamina, so the quick score leaves it out.</li>
+<li><strong>The Ability Fairy</strong> (an Ascension 2 event that randomly refreshes all abilities) is not modelled in either the search or the simulation, so real runs get slightly more ability uptime than shown.</li>
 </ul>
 
 <p style="margin-top:34px"><a href="index.html">Back to the app</a></p>
