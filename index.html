@@ -2034,7 +2034,7 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
     const nodeNet = nodeGross - (der.staminaRefundPerNode + nodeGross * der.flurryStamPerHit);
 
     if(remaining >= nodeGross){
-      remaining -= nodeNet;
+      remaining = Math.min(der.stamina, remaining - nodeNet);   // refunds can't exceed max
       tickCost += nodeTick;
       value += nodeValue;
       nodes += 1;
@@ -2074,10 +2074,13 @@ function scoreBuild(stats, inp, blocks){
     // Net cost can be <= 0 when refunds (stamina mod / Flurry) exceed the gross spend;
     // those floors are always affordable and feed stamina back into the pool.
     if(fv.staminaCost <= 0 || remaining >= fv.staminaCost){
+      const before = remaining;
       remaining -= fv.staminaCost;
+      // Refunds can't bank past max stamina (wiki: "can't go over your max").
+      if(remaining > der.stamina) remaining = der.stamina;
+      used += before - remaining;          // actual net stamina consumed this floor
       totalValue += fv.value;
       addChannels(channels, fv.channels);
-      used += fv.staminaCost;
       totalNodes += fv.nodes;
       floorReached = floor + 1;
     } else {
@@ -2488,7 +2491,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
       if(s.on && timeSec >= s.nextAt){
         s.left = s.charges;
         s.nextAt = timeSec + s.cooldown;
-        if(k === "flurry") stamina += (s.a.staminaOnCast || 0);
+        if(k === "flurry") stamina = Math.min(der.stamina, stamina + (s.a.staminaOnCast || 0));
       }
     }
   }
@@ -2510,7 +2513,8 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
     channels.xp += xpValue;
     if(channels[node.type] !== undefined) channels[node.type] += lootValue;
     totalValue += xpValue + lootValue;
-    if(node.staminaMod) stamina += inp.inc.staminaModGain;
+    // Stamina mod refunds stamina when the block is cleared, but can't exceed max (wiki).
+    if(node.staminaMod) stamina = Math.min(der.stamina, stamina + inp.inc.staminaModGain);
   }
 
   // Crosshairs: each live block independently has ~2.175% chance every ~1.005s
