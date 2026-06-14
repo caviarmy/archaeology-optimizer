@@ -514,6 +514,11 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <div id="customDetailBody" style="margin-top:8px"></div>
       </details>
   </div>
+
+  <div class="card" id="debugCard">
+    <div class="actionbar"><button id="exportDebug" class="ghost">Export debug (download JSON)</button></div>
+    <p class="small" style="margin-top:6px">Downloads a JSON snapshot of every setting, the parsed inputs, the estimate and simulation result tables, the manual-build simulation, and the app version — for review and analysis.</p>
+  </div>
 </main>
 
 <div id="status" class="status-toast"></div>
@@ -889,6 +894,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
+const APP_VERSION = "2026.06.14";  // bump on notable releases; surfaced in the debug export
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
 function checked(id){ return document.getElementById(id).checked; }
@@ -2973,6 +2979,7 @@ async function runCustomSim(){
   showStatus(`Simulating ${buildLabel(stats)}; ${runs.toLocaleString()} runs.`, 30000);
   await new Promise(r=>setTimeout(r,10));
   const row=aggregateBuildSim(stats, inp, blocks, runs, simRng.random);
+  window.__customSimResult = {seed:simRng.seed, runs, ...row};
   const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
   set("customBuild", buildLabel(stats));
   set("customPerHour", fmt(row.rewardsPerHour,1));
@@ -2983,6 +2990,55 @@ async function runCustomSim(){
   renderThroughputDetail(row, document.getElementById("customDetailBody"));
   showStatus(`Simulated ${buildLabel(stats)} (${runs.toLocaleString()} runs).`, 5000);
   if(btn){ btn.disabled=false; btn.classList.remove("btn-spin"); }
+}
+
+// Download a JSON snapshot of the whole page state for review/analysis: every
+// input value, the parsed inputs, the estimate + simulation results, and the
+// custom-build simulation, plus app version / environment.
+function exportDebug(){
+  const inputs={};
+  document.querySelectorAll("input,select,textarea").forEach(el=>{
+    if(!el.id) return;
+    inputs[el.id] = (el.type==="checkbox"||el.type==="radio") ? el.checked : el.value;
+  });
+  const txt=id=>{const e=document.getElementById(id); return e?e.textContent.trim():null;};
+  let parsedInputs=null;
+  try{ parsedInputs=getInputs(); }catch(e){ parsedInputs={error:String(e)}; }
+  const data={
+    app:{
+      version:APP_VERSION, exportedAt:new Date().toISOString(), url:location.href,
+      userAgent:navigator.userAgent, lastModified:document.lastModified,
+      cache:(typeof window.__SW_CACHE!=="undefined"?window.__SW_CACHE:"obelisk-arch-cache")
+    },
+    inputs,
+    parsedInputs,
+    estimate:{
+      title:txt("optimizerTitle"),
+      heroCard:{ bestBuild:txt("bestBuild"), rewardsPerHour:txt("bestRph"), rewardsPerTick:txt("bestPerTick"), expectedFloor:txt("bestFloor"), goal:txt("bestModeLabel") },
+      signature:(typeof lastExactSignature!=="undefined")?lastExactSignature:null,
+      topBuilds:(typeof lastExactTopBuilds!=="undefined" && lastExactTopBuilds)
+        ? lastExactTopBuilds.map(b=>({detRank:b.detRank, stats:b.stats, floorReached:b.floorReached,
+            rewardsPerHour:b.rewardsPerHour, rewardsPerTick:b.rewardsPerTick, rewardsPerStam:b.rewardsPerStam,
+            metrics:b.metrics, der:b.der}))
+        : []
+    },
+    simulation:{
+      heroCard:{ bestBuild:txt("simBestBuild"), rewardsPerHour:txt("simPerHour"), rewardsPerTick:txt("simPerTick"),
+        expectedFloor:txt("simAvgFloor"), targetHit:txt("simTargetChance"), evRank:txt("simDetRank") },
+      seed:window.__simSeed||null,
+      sort:{ key:(typeof _simSortKey!=="undefined"?_simSortKey:null), dir:(typeof _simSortDir!=="undefined"?_simSortDir:null) },
+      results:window.__simResults||null
+    },
+    customSim:window.__customSimResult||null
+  };
+  let json; try{ json=JSON.stringify(data,null,2); }catch(e){ json=JSON.stringify({error:"serialize failed: "+e}); }
+  const blob=new Blob([json],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`obelisk-arch-debug-${new Date().toISOString().replace(/[:.]/g,"-")}.json`;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  showStatus("Debug snapshot downloaded.", 4000);
 }
 
 
@@ -4302,6 +4358,7 @@ function bindGoalSelector(){
 document.getElementById("runExact").addEventListener("click",runExact);
 document.getElementById("runMonteRerank").addEventListener("click",runMonteRerank);
 document.getElementById("runCustomSim")?.addEventListener("click",runCustomSim);
+document.getElementById("exportDebug")?.addEventListener("click",exportDebug);
 document.getElementById("clearMonteRerank").addEventListener("click",clearMonteRerank);
 document.getElementById("resetAllSettings")?.addEventListener("click",resetAllSettings);
 // Upgrade-level fields are whole-number counters (how many levels you own). Snap
