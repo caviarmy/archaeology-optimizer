@@ -1449,7 +1449,7 @@ function getInputs(){
       luckXpModPct:pct("luckXpModPct"),
       luckLootModPct:pct("luckLootModPct"),
       luckAllModPct:pct("luckAllModPct"),
-      staminaModGain:n("staminaModGain"),
+      staminaModGain:Math.min(10, n("staminaModGain") || 0),  // per-block refund is capped at 10 in game
       // Divinity (A1) per point: +flat dmg, +super crit %, +crosshair auto-tap %.
       divFlatDamage:n("divFlatDamage"),
       divSuperCritPct:pct("divSuperCritPct"),
