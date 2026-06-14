@@ -431,8 +431,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <div class="metric"><div class="k">Rewards / tick</div><div class="v" id="bestPerTick">—</div></div>
         <div class="metric"><div class="k">Expected floor</div><div class="v" id="bestFloor">—</div></div>
         <div class="metric"><div class="k">Goal</div><div class="v" id="bestModeLabel">Reward</div></div>
-        <div class="metric"><div class="k">Candidates</div><div class="v" id="candidateCount">—</div></div>
-        <div class="metric"><div class="k">Primary protection floor</div><div class="v" id="primaryBandFloor">—</div></div>
       </div>
       <details>
         <summary>Top candidate builds</summary>
@@ -1393,7 +1391,7 @@ function deterministicSignature(inp){
 }
 
 function resetBestResults(){
-  const ids = ["bestBuild","bestRph","bestFloor","candidateCount"];
+  const ids = ["bestBuild","bestRph","bestPerTick","bestFloor"];
   ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent="—"; });
   const tbody=document.querySelector("#topBuildsTable tbody");
   if(tbody) tbody.innerHTML="";
@@ -2477,7 +2475,8 @@ function renderBest(best, top, count){
   if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
   const valueLabel = document.getElementById("bestValueLabel");
   if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))} / hr`;
-  document.getElementById("candidateCount").textContent = count.toLocaleString();
+  const ccEl = document.getElementById("candidateCount");
+  if(ccEl) ccEl.textContent = count.toLocaleString();
   const bandEl = document.getElementById("primaryBandFloor");
   if(bandEl && top.length){
     const pk = primaryFocusKey(inp);
