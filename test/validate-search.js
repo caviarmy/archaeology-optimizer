@@ -22,10 +22,11 @@ const rndi = (a,b)=>Math.floor(rnd(a,b+1));
 const pick = arr => arr[rndi(0,arr.length-1)];
 
 // Only test goals that can actually be reached at these low validation levels.
-// Targeting a deep rarity (mythic floor 20+, divine 50+) at a shallow maxFloor
-// ties every build at 0 for that rarity, which is a meaningless scenario, not a
-// search test. Restrict to rarities that spawn early (common floor 1, rare 3)
-// plus the aggregate goals and target-floor.
+// Targeting a deep rarity (mythic floor 20+, divine 50+) ties every build at 0
+// for that rarity, which is a meaningless scenario, not a search test. Restrict
+// to rarities that spawn early (common floor 1, rare 3) plus the aggregate goals
+// and target-floor. (A dig always runs until stamina is spent; there is no max
+// floor input.)
 const REACHABLE = ["allRewards","xp","allLoot","common","rare"];
 const ascOpts = opts("ascension");
 const primaryOpts = ["target", ...REACHABLE].filter(g=>opts("primaryGoal").includes(g));
@@ -36,8 +37,8 @@ const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").inc
   let pass=0, fail=0; const fails=[];
   for(let i=0;i<N;i++){
     // randomize a scenario
-    const lvl = rndi(12,20), mf = rndi(10,20);
-    set("selectedLevel", lvl); set("maxFloor", mf);
+    const lvl = rndi(12,20);
+    set("selectedLevel", lvl);
     set("ascension", pick(ascOpts));
     // Randomly ignite some infernal cards + an infernal multiplier (only takes
     // effect at A2). Exercises the multiplicative infernal layer in the search.
@@ -47,7 +48,7 @@ const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").inc
     });
     set("primaryGoal", pick(primaryOpts));
     set("secondaryGoal", pick(secondaryOpts));
-    set("targetFloor", rndi(5, mf));
+    set("targetFloor", rndi(5, 20));
     // protection mode + tolerance
     const useTol = Math.random()<0.4;
     setChecked("primaryProtectionTolerance", useTol); setChecked("primaryProtectionStrict", !useTol);
@@ -61,7 +62,7 @@ const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").inc
     set("baseXpMod", rnd(0,20).toFixed(2)); set("baseXpModGain", rnd(3,8).toFixed(2));
     set("baseLootMod", rnd(0,20).toFixed(2)); set("baseLootModGain", rnd(3,9).toFixed(2));
     set("baseSpeedMod", rnd(0,15).toFixed(2)); set("baseStaminaMod", rnd(0,15).toFixed(2));
-    set("staminaModGain", rndi(3,15)); set("baseArmorPenFlat", rndi(0,900));
+    set("staminaModGain", rndi(3,10)); set("baseArmorPenFlat", rndi(0,900));
     // Non-attribute damage%/armor-pen% upgrades (additive-stacking model).
     set("modStrA0", rndi(0,5)); set("modStrA1", rndi(0,1));
     set("modCorrA2", rndi(0,10)); set("modDivA2", rndi(0,5));
@@ -89,8 +90,8 @@ const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").inc
       if(es > fsv + eps(es)){ ok=false; why=`secondary ${sk}: exact ${es.toFixed(3)} > fast ${fsv.toFixed(3)}`; }
     }
     const s=exact.stats, f=fastBest.stats;
-    if(ok){ pass++; console.log(`#${i} PASS lvl${level} mf${inp.maxFloor} pk=${pk} sk=${sk}`); }
-    else { fail++; const msg=`#${i} FAIL lvl${level} mf${inp.maxFloor} pk=${pk} sk=${sk}: ${why} | exact ${s.S}/${s.A}/${s.P}/${s.I}/${s.L}/${s.D||0}/${s.C||0} vs fast ${f.S}/${f.A}/${f.P}/${f.I}/${f.L}/${f.D||0}/${f.C||0}`; console.log(msg); fails.push(msg); }
+    if(ok){ pass++; console.log(`#${i} PASS lvl${level} tf${inp.targetFloor} pk=${pk} sk=${sk}`); }
+    else { fail++; const msg=`#${i} FAIL lvl${level} tf${inp.targetFloor} pk=${pk} sk=${sk}: ${why} | exact ${s.S}/${s.A}/${s.P}/${s.I}/${s.L}/${s.D||0}/${s.C||0} vs fast ${f.S}/${f.A}/${f.P}/${f.I}/${f.L}/${f.D||0}/${f.C||0}`; console.log(msg); fails.push(msg); }
   }
   console.log(`\n=== fast vs exhaustive: ${pass}/${N} matched ===`);
   if(fails.length) console.log("MISMATCHES:\n"+fails.join("\n"));
