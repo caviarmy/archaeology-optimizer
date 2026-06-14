@@ -54,8 +54,9 @@ label{display:block;font-weight:800;margin:8px 0 5px;font-size:12px;color:#34405
 .setting-row .k{display:block;font-size:11px;color:#667085;font-weight:900;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
 .setting-row .v{display:block;font-size:15px;color:#172033;font-weight:900}
 .setting-row .desc{display:block;font-size:11px;color:#667085;margin-top:2px}
-.advanced-settings{margin-top:10px;border-top:1px solid #edf0f5}
-.advanced-settings>summary{cursor:pointer;list-style:none;padding:10px 4px;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#667085}
+.advanced-settings{border-top:1px solid #edf0f5}
+.advanced-settings>summary{cursor:pointer;list-style:none;padding:12px 14px;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#667085}
+.advanced-settings>summary:hover{background:#f8fafc}
 .advanced-settings>summary::-webkit-details-marker{display:none}
 .advanced-settings>summary::before{content:"▸ ";color:#98a2b3}
 .advanced-settings[open]>summary::before{content:"▾ "}
@@ -103,8 +104,8 @@ summary{font-weight:900;cursor:pointer;color:#344054}
 .calc-base>summary{cursor:pointer;font-size:13px;font-weight:700;color:#667085}
 .calc-base input{background:#f1f4f9}
 .settings-back{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;background:#fff;color:#344054;border:1px solid #cbd5e1;border-radius:999px;padding:0;font-size:22px;line-height:1}
-.settings-footer{position:sticky;bottom:-16px;margin:18px -16px -16px;padding:12px 16px;background:#fff;border-top:1px solid #edf0f5;display:flex;justify-content:flex-end;z-index:3}
-.settings-confirm{background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:999px;padding:10px 16px;font-weight:900}
+.settings-footer{position:sticky;bottom:0;margin:8px -16px 0;padding:12px 16px;background:transparent;display:flex;justify-content:flex-end;z-index:3;pointer-events:none}
+.settings-confirm{pointer-events:auto;background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:999px;padding:10px 18px;font-weight:900;box-shadow:0 8px 20px rgba(0,0,0,.28)}
 .settings-section{display:none;scroll-margin-top:10px}
 .settings-section.active{display:block}
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px}
@@ -141,7 +142,7 @@ summary{font-weight:900;cursor:pointer;color:#344054}
   .settings-top h2{font-size:20px}
   .settings-title .small{font-size:11px}
   .settings-back{width:38px;height:38px;font-size:22px}
-  .settings-footer{position:sticky;bottom:-14px;margin:18px -14px -14px;padding:12px 14px;background:#fff;border-top:1px solid #edf0f5}
+  .settings-footer{position:sticky;bottom:0;margin:8px -14px 0;padding:12px 14px;background:transparent;border-top:0}
   .settings-confirm{width:auto;min-width:150px;padding:12px 18px;font-size:16px}
   .form-grid{grid-template-columns:1fr 1fr}
   .check-grid{grid-template-columns:1fr}
@@ -500,6 +501,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         </div>
         <div id="spentAttrs" style="display:none">
           <h3>Current spent attribute points</h3>
+          <label class="check-row" style="margin-bottom:8px"><input id="statCapBonusStats" type="checkbox" checked> +5 Stat Pt. Caps (upgrade)</label>
           <div class="form-grid">
             <div><label>Spent STR</label><input id="spentStr" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent AGI</label><input id="spentAgi" type="number" min="0" step="1" value="0"></div>
@@ -1535,6 +1537,14 @@ function reverseBaseStats(b, pts, inc, inf={}){
 function baseStatModeSpent(){
   return (document.querySelector('input[name="baseStatMode"]:checked')?.value) === "spent";
 }
+// The +5 Stat Pt. Caps toggle lives in Upgrades (canonical) and is mirrored on the
+// Stats tab; keep the two in lockstep. getInputs reads the canonical statCapBonus.
+function syncStatCapMirror(fromMirror){
+  const main = document.getElementById("statCapBonus");
+  const mir = document.getElementById("statCapBonusStats");
+  if(!main || !mir) return;
+  if(fromMirror) main.checked = mir.checked; else mir.checked = main.checked;
+}
 function spentPointsSum(){
   return ["spentStr","spentAgi","spentPer","spentInt","spentLuck","spentDivinity","spentCorruption"].reduce((s,id)=>s + (n(id)||0), 0);
 }
@@ -1692,6 +1702,7 @@ function loadState(){
   if(data.cards){
     ARCHAEOLOGY_CARD_KEYS.forEach(c=>setCardState(c.key, data.cards[c.key] || "none"));
   }
+  syncStatCapMirror();
   return true;
 }
 
@@ -2760,6 +2771,7 @@ function restoreSettingsSnapshot(){
   });
   applyAscensionGating();
   syncBaseStatMode();
+  syncStatCapMirror();
   syncAllCardFields();
   updateSettingsSummary();
   scheduleSave();
@@ -3985,6 +3997,8 @@ document.getElementById("runMonteRerank").addEventListener("click",runMonteReran
 document.getElementById("clearMonteRerank").addEventListener("click",clearMonteRerank);
 document.getElementById("resetAllSettings")?.addEventListener("click",resetAllSettings);
 document.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{updateGoalUI(); markOptimizerStale(); updateSettingsSummary(); if(document.getElementById("settings-base")?.classList.contains("active")) populateCalcBaseStats();}));
+document.getElementById("statCapBonusStats")?.addEventListener("change",()=>syncStatCapMirror(true));
+document.getElementById("statCapBonus")?.addEventListener("change",()=>syncStatCapMirror(false));
 document.querySelectorAll("[data-open-settings]").forEach(el=>el.addEventListener("click",()=>openSettings(el.dataset.openSettings)));
 document.querySelectorAll("[data-close-settings]").forEach(el=>el.addEventListener("click",confirmSettings));
 document.querySelectorAll("[data-confirm-settings]").forEach(el=>el.addEventListener("click",confirmSettings));
