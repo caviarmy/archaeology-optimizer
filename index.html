@@ -1470,80 +1470,60 @@ function getInputs(){
   out.inc.divAutoTapPct   += 0.002 * mDivA2;                 // +0.20 pct-pt / lvl
   out.inc.nonAttrDmgPct = 0.02 * lvl("bonusDmgArpenA0", 20) + 0.10 * lvl("bonusDmgExpA1", 5);
   out.inc.nonAttrPenPct = 0.02 * lvl("bonusArpenCdA0", 10);
-  // "Attributes spent" mode: the entered base fields are the displayed TOTALS
-  // (which include the current attribute points), so back out the attribute
-  // contributions to recover the true base before any scoring.
-  if((document.querySelector('input[name="baseStatMode"]:checked')?.value) === "spent"){
-    const pts = {
-      S:Math.max(0, Math.floor(n("spentStr"))),
-      A:Math.max(0, Math.floor(n("spentAgi"))),
-      P:Math.max(0, Math.floor(n("spentPer"))),
-      I:Math.max(0, Math.floor(n("spentInt"))),
-      L:Math.max(0, Math.floor(n("spentLuck"))),
-      D:Math.max(0, Math.floor(n("spentDivinity"))),
-      C:Math.max(0, Math.floor(n("spentCorruption")))
-    };
-    out.base = reverseBaseStats(out.base, pts, out.inc);
-  } else {
-    // Base mode: the entered values are at 0 attribute points, but the always-on
-    // upgrade percentages are still folded into the displayed numbers, so strip
-    // them out to recover the true (percent-free) flat base.
-    out.base = {
-      ...out.base,
-      damage: Math.max(0, out.base.damage / (1 + out.inc.nonAttrDmgPct)),
-      armorPenFlat: Math.max(0, (out.base.armorPenFlat || 0) / (1 + out.inc.nonAttrPenPct))
-    };
-  }
-  // Infernal card global buffs are applied as a final layer on top of the
-  // recovered base (they are not attribute or upgrade % and are not stripped).
-  // Fields that both the EV model and the simulation read straight from base/inc
-  // are folded in here so a single source keeps the two paths consistent; the
-  // damage/crit/stamina/armor-pen pieces are applied in getDerived via out.infernal.
+  // Infernal card global buffs appear in the player's displayed stats, so they
+  // are walked out to recover the true base (percent buffs divided out, flat
+  // buffs subtracted), then re-applied by getDerived / the simulation. Stats with
+  // no attribute interaction (most chances, super/ultra crit damage, gold/gleaming
+  // multipliers) simply ride along in the base and need no walk-out.
   const inf = computeInfernalMods(out.cardStates, out.archInfernalMult, out.ascension);
   out.infernal = inf;
-  out.base.xpGain     *= (1 + inf.xpGainPct);
-  out.base.fragGain   *= (1 + inf.fragGainPct);
-  out.base.lootModGain = (out.base.lootModGain || 3.8) * (1 + inf.lootModGainPct);
-  out.base.xpMod      += inf.xpModChance;
-  out.base.lootMod    += inf.lootModChance;
-  out.base.speedMod   += inf.speedModChance;
-  out.base.staminaMod += inf.staminaModChance;
-  out.base.autoTap    += inf.autoTap;
-  out.base.goldCrosshairChance += inf.goldChance;
-  out.base.goldCrosshairMulti = (out.base.goldCrosshairMulti > 0 ? out.base.goldCrosshairMulti : 3) * (1 + inf.goldMultiPct);
-  out.base.gleamingChance += inf.gleamingChance;
-  out.base.gleamingMulti = (out.base.gleamingMulti > 0 ? out.base.gleamingMulti : 1) * (1 + inf.gleamingMultiPct);
-  out.base.instacharge += inf.instacharge;
-  out.inc.staminaModGain += inf.staminaModGain;
+  // The entered base fields are displayed values. In "spent" mode they include the
+  // current attribute points; in "base" mode they are at 0 points. Either way they
+  // include the always-on upgrade % and infernal layers, so reverseBaseStats (with
+  // the right point counts) recovers the true base for both modes.
+  const spent = (document.querySelector('input[name="baseStatMode"]:checked')?.value) === "spent";
+  const pts = spent ? {
+    S:Math.max(0, Math.floor(n("spentStr"))),
+    A:Math.max(0, Math.floor(n("spentAgi"))),
+    P:Math.max(0, Math.floor(n("spentPer"))),
+    I:Math.max(0, Math.floor(n("spentInt"))),
+    L:Math.max(0, Math.floor(n("spentLuck"))),
+    D:Math.max(0, Math.floor(n("spentDivinity"))),
+    C:Math.max(0, Math.floor(n("spentCorruption")))
+  } : {S:0,A:0,P:0,I:0,L:0,D:0,C:0};
+  out.base = reverseBaseStats(out.base, pts, out.inc, inf);
   return out;
 }
 
 // Recover unspent base stats from displayed totals by removing the contribution
-// of the currently-spent attribute points, inverting the getDerived formulas.
-function reverseBaseStats(b, pts, inc){
+// of the currently-spent attribute points (and the infernal layer where it
+// interacts with attributes), inverting the getDerived formulas.
+function reverseBaseStats(b, pts, inc, inf={}){
   const {S,A,P,I,L,D=0,C=0} = pts;
   const corrStam = Math.max(0.05, 1 - C*(inc.corrMaxStaminaPct||0));
   const modMulti = 1 + C*(inc.corrAllModMultiPct||0);
+  const infv = k => inf[k] || 0;
   return {
     ...b,
-    // Invert getDerived: damage = (base + S*flat + D*divFlat)(1 + nonAttr% + S*str% + C*corr%).
-    damage: Math.max(0, (b.damage / (1 + (inc.nonAttrDmgPct||0) + S*inc.strDamagePct + C*(inc.corrDamagePct||0))) - S*inc.strFlatDamage - D*(inc.divFlatDamage||0)),
-    stamina: Math.max(0, b.stamina / corrStam - A*inc.agiStamina),
+    // Invert getDerived. Damage: (base + S*flat + D*divFlat + infFlat)(1 + infDmg%)(1 + nonAttr% + S*str% + C*corr%).
+    damage: Math.max(0, b.damage / ((1 + infv("dmgPct")) * (1 + (inc.nonAttrDmgPct||0) + S*inc.strDamagePct + C*(inc.corrDamagePct||0))) - S*inc.strFlatDamage - D*(inc.divFlatDamage||0) - infv("flatDamage")),
+    stamina: Math.max(0, b.stamina / (corrStam*(1+infv("staminaPct"))) - A*inc.agiStamina - infv("staminaFlat")),
     critChance: Math.max(0, b.critChance - A*inc.agiCritPct - L*inc.luckCritPct),
-    critDamage: Math.max(1, b.critDamage - S*inc.strCritDamage),
+    critDamage: Math.max(1, b.critDamage/(1+infv("critDmgPct")) - S*inc.strCritDamage),
     superChance: Math.max(0, (b.superChance||0) - D*(inc.divSuperCritPct||0)),
-    xpGain: Math.max(0, b.xpGain - I*inc.intXpGain),
-    fragGain: Math.max(0, b.fragGain - P*inc.perFragGain),
+    xpGain: Math.max(0, b.xpGain/(1+infv("xpGainPct")) - I*inc.intXpGain),
+    fragGain: Math.max(0, b.fragGain/(1+infv("fragGainPct")) - P*inc.perFragGain),
     xpMod: Math.max(0, b.xpMod - I*inc.intXpModPct - L*inc.luckXpModPct),
     lootMod: Math.max(0, b.lootMod - P*inc.perLootModPct - L*inc.luckLootModPct),
     speedMod: Math.max(0, b.speedMod - A*inc.agiSpeedPct - L*inc.luckAllModPct - C*(inc.corrSpeedPct||0)),
     staminaMod: Math.max(0, b.staminaMod - L*inc.luckAllModPct),
-    // Displayed pen = (trueFlat + P*perFlat)(1 + nonAttr% + I*int%); strip % then flats.
-    armorPenFlat: Math.max(0, (b.armorPenFlat || 0) / (1 + (inc.nonAttrPenPct||0) + I*(inc.intArmorPenPct||0)) - P*(inc.perArmorPen || 0)),
-    // Corruption scales the mod-gain multipliers; back that out too.
+    // Displayed pen = (trueFlat + P*perFlat + infFlat)(1 + infPen%)(1 + nonAttr% + I*int%).
+    armorPenFlat: Math.max(0, (b.armorPenFlat || 0) / ((1+infv("armorPenMultPct")) * (1 + (inc.nonAttrPenPct||0) + I*(inc.intArmorPenPct||0))) - P*(inc.perArmorPen || 0) - infv("armorPenFlat")),
+    // Corruption scales the mod-gain multipliers; infernal scales loot-mod gain.
     xpModGain: (b.xpModGain || 3) / modMulti,
-    lootModGain: (b.lootModGain || 3.8) / modMulti
-    // superDamage, ultra*, staminaModGain: no skill scaling
+    lootModGain: ((b.lootModGain || 3.8) / (1+infv("lootModGainPct"))) / modMulti
+    // superDamage, ultra*, gold/gleaming multi, additive infernal chances: no
+    // attribute interaction, so they ride along in the base unchanged.
   };
 }
 
@@ -1570,14 +1550,17 @@ function getDerived(stats, inp){
   const flatDamage = (b.damage + S*inc.strFlatDamage + D*(inc.divFlatDamage||0) + (inf.flatDamage||0)) * (1 + (inf.dmgPct||0));
   const dmgPctPool = (inc.nonAttrDmgPct||0) + S*inc.strDamagePct + C*(inc.corrDamagePct||0);
   const damage = flatDamage * (1 + dmgPctPool);
-  const critChance = clamp(b.critChance + A*inc.agiCritPct + L*inc.luckCritPct + (inf.critChance||0),0,0.995);
+  // Infernal crit DAMAGE % interacts with Strength, so it is walked out and
+  // re-applied here; the additive crit-chance buffs and the super/ultra crit
+  // damage buffs have no attribute interaction and ride along in the base.
+  const critChance = clamp(b.critChance + A*inc.agiCritPct + L*inc.luckCritPct,0,0.995);
   const critDamage = (b.critDamage + S*inc.strCritDamage) * (1 + (inf.critDmgPct||0));
   // Crits are nested & conditional: super crit can only land on a crit, ultra
   // crit only on a super crit. Defaults make missing layers no-ops.
-  const superChance = clamp((b.superChance || 0) + D*(inc.divSuperCritPct||0) + (inf.superChance||0), 0, 0.995); // Divinity +2%/pt
-  const superDamage = (b.superDamage > 0 ? b.superDamage : 1) * (1 + (inf.superDmgPct||0));
-  const ultraChance = clamp((b.ultraChance || 0) + (inf.ultraChance||0), 0, 0.995);
-  const ultraDamage = (b.ultraDamage > 0 ? b.ultraDamage : 1) * (1 + (inf.ultraDmgPct||0));
+  const superChance = clamp((b.superChance || 0) + D*(inc.divSuperCritPct||0), 0, 0.995); // Divinity +2%/pt
+  const superDamage = b.superDamage > 0 ? b.superDamage : 1;
+  const ultraChance = clamp(b.ultraChance || 0, 0, 0.995);
+  const ultraDamage = b.ultraDamage > 0 ? b.ultraDamage : 1;
   // Gleaming floor: a floor is gleaming with chance gleamingChance and multiplies
   // all its block rewards (mods included) by gleamingMulti. EV = 1 + p*(mult-1).
   const gc = clamp(b.gleamingChance || 0, 0, 1);
@@ -1585,13 +1568,17 @@ function getDerived(stats, inp){
   const gleamingMult = 1 + gc * (gm - 1);
   // Corruption: All Mod Multis +1%/pt scales the mod-gain multipliers.
   const modMulti = 1 + C*(inc.corrAllModMultiPct||0);
+  // Infernal scales XP gain, fragment gain and loot-mod gain (all interact with
+  // attributes, so they are walked out and re-applied multiplicatively here).
+  const xpGainEff = (b.xpGain + I*inc.intXpGain) * (1 + (inf.xpGainPct||0));
+  const fragGainEff = (b.fragGain + P*inc.perFragGain) * (1 + (inf.fragGainPct||0));
   const xpProcBonus = Math.max(0, (b.xpModGain || 3)*modMulti - 1);
-  const lootProcBonus = Math.max(0, (b.lootModGain || 3.8)*modMulti - 1);
-  const xpMult = (b.xpGain + I*inc.intXpGain) * (1 + xpProcBonus*(b.xpMod + I*inc.intXpModPct + L*inc.luckXpModPct));
-  const xpBaseMult = b.xpGain * (1 + xpProcBonus*b.xpMod);
+  const lootProcBonus = Math.max(0, (b.lootModGain || 3.8)*(1+(inf.lootModGainPct||0))*modMulti - 1);
+  const xpMult = xpGainEff * (1 + xpProcBonus*(b.xpMod + I*inc.intXpModPct + L*inc.luckXpModPct));
+  const xpBaseMult = b.xpGain*(1+(inf.xpGainPct||0)) * (1 + xpProcBonus*b.xpMod);
   const xpFactor = xpBaseMult ? xpMult / xpBaseMult : 0;
-  const lootMult = (b.fragGain + P*inc.perFragGain) * (1 + lootProcBonus*(b.lootMod + P*inc.perLootModPct + L*inc.luckLootModPct));
-  const lootBaseMult = b.fragGain * (1 + lootProcBonus*b.lootMod);
+  const lootMult = fragGainEff * (1 + lootProcBonus*(b.lootMod + P*inc.perLootModPct + L*inc.luckLootModPct));
+  const lootBaseMult = b.fragGain*(1+(inf.fragGainPct||0)) * (1 + lootProcBonus*b.lootMod);
   const lootFactor = lootBaseMult ? lootMult / lootBaseMult : 0;
   const speedChance = clamp(b.speedMod + A*inc.agiSpeedPct + L*inc.luckAllModPct + C*(inc.corrSpeedPct||0),0,0.95);
   // Stamina-mod chance: base + Luck (All Mod Chances). Agility does NOT affect it
@@ -2418,9 +2405,11 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
   // Mods are rolled when a block SPAWNS (below) and attached to it, so the reward
   // is identical whoever lands the kill (a player tick or a crosshair). A block
   // can carry several mods at once (independent rolls).
+  const inf = inp.infernal || {}; // infernal re-applied to xp/frag/loot-mod gain (walked out of the base)
   const modMulti = 1 + stats.C*(inp.inc.corrAllModMultiPct||0);
-  const xpGain = inp.base.xpGain + stats.I*inp.inc.intXpGain;
-  const fragGain = inp.base.fragGain + stats.P*inp.inc.perFragGain;
+  const xpGain = (inp.base.xpGain + stats.I*inp.inc.intXpGain) * (1 + (inf.xpGainPct||0));
+  const fragGain = (inp.base.fragGain + stats.P*inp.inc.perFragGain) * (1 + (inf.fragGainPct||0));
+  const lootModGainEff = (inp.base.lootModGain||3.8) * (1 + (inf.lootModGainPct||0));
   const xpModChance = inp.base.xpMod + stats.I*inp.inc.intXpModPct + stats.L*inp.inc.luckXpModPct;
   const lootModChance = inp.base.lootMod + stats.P*inp.inc.perLootModPct + stats.L*inp.inc.luckLootModPct;
   function clearNode(node){
@@ -2501,7 +2490,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
       nodes.push({type, b, hp:b.hp, armor:effectiveArmor(b.armor, der, inp),
         hasSpeed: der.speedChance>0 ? rng()<der.speedChance : false,
         xpMod: rng() < xpModChance ? (inp.base.xpModGain||3)*modMulti : 1,
-        lootMod: rng() < lootModChance ? (inp.base.lootModGain||3.8)*modMulti : 1,
+        lootMod: rng() < lootModChance ? lootModGainEff*modMulti : 1,
         staminaMod: rng() < der.staminaModChance,
         gleam: floorGleam, cleared:false});
     }
