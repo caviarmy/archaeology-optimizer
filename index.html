@@ -679,7 +679,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
       <section id="settings-mc" class="settings-section">
         <div class="form-grid">
-          <div><label>Max floor</label><input id="maxFloor" type="number" min="1" max="1000" placeholder="as deep as stamina allows" value=""></div>
           <div>
             <label>Node spawn model</label>
             <select id="nodeSpawnModel">
@@ -1339,7 +1338,6 @@ function deterministicSignature(inp){
   const stable = {
     selectedLevel: inp.selectedLevel,
     targetFloor: inp.targetFloor,
-    maxFloor: inp.maxFloor,
     ascension: inp.ascension,
     atkSpeed: inp.atkSpeed,
     abilities: inp.abilities,
@@ -1377,7 +1375,6 @@ function getInputs(){
     objective:v("objective") || "total",
     selectedLevel:Math.max(0, Math.floor(n("selectedLevel"))),
     targetFloor:Math.max(1, Math.min(FLOOR_CAP, Math.floor(numOr("targetFloor", 1)) || 1)),  // pure read; validateTargetFloor handles the DOM rewrite on edit
-    maxFloor:Math.max(1, Math.min(FLOOR_CAP, Math.floor(numOr("maxFloor", FLOOR_CAP)) || FLOOR_CAP)),
     ascension:currentAscension(),
     polyUpgrade:checked("polyUpgrade"),
     archInfernalMult:Math.max(0, n("archInfernalMult") || 1),
@@ -2065,7 +2062,7 @@ function scoreBuild(stats, inp, blocks){
   let totalValue=0, used=0, floorReached=1;
   let totalNodes=0;
   const channels=blankChannels();
-  for(let floor=1; floor<=inp.maxFloor; floor++){
+  for(let floor=1; floor<=FLOOR_CAP; floor++){   // a dig runs until stamina is spent; FLOOR_CAP is just a safety bound
     const fv = floorCostValue(floor, der, inp, blocks);
     if(fv.grossStamina <= 0) {           // empty floor (no breakable blocks): free pass
       floorReached = floor + 1;
@@ -2568,7 +2565,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
     }
   }
 
-  for(let floor=1; floor<=inp.maxFloor && stamina>0; floor++){
+  for(let floor=1; floor<=FLOOR_CAP && stamina>0; floor++){
     const activeNodeCount = rollNodeAttemptsForFloor(floor, inp, rng);
     let clearedCount = 0;
     chQueue.length = 0; // new floor: crosshairs from the previous floor are gone
