@@ -182,7 +182,7 @@ average block reward = base_value * gain_stat * (1 + (mod_gain - 1) * mod_chance
 <h2 id="stamina">9. Stamina and run length</h2>
 <p>Your maximum stamina, after Agility and the Corruption penalty:</p>
 <pre>stamina = (base + 5*AGI) * (1 - 3%*COR)</pre>
-<p>A dig spends stamina block by block: a block costs its average hits in stamina. A stamina mod is separate from that cost — when a block rolls it, clearing the block (by you or a crosshair) refunds stamina to your pool, so refunds top up the budget and let the dig reach further. The pool never rises above your max stamina, so a refund while you are near full is partly wasted. When stamina cannot cover the next floor, the dig stops partway through it. The score is total reward divided by total stamina spent, so a build that earns the same reward for less stamina scores higher. Leave Max floor blank to dig as deep as stamina allows, or set it to cap the run.</p>
+<p>A dig spends stamina block by block: a block costs its average hits in stamina. A stamina mod is separate from that cost — when a block rolls it, clearing the block (by you or a crosshair) refunds stamina to your pool (up to 10 per block), so refunds top up the budget and let the dig reach further. The pool never rises above your max stamina, so a refund while you are near full is partly wasted. When stamina cannot cover the next floor, the dig stops partway through it. The score is total reward divided by total stamina spent, so a build that earns the same reward for less stamina scores higher. Leave Max floor blank to dig as deep as stamina allows, or set it to cap the run.</p>
 
 <h2 id="time">10. Two clocks: ticks and real time</h2>
 <p>The tool tracks two clocks at once, and keeping them apart matters.</p>
