@@ -478,6 +478,31 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <div id="throughputDetailBody" style="margin-top:8px"></div>
       </details>
     </div>
+
+    <div class="card" id="customSimCard">
+      <details id="customSimSection">
+        <summary>Simulate a specific build (manual attribute distribution)</summary>
+        <p class="small" style="margin-top:8px">Enter an attribute distribution to simulate directly. These override the attribute points for this simulation only — everything else (damage, stamina, abilities, cards, upgrades) comes from your entered stats. This does not affect the estimate or its search.</p>
+        <div class="form-grid">
+          <div><label>STR</label><input id="customStr" type="number" inputmode="numeric" min="0" value="0"></div>
+          <div><label>AGI</label><input id="customAgi" type="number" inputmode="numeric" min="0" value="0"></div>
+          <div><label>PER</label><input id="customPer" type="number" inputmode="numeric" min="0" value="0"></div>
+          <div><label>INT</label><input id="customInt" type="number" inputmode="numeric" min="0" value="0"></div>
+          <div><label>Luck</label><input id="customLuck" type="number" inputmode="numeric" min="0" value="0"></div>
+          <div class="req-a1"><label>Divinity</label><input id="customDiv" type="number" inputmode="numeric" min="0" value="0"></div>
+          <div class="req-a2"><label>Corruption</label><input id="customCor" type="number" inputmode="numeric" min="0" value="0"></div>
+        </div>
+        <div class="actionbar" style="margin-top:10px"><button id="runCustomSim">Simulate this build</button></div>
+        <div class="metrics simulation-summary" id="customSimSummary" style="display:none;margin-top:10px">
+          <div class="metric good"><div class="k">Build</div><div class="v" id="customBuild">—</div></div>
+          <div class="metric"><div class="k">Rewards / real-time hour</div><div class="v" id="customPerHour">—</div></div>
+          <div class="metric"><div class="k">Rewards / tick</div><div class="v" id="customPerTick">—</div></div>
+          <div class="metric"><div class="k">Expected floor</div><div class="v" id="customFloor">—</div></div>
+          <div class="metric"><div class="k">Target hit chance</div><div class="v" id="customTarget">—</div></div>
+        </div>
+        <div id="customDetailBody" style="margin-top:8px"></div>
+      </details>
+    </div>
   </section>
 
 
@@ -2696,7 +2721,46 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
   return out;
 }
 
-
+// Monte-Carlo aggregate of one build: average reward channels, floors, and block
+// counts over `runs` runs, then derive per-real-time-hour / per-tick / per-stamina
+// rates. Real time is continuous (at 0 stamina you restart at floor 1 with full
+// stamina), so the rate is one run's total over its elapsed seconds.
+function aggregateBuildSim(stats, inp, blocks, runs, rng){
+  stats = fullStats(stats);
+  let sumValue=0, sumStamina=0, sumFloor=0, hitTarget=0, sumTime=0, sumTicks=0;
+  const floors=[];
+  const simChannels=blankChannels();
+  const sumCounts=Object.create(null);
+  for(let r=0; r<runs; r++){
+    const sim=simulateOneRun(stats, inp, blocks, rng);
+    sumValue += sim.totalValue;
+    sumStamina += sim.staminaUsed;
+    sumFloor += sim.floorReached;
+    sumTime += sim.timeSec;
+    sumTicks += sim.ticksSpent;
+    addChannels(simChannels, sim.channels);
+    for(const k in sim.blockCounts) sumCounts[k]=(sumCounts[k]||0)+sim.blockCounts[k];
+    floors.push(sim.floorReached);
+    if(sim.floorReached >= inp.targetFloor) hitTarget++;
+  }
+  floors.sort((a,b)=>a-b);
+  const pct = p => floors[Math.max(0, Math.min(floors.length-1, Math.floor((floors.length-1)*p)))];
+  const mcAvgFloor = sumFloor/runs;
+  const mcMetrics = finalizeMetrics(simChannels, Math.max(1,sumStamina));
+  const sec = Math.max(1e-9, sumTime), perHr = x => x/sec*3600;
+  const countsPerHour={}; let totalBlocks=0;
+  for(const k in sumCounts){ countsPerHour[k]=perHr(sumCounts[k]); totalBlocks+=sumCounts[k]; }
+  const lootPerHour={}; let lootVal=0;
+  for(const t of ["common","rare","epic","legendary","mythic","divine"]){ lootPerHour[t]=perHr(simChannels[t]); lootVal+=simChannels[t]; }
+  return {
+    stats:{...stats}, metrics:mcMetrics, floorReached:mcAvgFloor, mcAvgFloor,
+    targetPct:hitTarget/runs*100, p10:pct(0.10), p50:pct(0.50), p90:pct(0.90),
+    rewardsPerHour:perHr(sumValue), rewardsPerTick:sumValue/Math.max(1,sumTicks),
+    rewardsPerStam:mcMetrics.allRewards, blocksPerHour:perHr(totalBlocks),
+    xpPerHour:perHr(simChannels.xp), allLootPerHour:perHr(lootVal),
+    countsPerHour, lootPerHour
+  };
+}
 
 async function runMonteRerank(){
   const inp=getInputs(), blocks=visibleBlocks(inp);
@@ -2724,53 +2788,11 @@ async function runMonteRerank(){
 
   for(let b=0; b<builds.length; b++){
     const det=builds[b];
-    const stats=det.stats;
-    let sumValue=0, sumStamina=0, sumFloor=0, hitTarget=0, sumTime=0, sumTicks=0;
-    const floors=[];
-    const simChannels=blankChannels();
-    const sumCounts=Object.create(null);
-
-    for(let r=0; r<runs; r++){
-      const sim=simulateOneRun(stats, inp, blocks, rng);
-      sumValue += sim.totalValue;
-      sumStamina += sim.staminaUsed;
-      sumFloor += sim.floorReached;
-      sumTime += sim.timeSec;
-      sumTicks += sim.ticksSpent;
-      addChannels(simChannels, sim.channels);
-      for(const k in sim.blockCounts) sumCounts[k]=(sumCounts[k]||0)+sim.blockCounts[k];
-      floors.push(sim.floorReached);
-      if(sim.floorReached >= inp.targetFloor) hitTarget++;
-    }
-
-    floors.sort((a,b)=>a-b);
-    const pct = p => floors[Math.max(0, Math.min(floors.length-1, Math.floor((floors.length-1)*p)))];
-    const mcAvgFloor = sumFloor/runs;
-    const mcMetrics = finalizeMetrics(simChannels, Math.max(1,sumStamina));
-    // Real time is continuous: at 0 stamina you restart at floor 1 with full stamina,
-    // so the steady-state rate is one run's total over one run's elapsed seconds.
-    const sec = Math.max(1e-9, sumTime), perHr = x => x/sec*3600;
-    const countsPerHour={}; let totalBlocks=0;
-    for(const k in sumCounts){ countsPerHour[k]=perHr(sumCounts[k]); totalBlocks+=sumCounts[k]; }
-    const lootPerHour={}; let lootVal=0;
-    for(const t of ["common","rare","epic","legendary","mythic","divine"]){ lootPerHour[t]=perHr(simChannels[t]); lootVal+=simChannels[t]; }
-    results.push({
-      detRank:det.detRank || (b+1),
-      stats:{...stats},
-      metrics:mcMetrics,
-      floorReached:mcAvgFloor,
-      mcAvgFloor,
-      targetPct:hitTarget/runs*100,
-      p10:pct(0.10), p50:pct(0.50), p90:pct(0.90),
-      detRewardHr:det.rewardHr, detFloor:det.floorReached,
-      rewardsPerHour:perHr(sumValue),
-      rewardsPerTick:sumValue/Math.max(1,sumTicks),
-      rewardsPerStam:mcMetrics.allRewards,
-      blocksPerHour:perHr(totalBlocks),
-      xpPerHour:perHr(simChannels.xp),
-      allLootPerHour:perHr(lootVal),
-      countsPerHour, lootPerHour
-    });
+    const row=aggregateBuildSim(det.stats, inp, blocks, runs, rng);
+    row.detRank = det.detRank || (b+1);
+    row.detRewardHr = det.rewardHr;
+    row.detFloor = det.floorReached;
+    results.push(row);
 
     showStatus(`Simulation ${b+1}/${builds.length}; ${runs.toLocaleString()} runs/build.`, 30000);
     await new Promise(res=>setTimeout(res,0));
@@ -2827,8 +2849,8 @@ function renderSimResults(sortKey, dir){
   renderThroughputDetail(best);
 }
 
-function renderThroughputDetail(row){
-  const body=document.getElementById("throughputDetailBody");
+function renderThroughputDetail(row, bodyEl){
+  const body = bodyEl || document.getElementById("throughputDetailBody");
   if(!body || !row) return;
   const rarities=["dirt","common","rare","epic","legendary","mythic","divine"];
   const tiers=[1,2,3,4];
@@ -2881,6 +2903,36 @@ function clearMonteRerank(silent=false){
   window.__simResults=null;
   document.body.dataset.simulationReady = "false";
   if(!silent) document.getElementById("status").textContent="Simulation results cleared.";
+}
+
+// Simulate one user-specified attribute distribution (independent of the estimate
+// and its search). Uses the entered base stats; the attribute fields below override
+// the allocation for this simulation only.
+async function runCustomSim(){
+  const inp=getInputs(), blocks=visibleBlocks(inp);
+  const stats=fullStats({
+    S:Math.max(0,numOr("customStr",0)), A:Math.max(0,numOr("customAgi",0)),
+    P:Math.max(0,numOr("customPer",0)), I:Math.max(0,numOr("customInt",0)),
+    L:Math.max(0,numOr("customLuck",0)), D:Math.max(0,numOr("customDiv",0)),
+    C:Math.max(0,numOr("customCor",0))
+  });
+  const runs=inp.mcRunsPerBuild;
+  const simRng=createSimulationRng(inp);
+  const btn=document.getElementById("runCustomSim");
+  if(btn) btn.disabled=true;
+  showStatus(`Simulating ${buildLabel(stats)}; ${runs.toLocaleString()} runs.`, 30000);
+  await new Promise(r=>setTimeout(r,10));
+  const row=aggregateBuildSim(stats, inp, blocks, runs, simRng.random);
+  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+  set("customBuild", buildLabel(stats));
+  set("customPerHour", fmt(row.rewardsPerHour,1));
+  set("customPerTick", fmt(row.rewardsPerTick,3));
+  set("customFloor", fmt(row.mcAvgFloor,2));
+  set("customTarget", fmt(row.targetPct,1)+"%");
+  const summary=document.getElementById("customSimSummary"); if(summary) summary.style.display="";
+  renderThroughputDetail(row, document.getElementById("customDetailBody"));
+  showStatus(`Simulated ${buildLabel(stats)} (${runs.toLocaleString()} runs).`, 5000);
+  if(btn) btn.disabled=false;
 }
 
 
@@ -4199,6 +4251,7 @@ function bindGoalSelector(){
 }
 document.getElementById("runExact").addEventListener("click",runExact);
 document.getElementById("runMonteRerank").addEventListener("click",runMonteRerank);
+document.getElementById("runCustomSim")?.addEventListener("click",runCustomSim);
 document.getElementById("clearMonteRerank").addEventListener("click",clearMonteRerank);
 document.getElementById("resetAllSettings")?.addEventListener("click",resetAllSettings);
 // Upgrade-level fields are whole-number counters (how many levels you own). Snap
@@ -4208,7 +4261,12 @@ document.querySelectorAll(".lvl-step").forEach(el=>el.addEventListener("change",
   const min = el.min!=="" ? +el.min : 0, max = el.max!=="" ? +el.max : Infinity;
   el.value = String(Math.max(min, Math.min(max, Math.round(+el.value || 0))));
 }));
-document.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",()=>{updateGoalUI(); markOptimizerStale(); updateSettingsSummary(); if(document.getElementById("settings-base")?.classList.contains("active")) populateCalcBaseStats();}));
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",(e)=>{
+  // The manual "Simulate a specific build" fields are independent: editing them must
+  // not invalidate the estimate or its search.
+  if(e.target && typeof e.target.id==="string" && e.target.id.startsWith("custom")) return;
+  updateGoalUI(); markOptimizerStale(); updateSettingsSummary(); if(document.getElementById("settings-base")?.classList.contains("active")) populateCalcBaseStats();
+}));
 document.getElementById("statCapBonusStats")?.addEventListener("change",()=>syncStatCapMirror(true));
 document.getElementById("statCapBonus")?.addEventListener("change",()=>syncStatCapMirror(false));
 document.querySelectorAll("[data-open-settings]").forEach(el=>el.addEventListener("click",()=>openSettings(el.dataset.openSettings)));
@@ -4237,6 +4295,7 @@ populateCardSettings();
 
 populateCardSettings();
 document.querySelectorAll("input, select").forEach(el=>{
+  if(typeof el.id==="string" && el.id.startsWith("custom")) return; // manual-sim fields are independent
   el.addEventListener("input",()=>{ markOptimizerStale(); updateSettingsSummary(); });
   el.addEventListener("change",()=>{ markOptimizerStale(); updateSettingsSummary(); });
 });
