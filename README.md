@@ -49,12 +49,15 @@ Or simply download `index.html` and double-click it.
   reach.
 - Screenshot OCR import of base stats (Tesseract.js, loaded from CDN on first
   use — needs internet the first time).
-- Node value table, node spawn-model toggle, and worthless-loot levers.
+- Node spawn-model toggle and worthless-loot levers.
+- **Estimate best build** (fast guided/expected-value search) and **Simulate
+  best build** (Monte Carlo replay of the top candidates).
 - **Ascension (A0 / A1 / A2)** with block-availability gating: A0 excludes
   divine and tier 4 blocks, A1 adds divine, A2 adds tier 4.
 - Archaeology cards with normal / gilded / polychrome / infernal rarities and
-  bulk set/clear controls. (Polychrome and infernal are recordable but neutral
-  until their exact multipliers are confirmed.)
+  bulk set/clear controls. Polychrome and infernal card HP/reward changes are
+  modeled, and each infernal card's unique global buff (scaled by the archaeology
+  infernal multiplier) is walked out of the entered stats and re-applied.
 
 ## Notes
 
