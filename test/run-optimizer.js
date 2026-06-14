@@ -44,7 +44,7 @@ window.performance = window.performance || { now: () => Date.now() };
     console.log("best build :", doc.getElementById("bestBuild").textContent);
     console.log("exp. floor :", doc.getElementById("bestFloor").textContent);
     console.log("best score :", doc.getElementById("bestRph").textContent);
-    console.log("candidates :", doc.getElementById("candidateCount").textContent);
+    console.log("rewards/tick:", doc.getElementById("bestPerTick").textContent);
     console.log("time       :", secs + "s");
   } catch (e) {
     console.log("runExact THREW:", e.stack || e.message || e);

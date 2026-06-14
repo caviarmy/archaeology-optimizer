@@ -24,6 +24,8 @@
 - Removed unused tools (floor-push, greedy path, manual build advisor, node table).
 
 ### Fixed
+- **Upgrade-level fields are now −/+ steppers** (Attribute modifiers and damage/armor-pen bonuses), so it's clear you enter a whole level, not a free value.
+- **Primary protection only appears when a secondary goal is set** (it has no effect without one).
 - **Simulate best build is disabled until a fresh estimate exists**, and re-disables whenever a setting changes, so you can't simulate stale builds.
 - **+5 Stat Pt. Caps now defaults to off** and reliably applies/removes (the two linked checkboxes and the simulate gating stay in sync through the settings modal).
 - **Throughput detail shows whole blocks per hour** ("<1" for rarer-than-hourly), since blocks are discrete.

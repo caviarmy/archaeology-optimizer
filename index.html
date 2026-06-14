@@ -82,6 +82,13 @@ th{position:sticky;top:0;background:#f1f5f9;color:#111827;z-index:1}
 #monteRerankTable th[data-sort]{cursor:pointer;user-select:none}
 #monteRerankTable th[data-sort]:hover{background:#e2e8f0}
 #monteRerankTable th.sorted{background:#dbe7f3;text-decoration:underline}
+.stepper{display:flex;align-items:stretch;max-width:170px}
+.stepper input{text-align:center;border-radius:0;flex:1;min-width:0}
+.stepper-btn{width:38px;flex:none;border:1px solid var(--line);background:var(--soft);color:#111827;cursor:pointer;font-size:18px;font-weight:600;line-height:1;user-select:none;padding:0}
+.stepper-btn:hover{background:#e2e8f0}
+.stepper-btn:active{background:#cdd7e5}
+.stepper-btn:first-child{border-radius:8px 0 0 8px;border-right:none}
+.stepper-btn:last-child{border-radius:0 8px 8px 0;border-left:none}
 td:first-child,th:first-child{text-align:left}
 tr:nth-child(even) td{background:#fbfbfc}
 tr.best td{background:#e8f1ff!important;font-weight:800}
@@ -367,7 +374,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <label>Target floor</label>
         <input id="targetFloor" type="number" min="1" max="1000" step="1" inputmode="numeric" value="13">
       </div>
-      <div>
+      <div id="primaryProtectionField">
         <label>Primary protection</label>
         <div class="protection-options">
           <label class="protection-option">
@@ -994,6 +1001,9 @@ function updateGoalUI(){
   if((v("primaryGoal") || "allRewards") === "target" || (v("secondaryGoal") || "none") === "target") validateTargetFloor();
   const primary = v("primaryGoal") || "allRewards";
   const secondary = v("secondaryGoal") || "none";
+  // Primary protection only matters when there's a secondary goal to trade against.
+  const protField = document.getElementById("primaryProtectionField");
+  if(protField) protField.style.display = (secondary === "none") ? "none" : "";
   const mode = document.getElementById("mode");
   const objEl = document.getElementById("objective");
   if(mode) mode.value = primary === "target" ? "target" : "reward";
@@ -2887,6 +2897,31 @@ function wireSimSort(){
   });
 }
 
+// Wrap each whole-number upgrade-level field with - / + stepper buttons so it
+// reads clearly as a counter (you still can't enter a decimal or out-of-range value).
+function wireSteppers(){
+  document.querySelectorAll(".lvl-step").forEach(input=>{
+    if(input.dataset.stepperWired) return; input.dataset.stepperWired="1";
+    const min = input.min!=="" ? +input.min : 0;
+    const max = input.max!=="" ? +input.max : Infinity;
+    const wrap = document.createElement("div"); wrap.className="stepper";
+    const mk=(txt,delta)=>{
+      const b=document.createElement("button");
+      b.type="button"; b.className="stepper-btn"; b.textContent=txt; b.tabIndex=-1;
+      b.addEventListener("click",()=>{
+        const v=Math.max(min, Math.min(max, Math.round((+input.value||0)+delta)));
+        input.value=String(v);
+        input.dispatchEvent(new Event("change",{bubbles:true}));
+      });
+      return b;
+    };
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(mk("−",-1));   // minus
+    wrap.appendChild(input);
+    wrap.appendChild(mk("+",1));
+  });
+}
+
 function clearMonteRerank(silent=false){
   const tbody=document.querySelector("#monteRerankTable tbody");
   if(tbody) tbody.innerHTML="";
@@ -4317,6 +4352,7 @@ applyAscensionGating();
 syncBaseStatMode();
 syncSecondaryGoalOptions();
 syncPrimaryProtectionUI();
+wireSteppers();
 updateGoalUI();
 updateSettingsSummary();
 </script>
