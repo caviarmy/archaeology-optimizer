@@ -418,11 +418,11 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
   <section id="results" class="panel active">
     <div class="card" id="deterministicCard">
-      <span class="pill-note">Goal: maximize total value</span>
-      <h2 id="optimizerTitle">Best build</h2>
+      <span class="pill-note">Fast estimate — press Simulate best build to confirm</span>
+      <h2 id="optimizerTitle">Estimated best build</h2>
       <div class="actionbar">
         <button id="runExact">Estimate best build</button>
-        <button id="runMonteRerank" class="ghost">Simulate best build</button>
+        <button id="runMonteRerank" class="ghost" disabled title="Run Estimate best build first">Simulate best build</button>
         <label class="check-row" style="margin:0 0 0 6px"><input id="thoroughSearch" type="checkbox"> Thorough (exact, slow)</label>
       </div>
       <div class="metrics">
@@ -520,7 +520,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         </div>
         <div id="spentAttrs" style="display:none">
           <h3>Current spent attribute points</h3>
-          <label class="check-row" style="margin-bottom:8px"><input id="statCapBonusStats" type="checkbox" checked> +5 Stat Pt. Caps (upgrade)</label>
+          <label class="check-row" style="margin-bottom:8px"><input id="statCapBonusStats" type="checkbox"> +5 Stat Pt. Caps (upgrade)</label>
           <div class="form-grid">
             <div><label>Spent STR</label><input id="spentStr" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent AGI</label><input id="spentAgi" type="number" min="0" step="1" value="0"></div>
@@ -615,7 +615,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
       <section id="settings-upgrades" class="settings-section">
         <div class="check-grid" style="margin-bottom:10px">
-          <label class="check-row"><input id="statCapBonus" type="checkbox" checked> +5 Stat Pt. Caps</label>
+          <label class="check-row"><input id="statCapBonus" type="checkbox"> +5 Stat Pt. Caps</label>
         </div>
         <h3>Attribute modifiers</h3>
         <div class="form-grid">
@@ -985,9 +985,9 @@ function updateGoalUI(){
   document.body.dataset.showLootSettings = (goalUsesLoot(primary) || goalUsesLoot(secondary)) ? "true" : "false";
 
   const title = document.getElementById("optimizerTitle");
-  if(title) title.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
+  if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
   const label = document.getElementById("bestValueLabel");
-  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(getInputs()))}/stamina`;
+  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(getInputs()))} / hr`;
   const modeLabel = document.getElementById("bestModeLabel");
   if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(getInputs()));
 }
@@ -1384,6 +1384,21 @@ function markOptimizerStale(){
   lastExactSignature = null;
   resetBestResults();
   clearMonteRerank(true);
+  updateSimButtonState();
+}
+
+// Simulate is only valid against a fresh estimate that matches the current
+// settings. Enable the button only then; otherwise keep it disabled.
+function updateSimButtonState(){
+  const btn = document.getElementById("runMonteRerank");
+  if(!btn) return;
+  let fresh = false;
+  try {
+    fresh = lastExactTopBuilds && lastExactTopBuilds.length > 0 &&
+            lastExactSignature && deterministicSignature(getInputs()) === lastExactSignature;
+  } catch(e){ fresh = false; }
+  btn.disabled = !fresh;
+  btn.title = fresh ? "" : "Run Estimate best build first";
 }
 
 function getInputs(){
@@ -2204,6 +2219,7 @@ async function runExact(){
   showStatus(`Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s (${count.toLocaleString()} build${count===1?"":"s"}${thorough?"":", smart search"})${extra}.`, 5000);
   btn.disabled = false;
   isRunningExact = false;
+  updateSimButtonState();   // a fresh estimate now exists -> allow Simulate
 }
 
 // Exact search: enumerate every valid allocation of points across the active
@@ -2437,7 +2453,7 @@ function renderBest(best, top, count){
   const modeLabel = document.getElementById("bestModeLabel");
   if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(inp));
   const title = document.getElementById("optimizerTitle");
-  if(title) title.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
+  if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
   const valueLabel = document.getElementById("bestValueLabel");
   if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))} / hr`;
   document.getElementById("candidateCount").textContent = count.toLocaleString();
@@ -2818,18 +2834,21 @@ function renderThroughputDetail(row){
   const tiers=[1,2,3,4];
   const cph=row.countsPerHour||{};
   const cap=s=>s[0].toUpperCase()+s.slice(1);
+  // Blocks are discrete; show whole blocks per hour. "<1" means fewer than one an
+  // hour (one every few hours), not a partial-block kill.
+  const cnt=v=> v<=0 ? "—" : (v<0.5 ? "<1" : fmt(Math.round(v),0));
   let h='<div class="table-wrap"><table><thead><tr><th>Blocks / hr</th>';
   for(const t of tiers) h+=`<th>T${t}</th>`;
   h+='<th>All tiers</th></tr></thead><tbody>';
   for(const rar of rarities){
     let rowTotal=0, cellsHtml="";
-    for(const t of tiers){ const v=cph["t"+t+"_"+rar]||0; rowTotal+=v; cellsHtml+=`<td>${v>0?fmt(v,1):"—"}</td>`; }
+    for(const t of tiers){ const v=cph["t"+t+"_"+rar]||0; rowTotal+=v; cellsHtml+=`<td>${cnt(v)}</td>`; }
     if(rowTotal<=0) continue;
-    h+=`<tr><td>${cap(rar)}</td>${cellsHtml}<td>${fmt(rowTotal,1)}</td></tr>`;
+    h+=`<tr><td>${cap(rar)}</td>${cellsHtml}<td>${cnt(rowTotal)}</td></tr>`;
   }
   let grand=0, totRow="";
-  for(const t of tiers){ let tt=0; for(const rar of rarities) tt+=cph["t"+t+"_"+rar]||0; grand+=tt; totRow+=`<td>${fmt(tt,1)}</td>`; }
-  h+=`<tr class="best"><td>All blocks</td>${totRow}<td>${fmt(grand,1)}</td></tr></tbody></table></div>`;
+  for(const t of tiers){ let tt=0; for(const rar of rarities) tt+=cph["t"+t+"_"+rar]||0; grand+=tt; totRow+=`<td>${cnt(tt)}</td>`; }
+  h+=`<tr class="best"><td>All blocks</td>${totRow}<td>${cnt(grand)}</td></tr></tbody></table></div>`;
   h+='<div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>Value / hr</th><th>XP</th>';
   for(const rar of ["common","rare","epic","legendary","mythic","divine"]) h+=`<th>${cap(rar)} loot</th>`;
   h+='<th>All loot</th></tr></thead><tbody><tr><td>Reward</td>';
@@ -2958,12 +2977,15 @@ function restoreSettingsSnapshot(){
 function confirmSettings(){
   settingsSnapshot = null;
   closeSettings();
+  updateSimButtonState();
 }
 
 function cancelSettings(){
   restoreSettingsSnapshot();
   settingsSnapshot = null;
   closeSettings();
+  syncStatCapMirror();        // restore set .checked directly (no change event); re-lockstep the mirror
+  updateSimButtonState();
 }
 
 function statString(s,a,p,i,l){
@@ -4002,7 +4024,7 @@ function resetAllSettings(){
   ["worthlessCommon","worthlessRare","worthlessEpic","worthlessLegendary","worthlessMythic","worthlessDivine","polyUpgrade","enrageOn","flurryOn","quakeOn"].forEach(id=>{
     const el=document.getElementById(id); if(el) el.checked=false;
   });
-  const capBonus=document.getElementById("statCapBonus"); if(capBonus) capBonus.checked=true;
+  const capBonus=document.getElementById("statCapBonus"); if(capBonus) capBonus.checked=false;
 
   if(typeof ARCHAEOLOGY_CARD_KEYS !== "undefined"){
     ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
