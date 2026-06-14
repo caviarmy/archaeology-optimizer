@@ -7,10 +7,8 @@ const fs = require("fs");
 const path = require("path");
 
 const level = Number(process.argv[2] || 100);
-// Default to a realistic depth: this build runs out of stamina near floor ~118,
-// so the run is stamina-bound (the regime that matters). A shallow cap like 50
-// leaves stamina barely touched and makes reward/stamina degenerate.
-const maxFloor = Number(process.argv[3] || 150);
+// A dig always runs until stamina is spent (no max-floor input); this build runs
+// out near floor ~118, so the run is naturally stamina-bound.
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 
 const errors = [];
@@ -28,7 +26,7 @@ window.performance = window.performance || { now: () => Date.now() };
   // screen). Stamina Mod Gain caps at 10 in game. Full crit/ability/crosshair stats
   // included so the build behaves like real play.
   Object.entries({
-    selectedLevel: level, maxFloor, ascension: 2,
+    selectedLevel: level, ascension: 2,
     baseDamage:1396, baseStamina:932, baseAtkSpeed:2, baseArmorPenFlat:881,
     baseCritChance:66.25, baseCritDamage:4.21, baseSuperChance:60.75, baseSuperDamage:3.11,
     baseUltraChance:22.50, baseUltraDamage:4.84,
@@ -42,8 +40,9 @@ window.performance = window.performance || { now: () => Date.now() };
     const t0 = Date.now();
     await window.runExact();
     const secs = ((Date.now()-t0)/1000).toFixed(1);
-    console.log(`level=${level} maxFloor=${maxFloor}`);
+    console.log(`level=${level}`);
     console.log("best build :", doc.getElementById("bestBuild").textContent);
+    console.log("exp. floor :", doc.getElementById("bestFloor").textContent);
     console.log("best score :", doc.getElementById("bestRph").textContent);
     console.log("candidates :", doc.getElementById("candidateCount").textContent);
     console.log("time       :", secs + "s");

@@ -5,7 +5,7 @@ const fs=require("fs"), path=require("path");
 const dom=new JSDOM(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),{runScripts:"dangerously",virtualConsole:new VirtualConsole()});
 const W=dom.window, doc=W.document; W.performance=W.performance||{now:()=>Date.now()};
 const set=(id,v)=>{const e=doc.getElementById(id); if(e) e.value=String(v);};
-set("ascension",2); set("maxFloor",320);
+set("ascension",2);
 set("baseDamage",20000); set("baseCritChance",70); set("baseCritDamage",4);
 set("baseSuperChance",50); set("baseSuperDamage",3); set("baseArmorPenFlat",2000);
 set("baseXpGain",10); set("baseFragGain",10);
