@@ -202,11 +202,12 @@ average block reward = base_value * gain_stat * (1 + (mod_gain - 1) * mod_chance
 <ul>
 <li><strong>Enrage</strong>: the next several swings gain damage and crit damage. Its damage percent joins the damage pool while it is active, the same way a Strength point does.</li>
 <li><strong>Flurry</strong>: gives back stamina when cast and doubles attack speed for its swings.</li>
-<li><strong>Quake</strong>: the next several swings also deal a share of their damage to every block still alive on the floor.</li>
+<li><strong>Quake</strong>: the next several swings also deal a share of their damage to every block still alive on the floor. While Enrage is active at the same time, that share rides the same damage boost.</li>
 </ul>
 <p>The quick score estimates all three so the search can weigh them: Enrage's buff is spread over its uptime, Flurry's cast refund is added back per swing, and Quake's free damage to the other live blocks is credited as fewer of your own swings. Quake's credit is discounted because it fires at random times, so the number of blocks still alive when it lands varies and it rarely catches a full floor. The simulation plays each one out swing by swing.</p>
-<p>Cooldowns run on the real-time clock, so attack speed does not change how often an ability is ready. The buffed swings happen on the tick clock, so faster speed uses up the fixed number of buffed swings sooner. Instacharge is a chance to refund a cooldown when you use an ability, which the tool treats as a shorter cooldown:</p>
+<p>Cooldowns run on the real-time clock, so attack speed does not change how often an ability is ready. The buffed swings happen on the tick clock, so faster speed uses up the fixed number of buffed swings sooner. Instacharge is a chance, on each use, to instantly reset the cooldown and recast on the spot — and the charges stack when it does, so a five-charge ability that recasts at once leaves ten. The simulation plays this out; the quick score uses the equivalent average cooldown, which gives the same long-run uptime:</p>
 <pre>effective cooldown = cooldown * (1 - instacharge_chance)</pre>
+<p>The simulation also starts each ability partway through its cooldown, since a player rarely begins a dig with every ability ready at once.</p>
 
 <h2 id="crosshairs">12. Crosshairs</h2>
 <p>A crosshair is a marker that appears on a block by itself. Tapping it lands a free hit. The tool assumes you are idle, so it only counts crosshairs that fire on their own (auto-tap); ones that wait for a manual tap are left alone.</p>
@@ -362,6 +363,7 @@ the best of the five runs equaled the reference exactly</pre>
 <li>Block HP, armor, experience, fragment counts, floor ranges, per-floor spawn rates, and boss floors, from the wiki.</li>
 <li>Stat effects and caps, attribute-modifier and damage/armor-pen upgrades, from the stat panel and the wiki.</li>
 <li>The damage formula with all percent sources pooled before they apply, the crit, super, and ultra ladder, armor and penetration, stamina, stamina refunds, and the gleaming multiplier. These are game mechanics, with standard probability on top.</li>
+<li>Ability behavior, played out in the simulation: Enrage's damage and crit-damage boost, Flurry's stamina refund and speed, Quake's area damage (which shares Enrage's boost while both are active), and Instacharge instantly recasting an ability and stacking its charges.</li>
 <li>Card rarity bonuses and the per-card infernal buffs, from the Card Effects page.</li>
 <li>Mods roll when a floor loads and stay on the block, so who lands the kill does not change the reward.</li>
 </ul>
@@ -372,6 +374,7 @@ the best of the five runs equaled the reference exactly</pre>
 <li><strong>Speed is left out of efficiency.</strong> Attack speed changes attacks per second, not reward per stamina, so it only enters through the crosshair and ability parts.</li>
 <li><strong>The search runs the simulation; the fast math model only seeds it.</strong> The math model's averages (average hits, ability uptime, the crosshair boost) are quick but biased, so they are used only to suggest starting builds. The search itself scores builds by running the simulation, the same exact rules you confirm with.</li>
 <li><strong>The guided search is a search, not a proof.</strong> The true best is not provable on a full build (see section 16), so there is no certainty in every case. What we can show is the measured gap: within about 1% of the best almost always, and within simulation noise of it on an end-game build. The Thorough toggle scans every build with the fast math model, which is exhaustive over that model but carries its bias, so it is a reference, not a guarantee of the true best.</li>
+<li><strong>How a floor fills with blocks.</strong> A floor has 24 slots. The first six always fill, and the other eighteen each roll at the wiki's per-slot spawn chance for the rarity, so the leftover chance leaves a slot empty. Below the ascension that unlocks the next block tier, a rarity keeps spawning at its highest unlocked tier instead of disappearing.</li>
 <li><strong>Idle play.</strong> Only auto-tap crosshairs count; manual ones are left alone.</li>
 </ul>
 
@@ -382,6 +385,7 @@ the best of the five runs equaled the reference exactly</pre>
 <li><strong>The crosshair boost in the quick score</strong> stacks several estimates (blocks per floor, every crosshair hit fully used, armor left out of the damage compare, and manual crosshairs not blocking blocks) on top of the estimated spawn rate. It is the least certain number that can change which build is recommended, so when the quick score and the simulation disagree about crosshairs, trust the simulation.</li>
 <li><strong>Infernal stacking and the multiplier.</strong> Each infernal buff is taken as a multiplier scaled by your archaeology infernal multiplier; whether two cards of the same buff add or compound is taken as adding. Whether a percent buff (such as armor pen) multiplies its stat rather than adding to its pool is a reading of how these combine, applied consistently.</li>
 <li><strong>The speed mod</strong> appears only in the simulation, where a speed-modded block raises your attack rate by the Speed Mod Atk Rate while it is up. Because speed only shifts the real-time clock, it changes the crosshair and ability parts, not reward per stamina, so the quick score leaves it out.</li>
+<li><strong>Ability cooldown start.</strong> The simulation starts each ability at a random point in its cooldown, since a player rarely begins a dig with everything ready; the quick score assumes steady-state uptime. Over a full dig this barely changes the result.</li>
 <li><strong>The Ability Fairy</strong> (an Ascension 2 event that randomly refreshes all abilities) is not modelled in either the search or the simulation, so real runs get slightly more ability uptime than shown.</li>
 </ul>
 
