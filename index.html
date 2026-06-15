@@ -328,6 +328,17 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 /* v57: ascension chip in run-scope summary */
 .asc-note{display:inline-block;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;margin-left:6px}
 
+/* "Something not look right?" help link + checklist bubble */
+.sanity-link{display:inline-flex;align-items:center;gap:5px;margin-top:10px;background:none;border:0;padding:0;color:var(--accent);font-weight:700;font-size:12.5px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.sanity-link::before{content:"?";display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;line-height:14px;text-align:center;text-decoration:none}
+.sanity-backdrop{position:fixed;inset:0;background:transparent;z-index:60}
+.sanity-bubble{position:fixed;z-index:61;max-width:340px;width:calc(100vw - 28px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(16,24,40,.18);padding:12px 14px 13px}
+.sanity-bubble h4{margin:0 26px 6px 0;font-size:13.5px}
+.sanity-bubble .sanity-close{position:absolute;top:8px;right:9px;background:none;border:0;color:var(--muted);font-size:16px;font-weight:800;line-height:1;padding:2px;cursor:pointer}
+.sanity-bubble ul{margin:6px 0 0;padding-left:18px}
+.sanity-bubble li{margin:6px 0;font-size:12.5px;line-height:1.4;color:var(--ink)}
+.sanity-bubble li b{color:var(--ink)}
+
 </style>
 </head>
 <body data-workflow="results" data-target-used="false" data-simulation-ready="false" data-ascension="0">
@@ -444,6 +455,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <div class="metric"><div class="k">Expected floor</div><div class="v" id="bestFloor">—</div></div>
         <div class="metric"><div class="k">Goal</div><div class="v" id="bestModeLabel">Reward</div></div>
       </div>
+      <button type="button" class="sanity-link" data-sanity>Something not look right?</button>
       <details>
         <summary>Top candidate builds</summary>
         <div class="table-wrap" style="margin-top:8px">
@@ -466,6 +478,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <div class="metric"><div class="k">EV rank</div><div class="v" id="simDetRank">—</div></div>
         <div class="metric"><div class="k">Seed used</div><div class="v" id="simSeedUsed">—</div></div>
       </div>
+      <button type="button" class="sanity-link" data-sanity>Something not look right?</button>
       <details id="simulationDetails" open>
         <summary>Detailed simulation table (click a column to sort)</summary>
         <div class="table-wrap" style="margin-top:8px">
@@ -4557,6 +4570,51 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
   });
 }
+</script>
+
+<!-- "Something not look right?" checklist bubble (shared by the estimate and simulation links) -->
+<div id="sanityBackdrop" class="sanity-backdrop" hidden></div>
+<div id="sanityBubble" class="sanity-bubble" role="dialog" aria-label="Common things to check" hidden>
+  <button type="button" class="sanity-close" id="sanityClose" aria-label="Close">&times;</button>
+  <h4>Quick checks if a build looks off</h4>
+  <ul>
+    <li><b>Ascension.</b> Set it to match your account. At 0, Divinity and Corruption are left out; choose 1 or 2 if you have ascended.</li>
+    <li><b>Base stats vs attribute points.</b> Enter your stats as they read with zero attribute points spent, because the tool assigns the points itself. If your in-game stats screen already has points in it, switch to "I have spent attribute points" and enter them, so they are not counted twice.</li>
+    <li><b>+5 Stat Point Caps.</b> If you own this upgrade, turn it on so the search can fill the higher caps.</li>
+    <li><b>Attribute and damage upgrades.</b> Set the upgrade levels that change what each point gives (Strength, Corruption, Divinity), and the bonus damage and armor-pen percents.</li>
+    <li><b>Cards.</b> Set each card to owned, infernal, or none.</li>
+    <li><b>Infernal multiplier.</b> Enter your Archaeology infernal multiplier (leave it at 1 if you have none).</li>
+    <li><b>Polychrome card bonus.</b> If you own it, toggle it on (+15%).</li>
+  </ul>
+</div>
+<script>
+(function(){
+  var bubble=document.getElementById("sanityBubble");
+  var backdrop=document.getElementById("sanityBackdrop");
+  if(!bubble||!backdrop) return;
+  function close(){ bubble.hidden=true; backdrop.hidden=true; }
+  function openAt(trigger){
+    bubble.hidden=false; backdrop.hidden=false;
+    var r=trigger.getBoundingClientRect();
+    var bw=bubble.offsetWidth, bh=bubble.offsetHeight;
+    var left=Math.max(10, Math.min(r.left, window.innerWidth-bw-10));
+    var top=r.bottom+8;
+    if(top+bh > window.innerHeight-10) top=Math.max(10, r.top-bh-8);
+    bubble.style.left=left+"px"; bubble.style.top=top+"px";
+  }
+  document.querySelectorAll("[data-sanity]").forEach(function(btn){
+    btn.addEventListener("click", function(e){
+      e.preventDefault();
+      if(!bubble.hidden){ close(); return; }
+      openAt(btn);
+    });
+  });
+  document.getElementById("sanityClose").addEventListener("click", close);
+  backdrop.addEventListener("click", close);
+  window.addEventListener("keydown", function(e){ if(e.key==="Escape") close(); });
+  window.addEventListener("scroll", close, true);
+  window.addEventListener("resize", close);
+})();
 </script>
 </body>
 </html>
