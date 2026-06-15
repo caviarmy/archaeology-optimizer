@@ -3,6 +3,7 @@
 ## 2026-06-15
 
 ### Fixed
+- **Quake's AoE now benefits from Enrage's damage buff during overlap.** Quake deals a percentage of your damage to the other live blocks on a floor; when Enrage is active at the same time, that share now rides Enrage's additive damage% (just like a normal hit). The simulation applies it per swing (exact); the estimate uses the Enrage-uptime-averaged damage. At realistic ability values the impact is negligible and the estimate/simulation stay consistent.
 - **Locked tiers now fall back instead of leaving empty floors.** Tier-4 blocks need Ascension 2 and divine blocks need Ascension 1. Previously, on deep floors where a block type's only variant was a locked tier (e.g. dirt past floor 80 at A1), that type produced no block — its spawn slots silently contributed nothing, and a floor 150+ at A1 could resolve to no blocks at all, under-counting rewards. Now the type keeps spawning its highest unlocked tier (tier 3), scaled for depth, so floors stay populated and the spawn distribution is correct at every ascension.
 
 ### Added
