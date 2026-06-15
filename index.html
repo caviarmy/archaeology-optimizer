@@ -393,7 +393,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <select id="primaryGoal">
           <option value="allRewards">All rewards</option>
           <option value="xp">EXP</option>
-          <option value="allLoot">All loot</option>
+          <option value="allLoot">Loot only (no XP)</option>
           <option value="common">Common loot</option>
           <option value="rare">Rare loot</option>
           <option value="epic">Epic loot</option>
@@ -409,7 +409,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <option value="none">None</option>
           <option value="allRewards" disabled>All rewards</option>
           <option value="xp">EXP</option>
-          <option value="allLoot">All loot</option>
+          <option value="allLoot">Loot only (no XP)</option>
           <option value="common">Common loot</option>
           <option value="rare">Rare loot</option>
           <option value="epic">Epic loot</option>
@@ -519,7 +519,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <table id="monteRerankTable">
             <thead><tr>
               <th data-sort="rank">Sim Rank</th><th data-sort="detRank">EV Rank</th>
-              <th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th>
+              <th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th>
               <th data-sort="rewardsPerHour">Rewards / hr</th><th data-sort="rewardsPerTick">Rewards / tick</th>
               <th data-sort="blocksPerHour">Blocks / hr</th><th data-sort="xpPerHour">XP / hr</th><th data-sort="allLootPerHour">Loot / hr</th>
               <th data-sort="rewardsPerStam">Rewards / stam</th>
@@ -553,7 +553,8 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <div class="actionbar" style="margin-top:10px"><button id="runCustomSim">Simulate this build</button></div>
         <div class="metrics simulation-summary" id="customSimSummary" style="display:none;margin-top:10px">
           <div class="metric good"><div class="k">Build</div><div class="v" id="customBuild">—</div></div>
-          <div class="metric"><div class="k">Rewards / real-time hour</div><div class="v" id="customPerHour">—</div></div>
+          <div class="metric"><div class="k" id="customPrimaryLabel">Rewards / real-time hour</div><div class="v" id="customPerHour">—</div></div>
+          <div class="metric" id="customSecondaryMetric" style="display:none"><div class="k" id="customSecondaryLabel">Secondary</div><div class="v" id="customSecondary">—</div></div>
           <div class="metric"><div class="k">Rewards / tick</div><div class="v" id="customPerTick">—</div></div>
           <div class="metric"><div class="k">Expected floor</div><div class="v" id="customFloor">—</div></div>
           <div class="metric"><div class="k">Target hit chance</div><div class="v" id="customTarget">—</div></div>
@@ -972,7 +973,7 @@ function objectiveHelp(obj){
 }
 function rewardFocusLabel(key){
   const labels = {
-    allRewards:"All rewards", xp:"EXP", allLoot:"All loot", common:"Common loot", rare:"Rare loot",
+    allRewards:"All rewards", xp:"EXP", allLoot:"Loot only", common:"Common loot", rare:"Rare loot",
     epic:"Epic loot", legendary:"Legendary loot", mythic:"Mythic loot", divine:"Divine loot", target:"Target floor", none:"None"
   };
   return labels[key] || key;
@@ -3048,14 +3049,18 @@ function renderSimResults(sortKey, dir){
   const val=r=> key==="rank" ? r.simRank : (key==="detRank" ? (r.detRank||0) : (r[key]==null?-Infinity:r[key]));
   const sorted = results.slice().sort((a,b)=>{ const av=val(a), bv=val(b); return av===bv ? a.simRank-b.simRank : (av-bv)*d; });
   tbody.innerHTML="";
+  const asc=currentAscension();
   sorted.forEach((r)=>{
     const s=r.stats, tr=document.createElement("tr");
     if(r.simRank===1) tr.className="best";
-    const cells=[r.simRank, r.detRank, s.S,s.A,s.P,s.I,s.L,
-      fmt(r.rewardsPerHour,1), fmt(r.rewardsPerTick,3), fmt(r.blocksPerHour,1),
-      fmt(r.xpPerHour,1), fmt(r.allLootPerHour,1), fmt(r.rewardsPerStam,2),
-      fmt(r.mcAvgFloor,2), fmt(r.targetPct,1)+"%", fmt(r.p10,1),fmt(r.p50,1),fmt(r.p90,1)];
-    for(const c of cells){ const td=document.createElement("td"); td.textContent=c; tr.appendChild(td); }
+    const mk=(val,req)=>{ const td=document.createElement("td"); td.textContent=val;
+      if(req){ td.className=req===2?"req-a2":"req-a1"; if(asc<req) td.style.display="none"; }
+      tr.appendChild(td); };
+    mk(r.simRank); mk(r.detRank);
+    mk(s.S); mk(s.A); mk(s.P); mk(s.I); mk(s.L); mk(s.D||0,1); mk(s.C||0,2);
+    mk(fmt(r.rewardsPerHour,1)); mk(fmt(r.rewardsPerTick,3)); mk(fmt(r.blocksPerHour,1));
+    mk(fmt(r.xpPerHour,1)); mk(fmt(r.allLootPerHour,1)); mk(fmt(r.rewardsPerStam,2));
+    mk(fmt(r.mcAvgFloor,2)); mk(fmt(r.targetPct,1)+"%"); mk(fmt(r.p10,1)); mk(fmt(r.p50,1)); mk(fmt(r.p90,1));
     tbody.appendChild(tr);
   });
   document.querySelectorAll("#monteRerankTable th[data-sort]").forEach(th=>{
@@ -3176,7 +3181,20 @@ async function runCustomSim(){
   window.__customSimResult = {seed:simRng.seed, runs, ...row};
   const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
   set("customBuild", buildLabel(stats));
-  set("customPerHour", fmt(row.rewardsPerHour,1));
+  // Report the same primary (and secondary) goal score the optimizer ranks by,
+  // so a manually simulated build is judged under the chosen goal rules.
+  const cand=simCandidate(stats, row, inp);
+  const pk=primaryFocusKey(inp), sk=secondaryFocusKey(inp);
+  const goalLabel=k=> k==="target" ? "Target hit chance" : rewardFocusLabel(k)+" / real-time hour";
+  const goalValue=(k,metric)=> k==="target" ? fmt(row.targetPct,1)+"%" : fmt(metric,1);
+  set("customPrimaryLabel", goalLabel(pk));
+  set("customPerHour", goalValue(pk, cand.primaryMetric));
+  const secEl=document.getElementById("customSecondaryMetric");
+  if(sk && sk!=="none"){
+    set("customSecondaryLabel", goalLabel(sk)+" (secondary)");
+    set("customSecondary", goalValue(sk, cand.secondaryMetric));
+    if(secEl) secEl.style.display="";
+  } else if(secEl){ secEl.style.display="none"; }
   set("customPerTick", fmt(row.rewardsPerTick,3));
   set("customFloor", fmt(row.mcAvgFloor,2));
   set("customTarget", fmt(row.targetPct,1)+"%");
