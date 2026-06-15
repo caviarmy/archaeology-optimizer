@@ -2761,7 +2761,10 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
   const instacharge = clamp(inp.base?.instacharge || 0, 0, 0.99);
   for(const k of ["enrage","flurry","quake"]){
     const a = A[k] || {};
-    sched[k] = {on:!!a.on, charges:Math.max(0,a.charges||0), cooldown:Math.max(0.01,(a.cooldown||1)), nextAt:0, left:0, a};
+    const cd = Math.max(0.01,(a.cooldown||1));
+    // Start each ability at a random point in its cooldown: a player never begins
+    // a dig with every cooldown up, so don't hand floor 1 a free cast of each.
+    sched[k] = {on:!!a.on, charges:Math.max(0,a.charges||0), cooldown:cd, nextAt:rng()*cd, left:0, a};
   }
   function tryCast(){
     for(const k of ["enrage","flurry","quake"]){
