@@ -333,11 +333,20 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .sanity-link::before{content:"?";display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;line-height:14px;text-align:center;text-decoration:none}
 .sanity-backdrop{position:fixed;inset:0;background:transparent;z-index:60}
 .sanity-bubble{position:fixed;z-index:61;max-width:340px;width:calc(100vw - 28px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(16,24,40,.18);padding:12px 14px 13px}
-.sanity-bubble h4{margin:0 26px 6px 0;font-size:13.5px}
+.sanity-bubble h4{margin:0 26px 2px 0;font-size:13.5px}
+.sanity-bubble .sub{margin:0 0 4px;font-size:11.5px;color:var(--muted)}
 .sanity-bubble .sanity-close{position:absolute;top:8px;right:9px;background:none;border:0;color:var(--muted);font-size:16px;font-weight:800;line-height:1;padding:2px;cursor:pointer}
-.sanity-bubble ul{margin:6px 0 0;padding-left:18px}
-.sanity-bubble li{margin:6px 0;font-size:12.5px;line-height:1.4;color:var(--ink)}
-.sanity-bubble li b{color:var(--ink)}
+.sanity-items{display:flex;flex-direction:column;gap:3px;margin-top:6px}
+.sanity-item{display:block;width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:6px 24px 6px 8px;font-weight:400;font-size:12.5px;line-height:1.35;color:var(--ink);cursor:pointer;position:relative}
+.sanity-item:hover{background:var(--soft)}
+.sanity-item::after{content:"\203A";position:absolute;right:10px;top:8px;color:var(--muted);font-size:15px}
+.sanity-item .t b{font-weight:800}
+.sanity-item .sanity-state{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+.sanity-item.flag{background:#fff7ed}
+.sanity-item.flag:hover{background:#ffedd5}
+.sanity-item.flag .sanity-state{color:#b42318;font-weight:700}
+.sanity-target-flash{animation:sanityFlash 1.7s ease-out}
+@keyframes sanityFlash{0%,55%{box-shadow:0 0 0 3px #fde68a;border-radius:6px}100%{box-shadow:0 0 0 3px transparent}}
 
 </style>
 </head>
@@ -4576,24 +4585,61 @@ if ("serviceWorker" in navigator) {
 <div id="sanityBackdrop" class="sanity-backdrop" hidden></div>
 <div id="sanityBubble" class="sanity-bubble" role="dialog" aria-label="Common things to check" hidden>
   <button type="button" class="sanity-close" id="sanityClose" aria-label="Close">&times;</button>
-  <h4>Quick checks if a build looks off</h4>
-  <ul>
-    <li><b>Ascension.</b> Set it to match your account. At 0, Divinity and Corruption are left out; choose 1 or 2 if you have ascended.</li>
-    <li><b>Base stats vs attribute points.</b> Enter your stats as they read with zero attribute points spent, because the tool assigns the points itself. If your in-game stats screen already has points in it, switch to "I have spent attribute points" and enter them, so they are not counted twice.</li>
-    <li><b>+5 Stat Point Caps.</b> If you own this upgrade, turn it on so the search can fill the higher caps.</li>
-    <li><b>Attribute and damage upgrades.</b> Set the upgrade levels that change what each point gives (Strength, Corruption, Divinity), and the bonus damage and armor-pen percents.</li>
-    <li><b>Cards.</b> Set each card to owned, infernal, or none.</li>
-    <li><b>Infernal multiplier.</b> Enter your Archaeology infernal multiplier (leave it at 1 if you have none).</li>
-    <li><b>Polychrome card bonus.</b> If you own it, toggle it on (+15%).</li>
-  </ul>
+  <h4>Build look off?</h4>
+  <p class="sub">Tap an item to jump to its setting.</p>
+  <div class="sanity-items">
+    <button type="button" class="sanity-item" data-check="ascension"><span class="t"><b>Ascension</b> set right? At 0, Divinity and Corruption are off.</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="basestats"><span class="t"><b>Attributes at 0?</b> Enter or screenshot-import your stats with no points spent. If points are already in them, switch to spent-points mode so they are not double-counted.</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="statcap"><span class="t"><b>+5 Stat Caps</b> on, if you own it.</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="upgrades"><span class="t"><b>Upgrades set?</b> Per-attribute and bonus damage / armor-pen levels.</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="cards"><span class="t"><b>Cards set?</b> Owned, infernal, or none.</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="infernal"><span class="t"><b>Infernal multiplier</b> entered? Use 1 if you have none.</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="polychrome"><span class="t"><b>Polychrome bonus</b> on, if you own it.</span><span class="sanity-state"></span></button>
+  </div>
 </div>
 <script>
 (function(){
   var bubble=document.getElementById("sanityBubble");
   var backdrop=document.getElementById("sanityBackdrop");
   if(!bubble||!backdrop) return;
+  // Where each item lives: an element on the main page, or a field inside a settings section.
+  var MAP={
+    ascension:{el:"ascension"},
+    basestats:{section:"settings-base", field:"baseStatModeZero"},
+    statcap:{section:"settings-upgrades", field:"statCapBonus"},
+    upgrades:{section:"settings-upgrades", field:"modStrA0"},
+    cards:{section:"settings-cards", field:"cardBulkRarity"},
+    infernal:{section:"settings-cards", field:"archInfernalMult"},
+    polychrome:{section:"settings-cards", field:"polyUpgrade"}
+  };
+  function gid(id){ return document.getElementById(id); }
+  function val(id){ var e=gid(id); return e?e.value:""; }
+  function chk(id){ var e=gid(id); return !!(e&&e.checked); }
+  function num(id){ return parseFloat(val(id))||0; }
+  function flash(el){ if(!el) return; el.classList.remove("sanity-target-flash"); void el.offsetWidth; el.classList.add("sanity-target-flash"); try{ el.focus({preventScroll:true}); }catch(_e){} }
   function close(){ bubble.hidden=true; backdrop.hidden=true; }
+  // Inspect the current inputs so each item shows its state and obvious gaps are flagged.
+  function refresh(){
+    var cardsActive=0;
+    document.querySelectorAll('input[type=hidden][id^="card_t"]').forEach(function(i){ if(i.value && i.value!=="none") cardsActive++; });
+    var upg=["modStrA0","modStrA1","modCorrA2","modDivA2","bonusDmgArpenA0","bonusDmgExpA1","bonusArpenCdA0"].reduce(function(t,id){return t+num(id);},0);
+    var state={
+      ascension:{txt:"Currently A"+(val("ascension")||"0"), flag:(val("ascension")||"0")==="0"},
+      basestats:{txt:chk("baseStatModeSpent")?"Mode: spent points":"Mode: attributes at 0", flag:false},
+      statcap:{txt:chk("statCapBonus")?"On":"Off", flag:false},
+      upgrades:{txt:upg>0?"Levels set":"All levels 0", flag:upg===0},
+      cards:{txt:cardsActive>0?(cardsActive+" active"):"None set", flag:cardsActive===0},
+      infernal:{txt:"x"+(val("archInfernalMult")||"1"), flag:false},
+      polychrome:{txt:chk("polyUpgrade")?"On":"Off", flag:false}
+    };
+    bubble.querySelectorAll(".sanity-item").forEach(function(it){
+      var s=state[it.dataset.check]; if(!s) return;
+      it.classList.toggle("flag", !!s.flag);
+      var sp=it.querySelector(".sanity-state"); if(sp) sp.textContent=s.txt;
+    });
+  }
   function openAt(trigger){
+    refresh();
     bubble.hidden=false; backdrop.hidden=false;
     var r=trigger.getBoundingClientRect();
     var bw=bubble.offsetWidth, bh=bubble.offsetHeight;
@@ -4602,14 +4648,22 @@ if ("serviceWorker" in navigator) {
     if(top+bh > window.innerHeight-10) top=Math.max(10, r.top-bh-8);
     bubble.style.left=left+"px"; bubble.style.top=top+"px";
   }
+  function reveal(el, smooth){ if(!el) return; if(el.scrollIntoView) el.scrollIntoView({block:"center", behavior:smooth?"smooth":"auto"}); flash(el); }
+  function jump(check){
+    var m=MAP[check]; close(); if(!m) return;
+    if(m.el){ reveal(gid(m.el), true); return; }
+    if(typeof window.openSettings==="function") window.openSettings(m.section);
+    // openSettings shows a group's first tab; force the exact section (e.g. Upgrades).
+    if(typeof window.activateSettingsSection==="function") window.activateSettingsSection(m.section);
+    setTimeout(function(){ reveal(gid(m.field)||gid(m.section), false); }, 80);
+  }
   document.querySelectorAll("[data-sanity]").forEach(function(btn){
-    btn.addEventListener("click", function(e){
-      e.preventDefault();
-      if(!bubble.hidden){ close(); return; }
-      openAt(btn);
-    });
+    btn.addEventListener("click", function(e){ e.preventDefault(); if(!bubble.hidden){ close(); return; } openAt(btn); });
   });
-  document.getElementById("sanityClose").addEventListener("click", close);
+  bubble.querySelectorAll(".sanity-item").forEach(function(it){
+    it.addEventListener("click", function(){ jump(it.dataset.check); });
+  });
+  gid("sanityClose").addEventListener("click", close);
   backdrop.addEventListener("click", close);
   window.addEventListener("keydown", function(e){ if(e.key==="Escape") close(); });
   window.addEventListener("scroll", close, true);
