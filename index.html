@@ -1768,7 +1768,9 @@ function getDerived(stats, inp){
   // alive on the floor. quakeUptime = fraction of swings that are Quake-active.
   const qk = inp.abilities?.quake;
   const quakeOn = !!(qk && qk.on);
-  const quakeShare = quakeOn ? damage * ((qk.dmgPct || 0) / 100) : 0;
+  // Quake's AoE rides the player's damage; when Enrage overlaps it shares the same
+  // additive damage% boost, so use the Enrage-uptime-averaged damage (evDamage).
+  const quakeShare = quakeOn ? evDamage * ((qk.dmgPct || 0) / 100) : 0;
   const quakeUptime = quakeOn ? Math.min(1, (qk.charges || 0) / Math.max(1e-9, atkSpd * (qk.cooldown || 1) * (1 - icCd))) : 0;
   // Flurry: refunds stamina on each cast. Casts scale with swings (real-time cd), so
   // this is stamina returned per player swing. (Its speed buff only shifts timing.)
@@ -2893,7 +2895,9 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
         const hitDmg = dmg * rollCritMult(rng, der.critChance, cdmg, der.superChance, der.superDamage, der.ultraChance, der.ultraDamage);
         node.hp -= Math.max(0, hitDmg - node.armor);
         if(qk){
-          const share = der.damage * ((sched.quake.a.dmgPct||0)/100); // % of base damage to all blocks
+          // Quake AoE is a % of the swing's damage; when Enrage is also up it rides
+          // the same additive damage% boost (dmg already includes it on this swing).
+          const share = dmg * ((sched.quake.a.dmgPct||0)/100);
           for(const o of nodes){ if(o!==node && !o.cleared){ o.hp -= share; if(o.hp<=0) clearNode(o); } }
         }
         // Speed mod multiplies attack rate while a speed-modded block is up (uses the
