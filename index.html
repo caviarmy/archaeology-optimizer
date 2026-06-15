@@ -178,6 +178,9 @@ summary{font-weight:900;cursor:pointer;color:#344054}
 .card-tier-options input[type="radio"]{accent-color:var(--accent)}
 .card-field .small{margin-top:4px}
 .inf-eff{color:var(--muted)}
+.card-tier-header{grid-column:1/-1;font-weight:800;color:var(--accent);font-size:12px;letter-spacing:.5px;text-transform:uppercase;margin:8px 0 0;padding-top:8px;border-top:1px solid var(--line)}
+.card-tier-header:first-child{margin-top:0;padding-top:0;border-top:0}
+#cardSettingsGrid{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
 
 /* v25: force the primary tolerance field to be a compact 3-character control */
 .goal-card .protection-options .tolerance-option{
@@ -970,7 +973,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.15.2";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.15.3";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1314,11 +1317,18 @@ function syncCardField(key){
 function populateCardSettings(){
   const grid = document.getElementById("cardSettingsGrid");
   if(!grid || grid.dataset.ready==="1") return;
-  grid.innerHTML = ARCHAEOLOGY_CARD_KEYS.map(c => `
+  let _lastTier=null;
+  grid.innerHTML = ARCHAEOLOGY_CARD_KEYS.map(c => {
+    const m = /^t(\d)_(.+)$/.exec(c.key);
+    const tier = m ? m[1] : "";
+    const rarity = m ? m[2].charAt(0).toUpperCase()+m[2].slice(1) : c.label;
+    let head = "";
+    if(tier !== _lastTier){ _lastTier = tier; head = `<div class="card-tier-header${tier==='4'?' req-a2':''}">Tier ${tier} cards</div>`; }
+    return head + `
     <div class="card-field ${cardGateClass(c.key)}">
       <label class="card-toggle-head">
         <input type="checkbox" id="card_enabled_${c.key}">
-        <span>${c.label} card</span>
+        <span>${rarity}</span>
       </label>
       <input type="hidden" id="${cardSettingId(c.key)}" value="none">
       <div class="card-tier-options" id="card_options_${c.key}">
@@ -1327,8 +1337,8 @@ function populateCardSettings(){
         <label><input type="radio" name="card_state_${c.key}" value="polychrome">Polychrome</label>
         <label class="req-a2"><input type="radio" name="card_state_${c.key}" value="infernal">Infernal <span class="inf-eff" id="inf_eff_${c.key}"></span></label>
       </div>
-    </div>
-  `).join("");
+    </div>`;
+  }).join("");
   ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
     const cb = document.getElementById(`card_enabled_${c.key}`);
     const radios = Array.from(document.querySelectorAll(`input[name="card_state_${c.key}"]`));
