@@ -722,7 +722,9 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         </div>
         <p class="small" style="margin-top:6px">These are the % buffs (damage / armor pen) only. The rest of each upgrade is already in your entered stats.</p>
         <details class="up-help"><summary>Where's the rest of my upgrades?</summary>
-          <p class="small">We only need to grab upgrades that give a percentage buff not shown on the stats page. Everything else is already accounted for in your stats page!</p>
+          <p class="small">Two kinds of upgrade aren't captured by your stats-page totals, so enter them above:</p>
+          <p class="small"><strong>Attribute modifiers (Skill Buffs)</strong> change what each point of a stat is worth — e.g. the Strength Skill Buff adds +0.2 flat damage and +0.1% damage to every Strength point per level, and there are buffs for Agility, Perception, Intellect, Divinity, and Corruption too. Your stats page shows the resulting totals, not the per-point rate, so the optimizer needs your buff levels to value adding or removing a point correctly.</p>
+          <p class="small"><strong>Damage % / armor-pen % bonuses</strong> are percentage buffs that don't appear on the stats page. Everything else is already accounted for in your entered stats!</p>
         </details>
       </section>
 
