@@ -2643,7 +2643,8 @@ async function simGuidedSearch(inp, blocks, level, status){
   const guaranteedSeeds = seeds.length;   // core EV + corners + even split always run; the rest are budget-bound
   evSeeds.slice(12).forEach(s=>seeds.push(s));             // remaining EV seeds
   for(let r=0;r<16;r++) seeds.push(fill(keys.slice().sort(()=>Math.random()-0.5)));  // random restarts
-  // Multi-start hill-climb on the simulated objective (shift one point between stats).
+  // Multi-start hill-climb on the simulated objective (shift one point between
+  // stats). Returns the local-optimum endpoint the climb settles on.
   const climb = (seed)=>{
     let cur={}; for(const k of keys) cur[k]=seed[k]||0;
     let curV=fit(cur).v, guard=0;
@@ -2657,17 +2658,32 @@ async function simGuidedSearch(inp, blocks, level, status){
         } }
       if(!bestA) break; cur=bestA; curV=bestV;
     }
+    return cur;
   };
+  const endpointKeys = new Set();
   const t0=performance.now();
   for(let i=0;i<seeds.length;i++){
-    climb(seeds[i]);
+    const end = climb(seeds[i]);
+    endpointKeys.add(keys.map(k=>end[k]||0).join(","));
     const elapsed=performance.now()-t0;
     if(status) showStatus(`Searching (simulated, ${K} runs/build)… ${i+1}/${seeds.length} starts, ${cache.size.toLocaleString()} builds tried.`, 30000);
     await new Promise(r=>setTimeout(r,0));
     if(elapsed>BUDGET_MS && i+1>=guaranteedSeeds) break;   // EV/corner seeds always run; then honor the budget
   }
   const topLimit = Math.max(10, inp.mcTopCount);
-  const finalists = [...cache.values()].sort((a,b)=>b.v-a.v).slice(0, topLimit).map(c=>simCandidate(c.st, c.row, inp));
+  // The per-build climb value used only K runs, so its ranking is noisy and the
+  // true best can sit deep in it (a small "Top builds to keep" would then drop it
+  // before Simulate ever sees it). The distinct local optima are few, so re-score
+  // each at higher fidelity (common random numbers) and put them at the front of
+  // the finalists — that lets the best survive the keep-cut at any keep count.
+  const K2 = Math.min(256, Math.max(K*3, 96));
+  const stFromKey = kk=>{ const st={S:0,A:0,P:0,I:0,L:0,D:0,C:0}; kk.split(",").forEach((v,idx)=>{ st[keys[idx]]=+v||0; }); return st; };
+  const refined = [...endpointKeys].map(kk=>{ const st=stFromKey(kk); const row=aggregateBuildSim(st, inp, blocks, K2, newRng()); return {st, row, v:simFocusValue(row, inp)}; });
+  refined.sort((a,b)=>b.v-a.v);
+  const finalists=[]; const seen=new Set();
+  const add=(st,row)=>{ const k=keys.map(x=>st[x]||0).join(","); if(seen.has(k)||finalists.length>=topLimit) return; seen.add(k); finalists.push(simCandidate(st,row,inp)); };
+  refined.forEach(e=>add(e.st, e.row));                                  // local optima first (high-fidelity scored)
+  [...cache.values()].sort((a,b)=>b.v-a.v).forEach(c=>add(c.st, c.row)); // then fill from the climb cache
   rankCandidates(finalists, inp);   // apply secondary/tolerance ordering over the finalists
   return {topBuilds: finalists, count: cache.size};
 }
