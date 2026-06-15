@@ -73,14 +73,16 @@ SIM CONSTRAINTS BUILDS COMPETE UNDER
 - Stamina caps how many hits a run gets (Agility adds stamina; Corruption trades stamina for damage). Too little damage means you cannot break deep blocks before stamina runs out.
 - Each block has armor that subtracts from every hit; armor penetration (Perception flat, Intellect percent) keeps hits landing on deeper and ascended (divine/corrupt) blocks. Without enough pen, extra damage is wasted against armor and deep floors stall.
 - Rewards scale with mod chance/gain: XP via Intellect (+Luck), loot via Perception (+Luck); Corruption raises all mod-gain multipliers; crit/super-crit raise per-hit output; gleaming/gold-crosshair add reward multipliers.
+- TWO ENGINES OF REWARD. You earn either by clearing MORE blocks (Strength damage + Agility stamina reach more blocks and deeper floors, raising blocksPerHour) or by earning MORE PER block (Luck/Perception/Intellect raise loot- and XP-mod chance and gold crosshairs, raising rewardsPerStam). A build can clear far fewer blocks (lower blocksPerHour, shallower floorReached) yet nearly match or even beat the winner on the goal by earning more per block. Always read blocksPerHour against rewardsPerHour and rewardsPerStam before concluding why a build ranks where it does.
 
-YOU ARE GIVEN: the player's parsed inputs and upgrades; "simulation.heroCard" (the winning build and its simulated scores); "simulation.topResults" (the top simulated builds, best first, each with its stat distribution and simulated scores/metrics); and "estimate.topBuilds" (the EV pre-ranking). Compare using the SIMULATED results.
+YOU ARE GIVEN: the player's parsed inputs and upgrades; "simulation.heroCard" (the winning build and its simulated scores); "simulation.topResults" — NOT the top-N near-duplicates, but the winner PLUS the best representative of each STRATEGICALLY DIFFERENT build, so genuinely different distributions are present to compare; each carries stats, simRank, rewardsPerHour, rewardsPerStam, blocksPerHour, xpPerHour, allLootPerHour, and floorReached; and "estimate.topBuilds" (the EV pre-ranking). Compare using the SIMULATED results.
 
-WRITE (plain text only — no markdown, no asterisks, no "#"; ~6-9 sentences or "- " bullets):
-1. Why THIS distribution performed best for the chosen goal: name the 2-3 attributes carrying it and the exact mechanism, tying to the stat effects and sim constraints above.
-2. Why alternatives that favor DIFFERENT attributes scored lower: reference one or two specific runner-ups from the simulated results, their attribute tilt, and what they gave up (e.g. "more Strength, but armor was already eating your hits so the extra damage was wasted", or "more Agility for more hits, but not enough damage to break deep blocks for their bigger rewards").
-3. One concrete trade-off or takeaway for the player.
-Speak to the player as "you". Reference at most a few key numbers; never dump the JSON. If there is no completed build/run in the data, say so and tell them to run the estimate (and Simulate) first.`;
+WRITE (plain text only — no markdown, no asterisks, no "#"; ~7-10 sentences or "- " bullets):
+1. Why THIS distribution wins for the chosen goal: name the 2-3 attributes carrying it and the exact mechanism, citing a couple of its real numbers.
+2. Contrast it with the most DIFFERENT high-ranking build in topResults (e.g. a Luck- or Agility-tilted one) using the two-engines split with real numbers: e.g. "the Luck build at rank N clears X% fewer blocks and stops a floor shallower, yet lands within Y% of the goal because it earns more per block and per stamina" — then say what finally keeps it behind, or, if it is essentially tied, that it is a near-equal alternative. Choose a build that genuinely favors different stats, never a clone of the winner.
+3. Bust the myth. Players assume one stat is universally best ("Luck is always best") or useless ("Agility is always bad"). Use THIS run's ranked results to show it is situational: why the doubted stat is competitive here, or exactly what it gives up. Make no absolute claims like "X is always best" — tie every judgment to the numbers in front of you.
+4. One concrete takeaway for the player.
+Speak to the player as "you". Reference real numbers from the data (blocksPerHour, rewardsPerHour, rewardsPerStam, floorReached), but never dump the JSON. If there is no completed build/run in the data, say so and tell them to run the estimate and Simulate first.`;
 
 function corsHeaders(env, request) {
   const origin = request.headers.get("Origin") || "";
