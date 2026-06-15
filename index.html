@@ -3237,11 +3237,24 @@ function buildDebugForAI(){
   try{
     const r=window.__simResults;
     if(Array.isArray(r) && r.length){
-      simTop = r.slice()
-        .sort((a,b)=>(b.rewardsPerHour||0)-(a.rewardsPerHour||0))
-        .slice(0,8)
-        .map(x=>({ stats:x.stats, rewardsPerHour:x.rewardsPerHour, rewardsPerTick:x.rewardsPerTick,
-                   floorReached:(x.floorReached!=null?x.floorReached:x.mcAvgFloor), metrics:x.metrics, simRank:x.simRank }));
+      const pick=x=>({ stats:x.stats, simRank:x.simRank,
+        rewardsPerHour:x.rewardsPerHour, rewardsPerStam:x.rewardsPerStam,
+        blocksPerHour:x.blocksPerHour, xpPerHour:x.xpPerHour, allLootPerHour:x.allLootPerHour,
+        floorReached:(x.floorReached!=null?x.floorReached:x.mcAvgFloor) });
+      const ATTRS=["S","A","P","I","L","D","C"];
+      const dist=(a,b)=>ATTRS.reduce((s,k)=>s+Math.abs(((a&&a[k])||0)-((b&&b[k])||0)),0);
+      const byRank=r.slice().sort((a,b)=>((a.simRank||1e9)-(b.simRank||1e9)) || ((b.rewardsPerHour||0)-(a.rewardsPerHour||0)));
+      // The top builds by reward are usually near-duplicates of the winner, which
+      // gives the AI nothing to contrast. Instead send the winner plus the best
+      // representative of each STRATEGICALLY DIFFERENT build, so it can explain
+      // why a very different distribution (e.g. heavy Luck) competes or falls short.
+      const chosen=[byRank[0]];
+      const fill=(thresh,cap)=>{ for(const x of byRank){ if(chosen.length>=cap) break;
+        if(chosen.indexOf(x)===-1 && chosen.every(c=>dist(c.stats,x.stats)>=thresh)) chosen.push(x); } };
+      fill(10,6);   // distinct strategies first (>=10 stat points apart)
+      fill(5,6);    // then fill remaining slots with the next most-different builds
+      chosen.sort((a,b)=>(a.simRank||1e9)-(b.simRank||1e9));
+      simTop=chosen.map(pick);
     }
   }catch(_e){}
   return {
