@@ -52,11 +52,11 @@ Return ONLY the JSON object.`;
 
 // Text-only "diagnose" prompt. The app POSTs { action:"explain", debug:{...} }
 // (a trimmed export from the optimizer) and gets back { explanation: "..." }.
-const EXPLAIN_PROMPT = `You are explaining the result of a build optimizer for the idle game "Idle Obelisk Miner: Archaeology" to a player.
+const EXPLAIN_PROMPT = `You are explaining a build optimizer's result for the idle game "Idle Obelisk Miner: Archaeology" to a player. Reason from the data in front of you; derive the answer from how builds are scored and from the numbers given. Do not recite a fixed story or assume any stat is best or worst.
 
-WHAT THE OPTIMIZER DID
-- The player has a fixed pool of stat points (from their Archaeology Level) to spend across the stats below, each capped. The tool searched distributions and SCORED each by running a Monte-Carlo SIMULATION of real archaeology runs (many runs on shared random rolls), then reported the distribution with the best average for the player's chosen goal. The ranking is the simulation's verdict, not a damage heuristic.
-- The goal is in "objective": total = loot value + XP per hour; xp = XP per hour; target = chance to reach a target floor. Explain everything in terms of THAT goal.
+HOW BUILDS ARE SCORED (the value function)
+- The player has a fixed pool of capped stat points (from their Archaeology Level) to spread across the stats below. The tool ran a Monte-Carlo SIMULATION of real runs for every distribution (shared random rolls) and ranked them. The ranking is the simulation's verdict, not a damage heuristic.
+- Judge every build by the player's goal, read from the data: the primary goal is the metric being maximized; a secondary goal, if set, is a second metric protected within a tolerance (a build that wins on primary but drops the protected secondary past tolerance is penalized); "objective" can be total (loot value + XP per hour), xp (XP per hour), or target (chance to reach a target floor). Explain everything in terms of THESE goals.
 
 WHAT EACH STAT POINT GIVES (base per point, before upgrades; cap in parentheses)
 - Strength (50): +1 flat damage, +1% damage, +3% crit damage
@@ -73,16 +73,18 @@ SIM CONSTRAINTS BUILDS COMPETE UNDER
 - Stamina caps how many hits a run gets (Agility adds stamina; Corruption trades stamina for damage). Too little damage means you cannot break deep blocks before stamina runs out.
 - Each block has armor that subtracts from every hit; armor penetration (Perception flat, Intellect percent) keeps hits landing on deeper and ascended (divine/corrupt) blocks. Without enough pen, extra damage is wasted against armor and deep floors stall.
 - Rewards scale with mod chance/gain: XP via Intellect (+Luck), loot via Perception (+Luck); Corruption raises all mod-gain multipliers; crit/super-crit raise per-hit output; gleaming/gold-crosshair add reward multipliers.
-- TWO ENGINES OF REWARD. You earn either by clearing MORE blocks (Strength damage + Agility stamina reach more blocks and deeper floors, raising blocksPerHour) or by earning MORE PER block (Luck/Perception/Intellect raise loot- and XP-mod chance and gold crosshairs, raising rewardsPerStam). A build can clear far fewer blocks (lower blocksPerHour, shallower floorReached) yet nearly match or even beat the winner on the goal by earning more per block. Always read blocksPerHour against rewardsPerHour and rewardsPerStam before concluding why a build ranks where it does.
+- Reward over a run is, in effect, how many blocks you clear times how much each is worth. The per-build metrics expose both sides — blocksPerHour and floorReached (how many blocks, how deep) versus rewardsPerStam, xpPerHour and allLootPerHour (how much each block and each point of stamina yields), with rewardsPerHour combining them. Work out from the numbers which side is carrying each build; do not assume one matters more.
+A high-scoring build is one whose qualities clear the hurdles that matter for the player's goal; a lower-scoring one falls short on at least one of them.
 
-YOU ARE GIVEN: the player's parsed inputs and upgrades; "simulation.heroCard" (the winning build and its simulated scores); "simulation.topResults" — NOT the top-N near-duplicates, but the winner PLUS the best representative of each STRATEGICALLY DIFFERENT build, so genuinely different distributions are present to compare; each carries stats, simRank, rewardsPerHour, rewardsPerStam, blocksPerHour, xpPerHour, allLootPerHour, and floorReached; and "estimate.topBuilds" (the EV pre-ranking). Compare using the SIMULATED results.
+YOU ARE GIVEN: the player's parsed inputs, upgrades, and goals; "simulation.heroCard" (the winning build and its simulated scores); "simulation.topResults" — the winner PLUS the best representative of each strategically different distribution (so genuinely different builds are present to compare), each carrying stats, simRank, rewardsPerHour, rewardsPerStam, blocksPerHour, xpPerHour, allLootPerHour and floorReached; and "estimate.topBuilds" (the EV pre-ranking). Compare using the SIMULATED results.
 
-WRITE (plain text only — no markdown, no asterisks, no "#"; ~7-10 sentences or "- " bullets):
-1. Why THIS distribution wins for the chosen goal: name the 2-3 attributes carrying it and the exact mechanism, citing a couple of its real numbers.
-2. Contrast it with the most DIFFERENT high-ranking build in topResults (e.g. a Luck- or Agility-tilted one) using the two-engines split with real numbers: e.g. "the Luck build at rank N clears X% fewer blocks and stops a floor shallower, yet lands within Y% of the goal because it earns more per block and per stamina" — then say what finally keeps it behind, or, if it is essentially tied, that it is a near-equal alternative. Choose a build that genuinely favors different stats, never a clone of the winner.
-3. Bust the myth. Players assume one stat is universally best ("Luck is always best") or useless ("Agility is always bad"). Use THIS run's ranked results to show it is situational: why the doubted stat is competitive here, or exactly what it gives up. Make no absolute claims like "X is always best" — tie every judgment to the numbers in front of you.
-4. One concrete takeaway for the player.
-Speak to the player as "you". Reference real numbers from the data (blocksPerHour, rewardsPerHour, rewardsPerStam, floorReached), but never dump the JSON. If there is no completed build/run in the data, say so and tell them to run the estimate and Simulate first.`;
+YOUR TASK — solve for the why, from the data, not from a template:
+- Work out which qualities the rank-1 build has that the player's goal rewards and that let it clear the hurdles above, and back each point with its own numbers.
+- Then take the genuinely different candidates given and, for each you discuss, reason from ITS stats and metrics why it ranks where it does: which qualities it has more or less of, which hurdle it clears better or worse, and how that nets out against the goal. Let the numbers decide whether a very different build is a near-equal alternative or clearly behind — do not pre-judge by which stat it favors.
+- If a player might over-generalize that a stat is always best or always useless, correct it only by showing, from THIS run, why the outcome is situational; never make blanket claims.
+- End with one concrete takeaway.
+
+WRITE plain text only (no markdown, asterisks, or "#"), about 7-10 sentences or "- " bullets, addressed to the player as "you". Cite real numbers from the data; never dump the JSON. If there is no completed build or run, say so and tell them to run Estimate then Simulate first.`;
 
 function corsHeaders(env, request) {
   const origin = request.headers.get("Origin") || "";

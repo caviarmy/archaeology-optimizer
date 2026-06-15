@@ -3259,7 +3259,10 @@ function buildDebugForAI(){
   }catch(_e){}
   return {
     app:{version:d.app && d.app.version},
-    objective:d.inputs && d.inputs.objective,
+    goals:{ primaryGoal:d.inputs&&d.inputs.primaryGoal, secondaryGoal:d.inputs&&d.inputs.secondaryGoal,
+            primaryProtectionStrict:d.inputs&&d.inputs.primaryProtectionStrict,
+            primaryToleranceValue:d.inputs&&d.inputs.primaryToleranceValue,
+            objective:d.inputs&&d.inputs.objective, targetFloor:d.inputs&&d.inputs.targetFloor },
     ascension:d.inputs && d.inputs.ascension,
     parsedInputs:d.parsedInputs,
     estimate:d.estimate,
