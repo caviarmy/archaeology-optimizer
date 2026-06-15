@@ -2755,20 +2755,25 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
   // skipped, so with all abilities off this reduces to plain attacks.
   const A = inp.abilities || {};
   const sched = {};
-  // Instacharge: each ability use has this chance to instantly refund its
-  // cooldown, so the effective cooldown is cooldown*(1-p) (more uptime).
+  // Instacharge: each ability use has this chance to instantly reset its cooldown
+  // and recast at once. Charges ACCUMULATE across the burst (a 5-charge ability
+  // that double-casts grants 10), and the chain continues while it keeps procing.
   const instacharge = clamp(inp.base?.instacharge || 0, 0, 0.99);
   for(const k of ["enrage","flurry","quake"]){
     const a = A[k] || {};
-    sched[k] = {on:!!a.on, charges:Math.max(0,a.charges||0), cooldown:Math.max(0.01,(a.cooldown||1)*(1-instacharge)), nextAt:0, left:0, a};
+    sched[k] = {on:!!a.on, charges:Math.max(0,a.charges||0), cooldown:Math.max(0.01,(a.cooldown||1)), nextAt:0, left:0, a};
   }
   function tryCast(){
     for(const k of ["enrage","flurry","quake"]){
       const s = sched[k];
       if(s.on && timeSec >= s.nextAt){
-        s.left = s.charges;
+        // On an instacharge proc the cooldown resets to 0 and the ability recasts
+        // immediately, stacking another set of charges on top of what's left.
+        do {
+          s.left += s.charges;
+          if(k === "flurry") stamina = Math.min(der.stamina, stamina + (s.a.staminaOnCast || 0));
+        } while(instacharge > 0 && rng() < instacharge);
         s.nextAt = timeSec + s.cooldown;
-        if(k === "flurry") stamina = Math.min(der.stamina, stamina + (s.a.staminaOnCast || 0));
       }
     }
   }
