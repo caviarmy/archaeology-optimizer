@@ -68,6 +68,7 @@
   <li><a href="#cards">Cards and infernal buffs</a></li>
   <li><a href="#optimizer">The optimizer</a></li>
   <li><a href="#sim">The simulation</a></li>
+  <li><a href="#accuracy">Finding the best build</a></li>
   <li><a href="#testmath">Test the math</a></li>
   <li><a href="#sources">Sources</a></li>
   <li><a href="#assumptions">Sourced, method, or estimated</a></li>
@@ -185,7 +186,7 @@ average block reward = base_value * gain_stat * (1 + (mod_gain - 1) * mod_chance
 <h2 id="stamina">9. Stamina and run length</h2>
 <p>Your maximum stamina, after Agility and the Corruption penalty:</p>
 <pre>stamina = (base + 5*AGI) * (1 - 3%*COR)</pre>
-<p>A dig spends stamina block by block: a block costs its average hits in stamina. A stamina mod is separate from that cost — when a block rolls it, clearing the block (by you or a crosshair) refunds stamina to your pool (up to 10 per block), so refunds top up the budget and let the dig reach further. The pool never rises above your max stamina, so a refund while you are near full is partly wasted. When stamina cannot cover the next floor, the dig stops partway through it. A dig always runs as deep as stamina allows. The score is total reward divided by total stamina spent, so a build that earns the same reward for less stamina scores higher.</p>
+<p>A dig spends stamina block by block: a block costs its average hits in stamina. A stamina mod is separate from that cost. When a block rolls it, clearing the block (by you or a crosshair) refunds stamina to your pool (up to 10 per block), so refunds top up the budget and let the dig reach further. The pool never rises above your max stamina, so a refund while you are near full is partly wasted. When stamina cannot cover the next floor, the dig stops partway through it. A dig always runs as deep as stamina allows. The score is total reward divided by total stamina spent, so a build that earns the same reward for less stamina scores higher.</p>
 
 <h2 id="time">10. Two clocks: ticks and real time</h2>
 <p>The tool tracks two clocks at once, and keeping them apart matters.</p>
@@ -203,7 +204,7 @@ average block reward = base_value * gain_stat * (1 + (mod_gain - 1) * mod_chance
 <li><strong>Flurry</strong>: gives back stamina when cast and doubles attack speed for its swings.</li>
 <li><strong>Quake</strong>: the next several swings also deal a share of their damage to every block still alive on the floor.</li>
 </ul>
-<p>The quick score estimates all three so the search can weigh them: Enrage's buff is spread over its uptime, Flurry's cast refund is added back per swing, and Quake's free damage to the other live blocks is credited as fewer of your own swings. Quake's credit is discounted because it fires at random times — the number of blocks still alive when it lands varies, so it rarely catches a full floor. The simulation plays each one out swing by swing.</p>
+<p>The quick score estimates all three so the search can weigh them: Enrage's buff is spread over its uptime, Flurry's cast refund is added back per swing, and Quake's free damage to the other live blocks is credited as fewer of your own swings. Quake's credit is discounted because it fires at random times, so the number of blocks still alive when it lands varies and it rarely catches a full floor. The simulation plays each one out swing by swing.</p>
 <p>Cooldowns run on the real-time clock, so attack speed does not change how often an ability is ready. The buffed swings happen on the tick clock, so faster speed uses up the fixed number of buffed swings sooner. Instacharge is a chance to refund a cooldown when you use an ability, which the tool treats as a shorter cooldown:</p>
 <pre>effective cooldown = cooldown * (1 - instacharge_chance)</pre>
 
@@ -257,7 +258,67 @@ hc, hp = average crosshair hit and player hit damage (hc includes gold)</pre>
 <p>The simulation replays a build many times with random crits, mod rolls, block layouts, abilities, and crosshairs. <strong>Simulate best build</strong> re-ranks the top builds from the search and reports, for each: rewards per real-time hour, rewards per tick, reward per stamina, how deep it reached (the 10th, 50th, and 90th percentile floors), and, for a target floor goal, how often it reached the target. It uses the exact rules, so it is the tie breaker when two builds score close.</p>
 <p>Because a dig restarts at floor 1 with full stamina the moment stamina runs out, there is no idle downtime, so the per-real-time-hour rate is simply one run's total divided by the seconds that run took. This is the one place attack speed matters: faster swings (from attack speed, Flurry, or speed mods) finish a run in fewer seconds and raise the per-hour rate, even though they do not change reward per stamina. The table is sortable by any column (it defaults to rewards per real-time hour), and the Throughput detail breaks the best build down into blocks per hour by tier and rarity, plus XP and loot value per hour.</p>
 
-<h2 id="testmath">16. Test the math</h2>
+<h2 id="accuracy">16. Finding the best build: how close we get</h2>
+<p><strong>Punchline.</strong> On builds small enough to check every option, the full workflow (Estimate then Simulate) returns the exact best build about 43% of the time, a build within 1% of the best about 97% of the time, and on average falls short of the best by 0.2%. On a full end-game build, where checking every option is impossible, it lands within about 0.6% of the best build we can find by any means, on every run. In practice the build it gives you is the best build, or one you could not tell apart from it.</p>
+
+<h3>Why this is hard</h3>
+<p>Your level points split across the stats, each with its own cap. The number of legal builds is the number of ways to write your level as a sum of stat values within those caps:</p>
+<pre>builds = count of  s1 + s2 + ... + sn = level,  with 0 &lt;= si &lt;= cap_i</pre>
+<p>At level 100 with Ascension 2 (caps 50/50/25/25/25/10/10) that is 84,447,352 builds. Far too many to score one by one on a phone.</p>
+<p>It is harder than the count alone says, because a build's reward is not one fixed number. Crits, mod rolls, block layouts, and crosshairs are random, so the only honest score is an average over many simulated runs. Running every build enough times to trust its average would take:</p>
+<pre>time = builds * runs_per_build * seconds_per_run
+     = 84,447,352 * 2500 * 0.0058 s  ~  39 years on one core</pre>
+<p>So the true best build is provable in theory but not in practice. We do not try to. We find it a smarter way, then measure how close we got.</p>
+
+<h3>How the search works</h3>
+<p>Two ideas do most of the work.</p>
+<p><strong>Hill climbing.</strong> Start from a build, then try every move that shifts one point from one stat to another. Keep the move that scores best, and repeat until no single move helps. That walks uphill to the best build in its local area:</p>
+<pre>move:  si = si - 1,  sj = sj + 1     (try every pair of stats i, j)
+keep the move with the highest score; stop when none improves</pre>
+<p>One climb only reaches the top of one hill, so the search starts many climbs from spread-out builds: the math model's top picks, all points in one stat, an even split, and random splits. It keeps the best result of all of them. That is how it avoids settling on a build that is good but not the best.</p>
+<p><strong>Common random numbers.</strong> When comparing two builds, run both on the exact same random rolls. The shared luck cancels out, so the difference you see is the real difference between the builds, not noise. Without this, a worse build can win a comparison just by drawing a lucky legendary. This is the one change that lets the climb trust small differences.</p>
+
+<h3>Spending effort where it counts</h3>
+<p>Each run costs time in proportion to its depth, and deep end-game runs are slow. So the number of runs per build during the search adapts, to keep one build's check near a fixed cost:</p>
+<pre>runs_per_build = clamp( target_ms / per_run_ms ,  8 , 64 )    (target about 120 ms)</pre>
+<p>Clamp means keep the value between the two bounds, here 8 and 64 runs. Low levels get many runs (cheap and precise); deep levels get fewer (still enough to climb). A wall-clock budget then caps the whole search: it always finishes the promising builds and the pure-stat extremes, then spends any time left on extra random restarts. The search stays responsive instead of grinding for minutes.</p>
+
+<h3>Two stages: Estimate, then Simulate</h3>
+<p>The <strong>Estimate</strong> uses the adaptive, lower-run search above to find a short list of top builds fast. <strong>Simulate</strong> then re-runs that short list at high fidelity (many more runs each) and orders them exactly. The first stage gets you to the right neighborhood; the second stage picks the winner out of it.</p>
+
+<h3>The plateau, and why "exact match" is the wrong yardstick</h3>
+<p>Near the best, the reward surface is flat. The top builds sit within about a percent of each other, often differing only by shuffling a couple of points between two stats. Two things follow. First, asking "did it find the exact build" understates quality, because the second-best build is nearly as good as the best. Second, there is a floor on how precisely any method can rank these builds, set by the randomness in the simulation.</p>
+<p><strong>Noise floor.</strong> An average over random runs carries a sampling error that shrinks as you add runs:</p>
+<pre>standard error  ~  (spread of one run) / sqrt(runs)</pre>
+<p>Score the same build twice on different rolls and its average moves by about this much. Any two builds closer together than the noise floor are a statistical tie: you cannot say which is better without more runs. We report this floor next to the results, so a gap smaller than it reads as "tied," not "worse."</p>
+
+<h3>How accurate it is</h3>
+<p>We measured it two ways. The gap below is always:</p>
+<pre>gap% = (best value - chosen value) / best value * 100</pre>
+<p><strong>Where the best is provable.</strong> At low levels (10 to 13) the build space is small enough to simulate every build at high fidelity, find the true best, and check what the workflow returns. Over 30 random setups:</p>
+<table>
+<thead><tr><th>Stage</th><th>Exact best</th><th>Within 0.5%</th><th>Within 1%</th><th>Mean gap</th><th>Std dev</th><th>Worst</th></tr></thead>
+<tbody>
+<tr><td>Estimate only</td><td>17%</td><td>37%</td><td>63%</td><td>0.83%</td><td>0.74%</td><td>2.79%</td></tr>
+<tr><td>Estimate then Simulate</td><td>43%</td><td>90%</td><td>97%</td><td>0.20%</td><td>0.29%</td><td>1.32%</td></tr>
+</tbody>
+</table>
+<p>The noise floor in that test was about 0.3% on average and 0.8% at worst, so the 90% of picks that land within 0.5% are tied with the best, not merely close to it.</p>
+<p><strong>On a full end-game build.</strong> At level 100 Ascension 2 the true best is not provable (the 39 years above), so we build a best-known reference instead: take the best build the workflow finds, hill-climb it at high fidelity until no single move improves it (a verified local best), and pool it with every build the workflow tried. Running the real workflow five times against that reference gave:</p>
+<pre>mean gap 0.63%,  worst 1.0%,  every run inside the 0.54% noise floor
+the best of the five runs equaled the reference exactly</pre>
+<p>Every run landed within noise of the best build we could find by any method, and the reference was itself one of the workflow's own results: the heavy climb could not beat it.</p>
+
+<h3>Why this is as close as is feasible</h3>
+<p>Three limits stack up, and the workflow is already against all three:</p>
+<ul>
+<li><strong>The optimum is out of reach by brute force</strong> (39 years), so a guided search is the only option. It reaches a local best that a heavy high-fidelity climb cannot improve.</li>
+<li><strong>The top is a plateau,</strong> so even the exact best is barely ahead of its neighbors. The last fraction of a percent changes almost nothing in play.</li>
+<li><strong>Simulation noise sets a hard floor</strong> (about half a percent at end-game fidelity). The remaining gap is the same size as that floor, which means it is measurement, not a worse build. Shrinking it would take many times more runs, to separate builds you could not feel apart.</li>
+</ul>
+<p>Taken together: the build the tool hands you is the best build, or one inside the margin where "best" stops being a real distinction.</p>
+
+<h2 id="testmath">17. Test the math</h2>
 <p>Punch in your own numbers to see the per-hit math from the sections above. Damage per hit pools the percent, the crit ladder gives the average multiplier, armor is subtracted per result, and the expected hits use the overkill-free shortcut (HP divided by average damage to the block), which the tool itself uses for blocks past 80 hits.</p>
 <div class="calc" id="mathcalc">
   <div class="grid">
@@ -284,7 +345,7 @@ hc, hp = average crosshair hit and player hit damage (hc includes gold)</pre>
   <p class="note">The full tool replaces the shortcut with an exact hit-by-hit count for blocks that take 80 hits or fewer, which is slightly higher because it accounts for overkill on the final hit.</p>
 </div>
 
-<h2 id="sources">17. Sources</h2>
+<h2 id="sources">18. Sources</h2>
 <ul>
 <li>Idle Obelisk Miner wiki, Archaeology page: stat effects, caps, block HP, armor, reward data, upgrades, and abilities.</li>
 <li>Idle Obelisk Miner wiki, Cards / Card Effects page: card rarity bonuses and the per-card infernal effects.</li>
@@ -293,7 +354,7 @@ hc, hp = average crosshair hit and player hit damage (hc includes gold)</pre>
 </ul>
 <p>Numbers from the wiki and the game panel are treated as exact. The crosshair spawn rate is a community measurement, and the tool exposes it as an editable setting so it can be corrected.</p>
 
-<h2 id="assumptions">18. Sourced, method, or estimated</h2>
+<h2 id="assumptions">19. Sourced, method, or estimated</h2>
 <p>Three kinds of input feed the tool. They are separated here so you can weigh each on its own.</p>
 
 <h3>Grounded in game data</h3>
@@ -309,8 +370,8 @@ hc, hp = average crosshair hit and player hit damage (hc includes gold)</pre>
 <ul>
 <li><strong>One neutral bridge between experience and loot.</strong> With no rate given, the tool values a block's loot at the block's own experience (equal weight, default 1), takes the rarity scaling from the game's experience numbers, and exposes the experience-to-loot weight as one setting. Reward is scored per stamina spent, after stamina refunds.</li>
 <li><strong>Speed is left out of efficiency.</strong> Attack speed changes attacks per second, not reward per stamina, so it only enters through the crosshair and ability parts.</li>
-<li><strong>Averages for the search, exact replay for the simulation.</strong> Average hits, ability uptime, and the crosshair boost are estimates so the search can score many builds fast. The simulation runs the exact rules and is the better number when the two disagree.</li>
-<li><strong>The guided search is a search, not a proof.</strong> It matched the full search on every reachable-goal test, but it has no guarantee of being best in every case. Use Thorough when you want certainty.</li>
+<li><strong>The search runs the simulation; the fast math model only seeds it.</strong> The math model's averages (average hits, ability uptime, the crosshair boost) are quick but biased, so they are used only to suggest starting builds. The search itself scores builds by running the simulation, the same exact rules you confirm with.</li>
+<li><strong>The guided search is a search, not a proof.</strong> The true best is not provable on a full build (see section 16), so there is no certainty in every case. What we can show is the measured gap: within about 1% of the best almost always, and within simulation noise of it on an end-game build. The Thorough toggle scans every build with the fast math model, which is exhaustive over that model but carries its bias, so it is a reference, not a guarantee of the true best.</li>
 <li><strong>Idle play.</strong> Only auto-tap crosshairs count; manual ones are left alone.</li>
 </ul>
 
