@@ -3,6 +3,7 @@
 ## 2026-06-15
 
 ### Added
+- **AI "Diagnose this build" in the checklist bubble.** A button at the bottom of the help bubble sends a trimmed snapshot of your build (parsed inputs, chosen build, and the top alternatives — not your account, and not the heavy per-row sim data) to the existing Cloudflare worker, which asks Google Gemini for a short plain-language reason the recommended distribution scored well. The worker enforces the cap server-side: one diagnosis per visitor per day, plus a global daily ceiling so worst-case spend stays bounded; cost is well under 1¢ per call. Requires the worker to be redeployed (`wrangler deploy`) to activate.
 - **"Something not look right?" checklist.** A help link under the estimate and the simulation opens a short bubble of the usual setup gaps: ascension, attributes at 0 vs spent points, the +5 stat-cap upgrade, attribute and damage upgrades, cards, the infernal multiplier, and the Polychrome bonus. It reads your current inputs and flags the ones that look unset (for example all upgrade levels at 0, or no cards set), shows each item's current state, and tapping an item jumps straight to that setting and highlights it.
 
 ### Changed

@@ -332,7 +332,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .sanity-link{display:inline-flex;align-items:center;gap:5px;margin-top:10px;background:none;border:0;padding:0;color:var(--accent);font-weight:700;font-size:12.5px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .sanity-link::before{content:"?";display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;line-height:14px;text-align:center;text-decoration:none}
 .sanity-backdrop{position:fixed;inset:0;background:transparent;z-index:60}
-.sanity-bubble{position:fixed;z-index:61;max-width:340px;width:calc(100vw - 28px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(16,24,40,.18);padding:12px 14px 13px}
+.sanity-bubble{position:fixed;z-index:61;max-width:340px;width:calc(100vw - 28px);max-height:calc(100vh - 24px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(16,24,40,.18);padding:12px 14px 13px}
 .sanity-bubble h4{margin:0 26px 2px 0;font-size:13.5px}
 .sanity-bubble .sub{margin:0 0 4px;font-size:11.5px;color:var(--muted)}
 .sanity-bubble .sanity-close{position:absolute;top:8px;right:9px;background:none;border:0;color:var(--muted);font-size:16px;font-weight:800;line-height:1;padding:2px;cursor:pointer}
@@ -345,6 +345,13 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .sanity-item.flag{background:#fff7ed}
 .sanity-item.flag:hover{background:#ffedd5}
 .sanity-item.flag .sanity-state{color:#b42318;font-weight:700}
+.sanity-ai{margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
+.sanity-ai-btn{display:inline-flex;align-items:center;gap:6px;width:100%;justify-content:center;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 10px;font-weight:700;font-size:12.5px;cursor:pointer}
+.sanity-ai-btn:hover{filter:brightness(.95)}
+.sanity-ai-btn:disabled{opacity:.6;cursor:default}
+.sanity-ai-note{margin:6px 2px 0;font-size:10.5px;color:var(--muted);line-height:1.35}
+.sanity-ai-out{margin-top:8px;font-size:12px;line-height:1.45;color:var(--ink);white-space:pre-wrap;background:var(--soft);border-radius:8px;padding:8px 10px}
+.sanity-ai-out.err{background:#fff7ed;color:#b42318}
 .sanity-target-flash{animation:sanityFlash 1.7s ease-out}
 @keyframes sanityFlash{0%,55%{box-shadow:0 0 0 3px #fde68a;border-radius:6px}100%{box-shadow:0 0 0 3px transparent}}
 
@@ -3132,7 +3139,7 @@ async function runCustomSim(){
 // Download a JSON snapshot of the whole page state for review/analysis: every
 // input value, the parsed inputs, the estimate + simulation results, and the
 // custom-build simulation, plus app version / environment.
-function exportDebug(){
+function buildDebugData(){
   const inputs={};
   document.querySelectorAll("input,select,textarea").forEach(el=>{
     if(!el.id) return;
@@ -3168,6 +3175,25 @@ function exportDebug(){
     },
     customSim:window.__customSimResult||null
   };
+  return data;
+}
+
+// A trimmed snapshot for the AI diagnosis: drops the heavy per-row sim results and
+// the user-agent, keeping the parsed inputs, chosen build and the top alternatives.
+function buildDebugForAI(){
+  const d=buildDebugData();
+  return {
+    app:{version:d.app && d.app.version},
+    objective:d.inputs && d.inputs.objective,
+    ascension:d.inputs && d.inputs.ascension,
+    parsedInputs:d.parsedInputs,
+    estimate:d.estimate,
+    simulation:{ heroCard:d.simulation && d.simulation.heroCard, sort:d.simulation && d.simulation.sort }
+  };
+}
+
+function exportDebug(){
+  const data=buildDebugData();
   let json; try{ json=JSON.stringify(data,null,2); }catch(e){ json=JSON.stringify({error:"serialize failed: "+e}); }
   const blob=new Blob([json],{type:"application/json"});
   const a=document.createElement("a");
@@ -4596,6 +4622,11 @@ if ("serviceWorker" in navigator) {
     <button type="button" class="sanity-item" data-check="infernal"><span class="t"><b>Infernal multiplier</b> entered? Use 1 if you have none.</span><span class="sanity-state"></span></button>
     <button type="button" class="sanity-item" data-check="polychrome"><span class="t"><b>Polychrome bonus</b> on, if you own it.</span><span class="sanity-state"></span></button>
   </div>
+  <div class="sanity-ai">
+    <button type="button" class="sanity-ai-btn" id="sanityDiagnose">&#10024; Diagnose this build with AI</button>
+    <p class="sanity-ai-note">One free AI check per day. Sends your build's numbers (not your account) to Google Gemini for a plain-language reason it scored well.</p>
+    <div class="sanity-ai-out" id="sanityDiagnoseOut" hidden></div>
+  </div>
 </div>
 <script>
 (function(){
@@ -4666,8 +4697,41 @@ if ("serviceWorker" in navigator) {
   gid("sanityClose").addEventListener("click", close);
   backdrop.addEventListener("click", close);
   window.addEventListener("keydown", function(e){ if(e.key==="Escape") close(); });
-  window.addEventListener("scroll", close, true);
+  // Close on scroll/resize, but not when scrolling inside the bubble itself.
+  window.addEventListener("scroll", function(e){ if(!bubble.contains(e.target)) close(); }, true);
   window.addEventListener("resize", close);
+
+  // AI "diagnose" — POSTs a trimmed snapshot to the same worker (action:"explain").
+  var WORKER_URL = (typeof AI_OCR_WORKER_URL!=="undefined" && AI_OCR_WORKER_URL) || "https://arch-optimizer-ocr.caviarmy.workers.dev";
+  var diagBtn=gid("sanityDiagnose"), diagOut=gid("sanityDiagnoseOut");
+  function showOut(msg, isErr){ if(!diagOut) return; diagOut.hidden=false; diagOut.textContent=msg; diagOut.classList.toggle("err", !!isErr); }
+  function hasBuild(){
+    try{ if(typeof lastExactTopBuilds!=="undefined" && lastExactTopBuilds && lastExactTopBuilds.length) return true; }catch(_e){}
+    if(window.__simResults && window.__simResults.length) return true;
+    return false;
+  }
+  if(diagBtn){
+    diagBtn.addEventListener("click", function(){
+      if(!hasBuild()){ showOut("Run an estimate first, then ask for a diagnosis.", true); return; }
+      var snapshot;
+      try{ snapshot = (typeof buildDebugForAI==="function") ? buildDebugForAI() : null; }catch(e){ snapshot=null; }
+      if(!snapshot){ showOut("Could not read the current build.", true); return; }
+      diagBtn.disabled=true;
+      showOut("Thinking…", false);
+      fetch(WORKER_URL, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:"explain", debug:snapshot})
+      }).then(function(res){
+        return res.text().then(function(t){ var p=null; try{p=JSON.parse(t);}catch(_e){} return {res:res, p:p, t:t}; });
+      }).then(function(r){
+        if(r.res.status===429){ showOut((r.p&&r.p.error) || "You've used today's AI check — try again tomorrow.", true); return; }
+        if(!r.res.ok || !r.p || r.p.error){ showOut("Diagnosis failed: " + ((r.p&&r.p.error) || ("HTTP "+r.res.status)), true); return; }
+        showOut(r.p.explanation || "No explanation returned.", false);
+      }).catch(function(err){
+        showOut("Network error reaching the AI worker. Check your connection and try again.", true);
+      }).finally(function(){ diagBtn.disabled=false; });
+    });
+  }
 })();
 </script>
 </body>
