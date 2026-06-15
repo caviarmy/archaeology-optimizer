@@ -1930,12 +1930,21 @@ function stageScale(floor){
 }
 
 function blockForFloor(type, floor, blocks){
-  let best=null;
+  let best=null, deepest=null;
   for(const b of blocks){
-    if(b.type===type && b.floorMin<=floor && floor<=b.floorMax){
+    if(b.type!==type) continue;
+    // Highest UNLOCKED tier of this type (blocks is pre-filtered by ascension),
+    // used as a fallback for floors that have outgrown every unlocked tier.
+    if(!deepest || b.tier>deepest.tier) deepest=b;
+    if(b.floorMin<=floor && floor<=b.floorMax){
       if(!best || b.tier>best.tier) best=b;
     }
   }
+  // When the next tier is locked by ascension (e.g. tier 4 needs A2), the floor
+  // can sit past every unlocked tier's range. Keep spawning the deepest unlocked
+  // tier (e.g. tier 3) rather than leaving the slot empty; stageScale still makes
+  // it tougher with depth.
+  if(!best && deepest && floor > deepest.floorMax) best=deepest;
   if(!best) return null;
   const ss = stageScale(floor);
   return {...best, hp: best.hp * ss.hp, armor: (best.armor || 0) * ss.armor};
@@ -4809,9 +4818,19 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   function pad(n){ return (n<10?"0":"")+n; }
   function hms(ms){ var s=Math.max(0,Math.floor(ms/1000)); return pad(Math.floor(s/3600))+":"+pad(Math.floor(s%3600/60))+":"+pad(s%60); }
   function cooling(){ return resetsAt && Date.now()<resetsAt; }
+  // Tick only while a cooldown is counting down, and stop once it expires, so no
+  // timer runs perpetually (keeps the page idle and lets headless tests exit).
+  var cooldownTimer=null;
+  function ensureTick(){
+    if(cooldownTimer || !cooling()) return;
+    cooldownTimer=setInterval(function(){
+      updateBtn();
+      if(!cooling()){ clearInterval(cooldownTimer); cooldownTimer=null; }
+    }, 1000);
+  }
   function updateBtn(){
     if(!diagBtn) return;
-    if(cooling()){ diagBtn.disabled=true; diagBtn.textContent="Resets in "+hms(resetsAt-Date.now()); }
+    if(cooling()){ diagBtn.disabled=true; diagBtn.textContent="Resets in "+hms(resetsAt-Date.now()); ensureTick(); }
     else if(busy){ diagBtn.disabled=true; }
     else {
       diagBtn.disabled=false; diagBtn.innerHTML="&#10024; Analyze this result with AI";
@@ -4820,7 +4839,6 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   }
   function setCooldown(iso){ var t=Date.parse(iso); if(!isFinite(t)) return; resetsAt=t; try{localStorage.setItem(LS_KEY,String(t));}catch(_e){} updateBtn(); }
   function applyUsage(p){ if(p && p.resetsAt && typeof p.limit==="number" && typeof p.used==="number" && p.used>=p.limit) setCooldown(p.resetsAt); }
-  setInterval(function(){ if(diagBtn && diagBtn.disabled) updateBtn(); }, 1000);
 
   // Safe formatting: escape HTML, then **bold**, drop "#" headers, blank-line paragraphs.
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }

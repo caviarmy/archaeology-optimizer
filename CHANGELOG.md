@@ -2,6 +2,9 @@
 
 ## 2026-06-15
 
+### Fixed
+- **Locked tiers now fall back instead of leaving empty floors.** Tier-4 blocks need Ascension 2 and divine blocks need Ascension 1. Previously, on deep floors where a block type's only variant was a locked tier (e.g. dirt past floor 80 at A1), that type produced no block — its spawn slots silently contributed nothing, and a floor 150+ at A1 could resolve to no blocks at all, under-counting rewards. Now the type keeps spawning its highest unlocked tier (tier 3), scaled for depth, so floors stay populated and the spawn distribution is correct at every ascension.
+
 ### Added
 - **Ascension-mismatch warning.** Some stats can't exist below a given ascension (per the game wiki): Crosshair Auto-Tap and Divinity need A1; Gleaming Floor Chance and Corruption need A2. If one is present while Ascension is set lower, the app now warns hard — a red banner on the result, a red border on the Ascension selector, and a red note in the help bubble — while still running. Because Crosshair Auto-Tap is read from the stat screenshot, this catches the common blunder of importing an ascended account but leaving Ascension at A0.
 - **AI "Diagnose this build" in the checklist bubble.** A button at the bottom of the help bubble sends a trimmed snapshot of your build (parsed inputs, chosen build, and the top alternatives — not your account, and not the heavy per-row sim data) to the existing Cloudflare worker, which asks Google Gemini for a short plain-language reason the recommended distribution scored well. The worker enforces the cap server-side: one diagnosis per visitor per day, plus a global daily ceiling so worst-case spend stays bounded; cost is well under 1¢ per call. Requires the worker to be redeployed (`wrangler deploy`) to activate.
