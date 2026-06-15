@@ -901,35 +901,40 @@ function spawnModel(inp){
   return inp?.nodeSpawnModel || "activeCount";
 }
 
+// Default ("activeCount") spawn model: every non-boss floor has 24 slots. The
+// first NORMAL_MIN_ACTIVE_NODES (6) always fill, with their type drawn from the
+// wiki rates renormalized to drop the empty chance; the remaining slots fill
+// per-slot at the raw wiki rates, so the leftover (100 - sum of rates) is a
+// genuine empty slot. This replaces the old uniform "6..24 active nodes" roll,
+// which discarded the per-slot empty chance.
 function expectedActiveNodesForFloor(floor, inp){
   const rates = ratesForFloor(floor, inp);
-  if(spawnModel(inp)==="slotChance"){
-    return 24 * Math.min(100, totalRateForFloorRates(rates)) / 100;
-  }
+  const total = Math.min(100, totalRateForFloorRates(rates));
+  if(spawnModel(inp)==="slotChance") return 24 * total / 100;
   if(isSpecialFloor(floor)) return 24;
-  return (NORMAL_MIN_ACTIVE_NODES + NORMAL_MAX_ACTIVE_NODES) / 2;
+  return NORMAL_MIN_ACTIVE_NODES + (NORMAL_MAX_ACTIVE_NODES - NORMAL_MIN_ACTIVE_NODES) * total / 100;
+}
+
+function expectedTypeCountForFloor(type, floor, rates, inp){
+  const rate = rates[type] || 0;
+  if(rate <= 0) return 0;
+  if(spawnModel(inp)==="slotChance") return 24 * rate / 100;
+  if(isSpecialFloor(floor)) return 24 * rate / 100;   // boss floors fill all 24 slots
+  const total = Math.min(100, totalRateForFloorRates(rates));
+  if(total <= 0) return 0;
+  const guaranteed = NORMAL_MIN_ACTIVE_NODES;                     // first 6 always fill (normalized)
+  const rolled = NORMAL_MAX_ACTIVE_NODES - NORMAL_MIN_ACTIVE_NODES;// remaining 18 fill per-slot
+  return rate * (guaranteed / total + rolled / 100);
 }
 
 function typeProbabilityForFloor(type, floor, rates, inp){
   const rate = rates[type] || 0;
   if(rate <= 0) return 0;
   if(spawnModel(inp)==="slotChance" || isSpecialFloor(floor)) return rate / 100;
-  const total = totalRateForFloorRates(rates);
-  return total > 0 ? rate / total : 0;
+  const active = expectedActiveNodesForFloor(floor, inp);
+  return active > 0 ? expectedTypeCountForFloor(type, floor, rates, inp) / active : 0;
 }
 
-function expectedTypeCountForFloor(type, floor, rates, inp){
-  if(spawnModel(inp)==="slotChance"){
-    return 24 * ((rates[type] || 0) / 100);
-  }
-  return expectedActiveNodesForFloor(floor, inp) * typeProbabilityForFloor(type, floor, rates, inp);
-}
-
-function rollNodeAttemptsForFloor(floor, inp, rng=Math.random){
-  if(spawnModel(inp)==="slotChance") return 24;
-  if(isSpecialFloor(floor)) return 24;
-  return NORMAL_MIN_ACTIVE_NODES + Math.floor(rng() * (NORMAL_MAX_ACTIVE_NODES - NORMAL_MIN_ACTIVE_NODES + 1));
-}
 
 const HP_SCALE = 1;
 const XP_DISPLAY_SCALE = 1;
@@ -2700,14 +2705,15 @@ function renderBest(best, top, count){
 
 
 /* Simulation uses exact randomized node slots and crits. It is intentionally separate from optimizer. */
-function randBlockTypeForFloor(floor, inp, rng=Math.random){
+function randBlockTypeForFloor(floor, inp, rng=Math.random, guaranteed=false){
   const rates=ratesForFloor(floor, inp);
   const total=totalRateForFloorRates(rates);
   if(total <= 0) return null;
 
-  if(spawnModel(inp)==="slotChance"){
-    if(rng()*100 >= total) return null;
-  }
+  // A non-guaranteed slot can roll empty at the wiki per-slot rate (rates sum to
+  // <100; the remainder is empty). Guaranteed slots (boss floors and the first 6
+  // of the default model) always fill, with the type renormalized over `total`.
+  if(!guaranteed && rng()*100 >= Math.min(100, total)) return null;
 
   let r=rng()*total;
   for(const type of rarityOrder){
@@ -2842,16 +2848,21 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
   }
 
   for(let floor=1; floor<=FLOOR_CAP && stamina>0 && ticksSpent<cap; floor++){
-    const activeNodeCount = rollNodeAttemptsForFloor(floor, inp, rng);
+    const special = isSpecialFloor(floor);
+    // 24 slots per floor. Boss floors fill all 24; the default model guarantees
+    // the first 6 (normalized, no empty) and rolls the remaining 18 per-slot at
+    // the wiki rate; slotChance rolls every slot. An empty slot is auto-passed.
+    const slotCount = 24;
     let clearedCount = 0;
     chQueue.length = 0; // new floor: crosshairs from the previous floor are gone
     // Gleaming floor: rolled once for the whole floor; multiplies all its rewards.
     const floorGleam = (rng() < clamp(inp.base.gleamingChance||0,0,1)) ? (inp.base.gleamingMulti>0?inp.base.gleamingMulti:1) : 1;
     // Pre-roll the floor's nodes so Quake can damage all of them at once.
     const nodes = [];
-    for(let i=0;i<activeNodeCount;i++){
-      const type = randBlockTypeForFloor(floor, inp, rng);
-      if(!type){ if(slot) clearedCount++; continue; }
+    for(let i=0;i<slotCount;i++){
+      const guaranteed = special || (!slot && i < NORMAL_MIN_ACTIVE_NODES);
+      const type = randBlockTypeForFloor(floor, inp, rng, guaranteed);
+      if(!type){ clearedCount++; continue; }
       const b = blockForFloor(type, floor, blocks);
       if(!b) continue;
       nodes.push({type, b, hp:b.hp, armor:effectiveArmor(b.armor, der, inp),
@@ -2892,7 +2903,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
     }
     clearedCount += nodes.reduce((c,nd)=>c+(nd.cleared?1:0),0);
     if(stamina>0) floorReached = floor+1;
-    else floorReached = floor + (activeNodeCount>0 ? Math.min(1, clearedCount/activeNodeCount) : 0);
+    else floorReached = floor + (slotCount>0 ? Math.min(1, clearedCount/slotCount) : 0);
   }
 
   // Score is reward per stamina consumed (net of refunds), to match the optimizer.
