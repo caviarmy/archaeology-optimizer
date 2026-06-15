@@ -38,6 +38,7 @@ function rewardsPerHour(st, inp, blocks, K, makeRng){
 (async () => {
   if(W.populateCardSettings) W.populateCardSettings();
   const gaps=[], hits=[], within05=[], within1=[], noiseCtrl=[];
+  const sGaps=[], sHits=[], sWithin05=[], sWithin1=[];   // Estimate -> Simulate stage
   const rows=[];
   for(let i=0;i<N;i++){
     const lvl = rndi(10,13);                 // small enough to enumerate + simulate all builds
@@ -74,47 +75,64 @@ function rewardsPerHour(st, inp, blocks, K, makeRng){
       for(let v=0; v<=hi; v++){ cur[keys[pos]]=v; rec(pos+1, rem-v); }
     })(0, target);
 
-    // Two-stage ground truth (rewards/hr has high run-to-run variance from rare
-    // loot, so a stable optimum needs many runs). Stage 1: score every build at a
-    // moderate K on seedB and keep the top contenders. Stage 2: re-score those at
-    // a high K (KG) on a fresh seed to pin down the stable true best.
-    const seedB=20260615, seedHi=4242424, seedHi2=909091;
-    const Kscreen=Math.max(80, Math.round(KG/20));
+    // Ground truth (rewards/hr has high run-to-run variance from rare loot, so a
+    // stable optimum needs many runs). Screen every build at a moderate K on seedB,
+    // keep the top contenders, then re-score them at a high K (KG) on an independent
+    // seed to pin down the stable optimum. The two picks below are always folded into
+    // this high-K scoring, so the optimum is never under-counted.
+    const seedB=20260615, seedHi=4242424, seedHi2=909091, seedSim=135791;
+    const Kscreen=Math.max(50, Math.round(KG/40));
     const scored=builds.map(st=>({st, v:rewardsPerHour(st, inp, blocks, Kscreen, rngFactory(seedB))}));
     scored.sort((a,b)=>b.v-a.v);
-    const contenders=scored.slice(0, 30).map(x=>x.st);
 
-    // guided search pick (uses its own internal seed; never sees seedB/seedHi)
+    // ---- The application's actual workflow ----
+    // Stage 1 (Estimate): the simulation-guided search. Uses its own internal seed.
     const res=await W.simGuidedSearch(inp, blocks, lvl, null);
-    const pick=res.topBuilds[0].stats;
-    if(!contenders.some(st=>lbl(st)===lbl(pick))) contenders.push(pick);
+    const estPick=res.topBuilds[0].stats;
+    const finalists=res.topBuilds.map(c=>c.stats);   // the top-N pool the app shows
+    // Stage 2 (Simulate): re-rank those finalists at high fidelity (mcRunsPerBuild),
+    // on an independent seed, and take the new #1 (this is what runMonteRerank does).
+    const RR=inp.mcRunsPerBuild||1000;
+    let simPick=null, simPickEst=-Infinity;
+    for(const st of finalists){ const v=rewardsPerHour(st, inp, blocks, RR, rngFactory(seedSim)); if(v>simPickEst){simPickEst=v; simPick=st;} }
 
+    // High-K ground-truth scoring on seedHi: top contenders + both picks.
     const hiV=new Map();
+    const scoreHi=st=>{ const k=lbl(st); if(!hiV.has(k)) hiV.set(k, rewardsPerHour(st, inp, blocks, KG, rngFactory(seedHi))); return hiV.get(k); };
+    scored.slice(0, 50).forEach(x=>scoreHi(x.st));
+    scoreHi(estPick); scoreHi(simPick);
     let best=null, bestV=-Infinity;
-    for(const st of contenders){ const v=rewardsPerHour(st, inp, blocks, KG, rngFactory(seedHi)); hiV.set(lbl(st), v); if(v>bestV){bestV=v; best=st;} }
-    const pickV=hiV.get(lbl(pick));
+    for(const [k,v] of hiV){ if(v>bestV){bestV=v; best=k;} }
 
-    const gap=(bestV-pickV)/bestV*100;
-    const hit = lbl(pick)===lbl(best) ? 1 : 0;
+    const gap=(bestV-scoreHi(estPick))/bestV*100;
+    const sGap=(bestV-scoreHi(simPick))/bestV*100;
+    const hit=lbl(estPick)===best?1:0, sHit=lbl(simPick)===best?1:0;
     gaps.push(gap); hits.push(hit); within05.push(gap<=0.5?1:0); within1.push(gap<=1.0?1:0);
-    // noise-floor control: same true-best re-scored on an independent high-K seed
-    const bestVc=rewardsPerHour(best, inp, blocks, KG, rngFactory(seedHi2));
+    sGaps.push(sGap); sHits.push(sHit); sWithin05.push(sGap<=0.5?1:0); sWithin1.push(sGap<=1.0?1:0);
+    // noise-floor control: the optimum re-scored on an independent high-K seed
+    const bestSt={}; best.split("/").forEach((v,j)=>bestSt[keys[j]]=+v);
+    const bestVc=rewardsPerHour(bestSt, inp, blocks, KG, rngFactory(seedHi2));
     noiseCtrl.push(Math.abs(bestVc-bestV)/bestV*100);
 
-    rows.push(`#${i} lvl${lvl} builds=${builds.length}  true=${lbl(best)}  pick=${lbl(pick)}  gap=${gap.toFixed(2)}%${hit?"  HIT":""}`);
+    rows.push(`#${i} lvl${lvl} n=${builds.length} true=${best} est=${lbl(estPick)} (${gap.toFixed(2)}%) sim=${lbl(simPick)} (${sGap.toFixed(2)}%)`);
     console.log(rows[rows.length-1]);
   }
 
   const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
   const std=a=>{ const m=mean(a); return Math.sqrt(mean(a.map(x=>(x-m)*(x-m)))); };
   const pct=(a,p)=>{ const s=a.slice().sort((x,y)=>x-y); return s[Math.min(s.length-1,Math.floor(p*(s.length-1)))]; };
-  const missed=gaps.filter(g=>g>1e-9);
-  console.log(`\n=== Guided search vs provable simulation optimum (${N} scenarios, K_ground=${KG}) ===`);
-  console.log(`exact-best hit rate     : ${(mean(hits)*100).toFixed(1)}%`);
-  console.log(`within 0.5% of best     : ${(mean(within05)*100).toFixed(1)}%`);
-  console.log(`within 1.0% of best     : ${(mean(within1)*100).toFixed(1)}%`);
-  console.log(`gap%% (all): mean ${mean(gaps).toFixed(3)}  std ${std(gaps).toFixed(3)}  max ${Math.max(...gaps).toFixed(3)}  p50 ${pct(gaps,0.5).toFixed(3)}  p90 ${pct(gaps,0.9).toFixed(3)}`);
-  if(missed.length) console.log(`gap%% (misses only, n=${missed.length}): mean ${mean(missed).toFixed(3)}  std ${std(missed).toFixed(3)}  max ${Math.max(...missed).toFixed(3)}`);
-  console.log(`noise-floor control     : same true-best re-scored on a fresh seed differs by mean ${mean(noiseCtrl).toFixed(3)}%  max ${Math.max(...noiseCtrl).toFixed(3)}%`);
-  console.log(`  (gaps at or below this control level are simulation noise, not a worse build)`);
+  const report=(name, g, h, w05, w1)=>{
+    console.log(`\n--- ${name} ---`);
+    console.log(`exact-best hit rate : ${(mean(h)*100).toFixed(1)}%`);
+    console.log(`within 0.5% of best : ${(mean(w05)*100).toFixed(1)}%`);
+    console.log(`within 1.0% of best : ${(mean(w1)*100).toFixed(1)}%`);
+    console.log(`gap%% : mean ${mean(g).toFixed(3)}  std ${std(g).toFixed(3)}  var ${(std(g)**2).toFixed(3)}  max ${Math.max(...g).toFixed(3)}  p50 ${pct(g,0.5).toFixed(3)}  p90 ${pct(g,0.9).toFixed(3)}`);
+    const m=g.filter(x=>x>1e-9);
+    if(m.length) console.log(`gap%% (misses only, n=${m.length}) : mean ${mean(m).toFixed(3)}  std ${std(m).toFixed(3)}  max ${Math.max(...m).toFixed(3)}`);
+  };
+  console.log(`\n=== Workflow accuracy vs provable simulation optimum (${N} scenarios, K_ground=${KG}) ===`);
+  report("Stage 1: Estimate (guided search #1)", gaps, hits, within05, within1);
+  report("Full workflow: Estimate then Simulate", sGaps, sHits, sWithin05, sWithin1);
+  console.log(`\nnoise-floor control : the optimum re-scored on a fresh seed differs by mean ${mean(noiseCtrl).toFixed(3)}%  max ${Math.max(...noiseCtrl).toFixed(3)}%`);
+  console.log(`  (gaps at or below this level are simulation noise: the pick is statistically tied with the best)`);
 })();
