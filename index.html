@@ -448,7 +448,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <summary>Top candidate builds</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="topBuildsTable">
-            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>EV rewards / hr</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
+            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>Est. rewards / hr</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -742,7 +742,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Crosshair spawn % / block</label><input id="crosshairSpawnPct" type="number" step="0.001" value="2.175"></div>
           <div><label>Crosshair interval s</label><input id="crosshairInterval" type="number" step="0.001" value="1.005"></div>
           <div><label>Crosshair fire delay s</label><input id="crosshairFireDelay" type="number" step="0.001" value="2"></div>
-          <div><label>Top reward builds to rerank</label><input id="mcTopCount" type="number" min="1" max="100" value="25"></div>
+          <div><label>Top builds to keep (shown in the estimate, re-simulated by Simulate)</label><input id="mcTopCount" type="number" min="1" max="1000" value="25"></div>
           <div><label>Runs per reward build</label><input id="mcRunsPerBuild" type="number" min="100" max="20000" value="1000"></div>
           <div><label>Simulation seed mode</label><select id="simSeedMode"><option value="random" selected>Random each run</option><option value="fixed">Fixed seed</option></select></div>
           <div><label>Fixed simulation seed</label><input id="simSeedValue" type="text" value="12345"></div>
@@ -1459,7 +1459,7 @@ function getInputs(){
     },
     nodeSpawnModel:v("nodeSpawnModel") || "activeCount",
     speedModel:"none", // speed/ticks-per-second intentionally excluded from tick-efficiency optimization
-    mcTopCount:Math.max(1, Math.min(100, Math.floor(n("mcTopCount") || 25))),
+    mcTopCount:Math.max(1, Math.min(1000, Math.floor(n("mcTopCount") || 25))),
     mcRunsPerBuild:Math.max(100, Math.min(20000, Math.floor(n("mcRunsPerBuild") || 1000))),
     simSeedMode:v("simSeedMode") || "random",
     simSeedValue:String(v("simSeedValue") || "12345"),
@@ -2257,7 +2257,7 @@ async function runExact(){
   const best = topBuilds[0];
   lastExactTopBuilds = topBuilds.map((x, i2) => ({...x, detRank: i2 + 1}));
   lastExactSignature = exactSignature;
-  renderBest(best, topBuilds.slice(0, 10), count);
+  renderBest(best, topBuilds.slice(0, inp.mcTopCount), count);
   showStatus(`Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s (${count.toLocaleString()} build${count===1?"":"s"}${thorough?"":", smart search"})${extra}.`, 5000);
   btn.disabled = false; btn.classList.remove("btn-spin");
   isRunningExact = false;

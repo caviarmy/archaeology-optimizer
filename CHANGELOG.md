@@ -5,6 +5,8 @@
 ### Changed
 - **The estimate now searches on the simulation itself, not on the math model.** Before, the fast math model (EV) ranked builds and only its top picks were ever simulated. That model over-credited damage-heavy builds, so a genuinely better build could be filtered out before the simulation ever saw it. Now the math model only suggests starting points, and the optimizer hill-climbs directly on the simulation (the unbiased measure of a build). On real configs this finds builds a few percent better than even an exhaustive scan of the old model, while staying anti-bias: it picks heavy Strength when Strength upgrades make it genuinely best, and Intelligence/Luck when they do.
 - **Fair, fast build comparisons.** Every build in a comparison is simulated on the same random rolls (common random numbers), so the better build wins on merit, not luck. The number of runs per build adapts to the level (more runs where each run is cheap, fewer where runs are deep), and a time budget keeps the search responsive: it always covers the promising builds and pure-stat extremes, then explores random restarts until the budget is spent. Live progress shows the runs-per-build and how many builds have been tried.
+- **The estimate table shows as many builds as you keep.** It used to show a fixed 10 rows. Now it shows the full "Top builds to keep" count, the same builds that Simulate re-ranks. Its rewards-per-hour column is relabeled from "EV" to "Est." since the value now comes from the simulation.
+- **"Top builds to keep" now goes up to 1000** (was capped at 100), and the setting is renamed from "Top reward builds to rerank" to make clear it controls both what the estimate shows and what Simulate re-ranks.
 
 ## 2026-06-14
 
