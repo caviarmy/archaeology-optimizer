@@ -15,7 +15,7 @@ GEMINI_MODEL = "gemini-2.5-flash-lite"
 DAILY_LIMIT = "100"
 # AI "diagnose" caps (only enforced with the RL KV namespace bound):
 #   per-IP/day, plus a global/day ceiling so total spend is bounded under abuse.
-EXPLAIN_DAILY_LIMIT = "1"
+EXPLAIN_DAILY_LIMIT = "5"
 EXPLAIN_GLOBAL_LIMIT = "200"
 # Optional: lock to your app's origin(s), comma-separated. Leave unset to allow any.
 # ALLOWED_ORIGINS = "https://caviarmy.github.io"
