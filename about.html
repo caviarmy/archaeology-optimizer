@@ -319,7 +319,7 @@ the best of the five runs equaled the reference exactly</pre>
 <p>Taken together: the build the tool hands you is the best build, or one inside the margin where "best" stops being a real distinction.</p>
 
 <h2 id="testmath">17. Test the math</h2>
-<p>Punch in your own numbers to see the per-hit math from the sections above. Damage per hit pools the percent, the crit ladder gives the average multiplier, armor is subtracted per result, and the expected hits use the overkill-free shortcut (HP divided by average damage to the block), which the tool itself uses for blocks past 80 hits.</p>
+<p>Punch in your own numbers to see the per-hit math from the sections above. Damage per hit pools the percent, the crit ladder gives the average multiplier, armor is subtracted per result, and the expected hits use the overkill-free shortcut (HP divided by average damage to the block), which the tool itself uses for blocks that would take more than about 80 hits.</p>
 <div class="calc" id="mathcalc">
   <div class="grid">
     <div><label>Flat damage</label><input id="m_flat" type="number" value="1396"></div>
@@ -342,7 +342,7 @@ the best of the five runs equaled the reference exactly</pre>
     <div><span>Average damage to the block</span><b id="r_tb">-</b></div>
     <div><span>Expected hits to break (approx)</span><b id="r_hits">-</b></div>
   </div>
-  <p class="note">The full tool replaces the shortcut with an exact hit-by-hit count for blocks that take 80 hits or fewer, which is slightly higher because it accounts for overkill on the final hit.</p>
+  <p class="note">The full tool replaces the shortcut with an exact hit-by-hit count for smaller blocks (about 80 hits or fewer), which is slightly higher because it accounts for overkill on the final hit.</p>
 </div>
 
 <h2 id="sources">18. Sources</h2>
