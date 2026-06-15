@@ -1,8 +1,19 @@
 # Obelisk OCR worker (Cloudflare)
 
-A tiny Cloudflare Worker that holds your Gemini API key and turns a stats-panel
-screenshot into the structured JSON the optimizer fills its fields with. The key
-never reaches the browser — the app only ever talks to your worker.
+A tiny Cloudflare Worker that holds your Gemini API key. It serves two actions,
+and the key never reaches the browser — the app only ever talks to your worker:
+
+1. **OCR** — `{ "image": "data:..." }` turns a stats-panel screenshot into the
+   structured JSON the optimizer fills its fields with.
+2. **Diagnose** — `{ "action": "explain", "debug": { ... } }` takes a trimmed
+   optimizer snapshot and returns `{ "explanation": "..." }`, a plain-language
+   note on why the recommended build scored well. This action is capped at
+   `EXPLAIN_DAILY_LIMIT` per IP/day (default 1) and `EXPLAIN_GLOBAL_LIMIT`
+   total/day (default 200), so worst-case spend stays bounded. Cost is well
+   under 1¢/call on a `*-flash-lite` model.
+
+After changing this folder, redeploy with `wrangler deploy` for either feature
+to pick up the change.
 
 ## What you need
 - A Cloudflare account (free).
