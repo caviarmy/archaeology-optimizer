@@ -342,9 +342,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .sanity-item::after{content:"\203A";position:absolute;right:10px;top:8px;color:var(--muted);font-size:15px}
 .sanity-item .t b{font-weight:800}
 .sanity-item .sanity-state{display:block;font-size:11px;color:var(--muted);margin-top:1px}
-.sanity-item.flag{background:#fff7ed}
-.sanity-item.flag:hover{background:#ffedd5}
-.sanity-item.flag .sanity-state{color:#b42318;font-weight:700}
 .sanity-ai{margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
 .sanity-ai-btn{display:inline-flex;align-items:center;gap:6px;width:100%;justify-content:center;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 10px;font-weight:700;font-size:12.5px;cursor:pointer}
 .sanity-ai-btn:hover{filter:brightness(.95)}
@@ -4628,13 +4625,13 @@ if ("serviceWorker" in navigator) {
   <h4>Build look off?</h4>
   <p class="sub">Tap an item to jump to its setting.</p>
   <div class="sanity-items">
-    <button type="button" class="sanity-item" data-check="ascension"><span class="t"><b>Ascension</b> set right? At 0, Divinity and Corruption are off.</span><span class="sanity-state"></span></button>
-    <button type="button" class="sanity-item" data-check="basestats"><span class="t"><b>Attributes at 0?</b> Enter or screenshot-import your stats with no points spent. If points are already in them, switch to spent-points mode so they are not double-counted.</span><span class="sanity-state"></span></button>
-    <button type="button" class="sanity-item" data-check="statcap"><span class="t"><b>+5 Stat Caps</b> on, if you own it.</span><span class="sanity-state"></span></button>
-    <button type="button" class="sanity-item" data-check="upgrades"><span class="t"><b>Upgrades set?</b> Per-attribute and bonus damage / armor-pen levels.</span><span class="sanity-state"></span></button>
-    <button type="button" class="sanity-item" data-check="cards"><span class="t"><b>Cards set?</b> Owned, infernal, or none.</span><span class="sanity-state"></span></button>
-    <button type="button" class="sanity-item" data-check="infernal"><span class="t"><b>Infernal multiplier</b> entered? Use 1 if you have none.</span><span class="sanity-state"></span></button>
-    <button type="button" class="sanity-item" data-check="polychrome"><span class="t"><b>Polychrome bonus</b> on, if you own it.</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="ascension"><span class="t"><b>Ascension:</b> set it to match your account</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="basestats"><span class="t"><b>Correct stat import?</b> Your stat screenshot should have <b>all attributes at 0</b>. If not, say so in stat settings and type in your spent points.</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="statcap"><span class="t"><b>+5 Stat Caps:</b> turn on if you own this upgrade</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="upgrades"><span class="t"><b>Upgrades:</b> set upgrades that affect the simulation</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="cards"><span class="t"><b>Cards:</b> set each to owned, infernal, or none</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="infernal"><span class="t"><b>Infernal multiplier:</b> enter yours, or 1 if you have none</span><span class="sanity-state"></span></button>
+    <button type="button" class="sanity-item" data-check="polychrome"><span class="t"><b>Polychrome bonus:</b> turn on if you own this upgrade</span><span class="sanity-state"></span></button>
   </div>
   <div class="sanity-ai">
     <button type="button" class="sanity-ai-btn" id="sanityDiagnose">&#10024; Diagnose this build with AI</button>
@@ -4672,23 +4669,32 @@ if ("serviceWorker" in navigator) {
   function flash(el){ if(!el) return; el.classList.remove("sanity-target-flash"); void el.offsetWidth; el.classList.add("sanity-target-flash"); try{ el.focus({preventScroll:true}); }catch(_e){} }
   function close(){ bubble.hidden=true; backdrop.hidden=true; }
   // Inspect the current inputs so each item shows its state and obvious gaps are flagged.
+  // Upgrade levels that affect the sim, with their max and the ascension at which
+  // they become available — so the denominator only counts what you can set.
+  var UPG=[["modStrA0",5,0],["bonusDmgArpenA0",20,0],["bonusArpenCdA0",10,0],
+           ["modStrA1",1,1],["bonusDmgExpA1",5,1],["modCorrA2",10,2],["modDivA2",5,2]];
   function refresh(){
-    var cardsActive=0;
-    document.querySelectorAll('input[type=hidden][id^="card_t"]').forEach(function(i){ if(i.value && i.value!=="none") cardsActive++; });
-    var upg=["modStrA0","modStrA1","modCorrA2","modDivA2","bonusDmgArpenA0","bonusDmgExpA1","bonusArpenCdA0"].reduce(function(t,id){return t+num(id);},0);
+    var cardsActive=0, infernalCards=0;
+    document.querySelectorAll('input[type=hidden][id^="card_t"]').forEach(function(i){
+      if(!i.value || i.value==="none") return;
+      cardsActive++; if(i.value==="infernal") infernalCards++;
+    });
+    var asc=parseInt(val("ascension")||"0",10)||0;
+    var have=0, cap=0;
+    UPG.forEach(function(u){ if(asc>=u[2]){ cap+=u[1]; have+=Math.min(num(u[0]),u[1]); } });
+    var pre="Current value(s): ";
+    var plural=function(n,w){ return n+" "+w+(n===1?"":"s"); };
     var state={
-      ascension:{txt:"Currently A"+(val("ascension")||"0"), flag:(val("ascension")||"0")==="0"},
-      basestats:{txt:chk("baseStatModeSpent")?"Mode: spent points":"Mode: attributes at 0", flag:false},
-      statcap:{txt:chk("statCapBonus")?"On":"Off", flag:false},
-      upgrades:{txt:upg>0?"Levels set":"All levels 0", flag:upg===0},
-      cards:{txt:cardsActive>0?(cardsActive+" active"):"None set", flag:cardsActive===0},
-      infernal:{txt:"x"+(val("archInfernalMult")||"1"), flag:false},
-      polychrome:{txt:chk("polyUpgrade")?"On":"Off", flag:false}
+      ascension: pre+"A"+(val("ascension")||"0"),
+      basestats: pre+(chk("baseStatModeSpent")?"spent attribute points":"attributes at 0"),
+      statcap:   pre+(chk("statCapBonus")?"on":"off"),
+      upgrades:  pre+have+"/"+cap+" available upgrade levels",
+      cards:     pre+(cardsActive>0?plural(cardsActive,"card")+" set":"no cards set"),
+      infernal:  pre+(val("archInfernalMult")||"1")+"x, "+(infernalCards>0?plural(infernalCards,"infernal card"):"no infernal cards set"),
+      polychrome:pre+(chk("polyUpgrade")?"on":"off")
     };
     bubble.querySelectorAll(".sanity-item").forEach(function(it){
-      var s=state[it.dataset.check]; if(!s) return;
-      it.classList.toggle("flag", !!s.flag);
-      var sp=it.querySelector(".sanity-state"); if(sp) sp.textContent=s.txt;
+      var sp=it.querySelector(".sanity-state"); if(sp) sp.textContent=state[it.dataset.check]||"";
     });
     if(typeof updateBtn==="function") updateBtn();
   }
