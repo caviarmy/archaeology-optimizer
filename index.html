@@ -352,6 +352,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 /* AI build-analysis modal (opened from the Diagnose button) */
 .diag-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70}
 .diag-modal{position:fixed;inset:0;z-index:71;display:flex;align-items:center;justify-content:center;padding:14px}
+.diag-modal[hidden],.diag-backdrop[hidden]{display:none}
 .diag-panel{background:#fff;border-radius:14px;box-shadow:0 18px 50px rgba(16,24,40,.30);width:100%;max-width:460px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
 .diag-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:13px 15px 10px;border-bottom:1px solid var(--line)}
 .diag-head h3{margin:0;font-size:15px}
@@ -3189,17 +3190,29 @@ function buildDebugData(){
   return data;
 }
 
-// A trimmed snapshot for the AI diagnosis: drops the heavy per-row sim results and
-// the user-agent, keeping the parsed inputs, chosen build and the top alternatives.
+// A trimmed snapshot for the AI analysis: keeps parsed inputs, the EV pre-ranking,
+// and the TOP SIMULATED builds (best first) so the model can compare actual
+// simulated outcomes; drops the full per-row sim table and the user-agent.
 function buildDebugForAI(){
   const d=buildDebugData();
+  let simTop=[];
+  try{
+    const r=window.__simResults;
+    if(Array.isArray(r) && r.length){
+      simTop = r.slice()
+        .sort((a,b)=>(b.rewardsPerHour||0)-(a.rewardsPerHour||0))
+        .slice(0,8)
+        .map(x=>({ stats:x.stats, rewardsPerHour:x.rewardsPerHour, rewardsPerTick:x.rewardsPerTick,
+                   floorReached:(x.floorReached!=null?x.floorReached:x.mcAvgFloor), metrics:x.metrics, simRank:x.simRank }));
+    }
+  }catch(_e){}
   return {
     app:{version:d.app && d.app.version},
     objective:d.inputs && d.inputs.objective,
     ascension:d.inputs && d.inputs.ascension,
     parsedInputs:d.parsedInputs,
     estimate:d.estimate,
-    simulation:{ heroCard:d.simulation && d.simulation.heroCard, sort:d.simulation && d.simulation.sort }
+    simulation:{ heroCard:d.simulation && d.simulation.heroCard, sort:d.simulation && d.simulation.sort, topResults:simTop }
   };
 }
 
@@ -4634,7 +4647,7 @@ if ("serviceWorker" in navigator) {
     <button type="button" class="sanity-item" data-check="polychrome"><span class="t"><b>Polychrome bonus:</b> turn on if you own this upgrade</span><span class="sanity-state"></span></button>
   </div>
   <div class="sanity-ai">
-    <button type="button" class="sanity-ai-btn" id="sanityDiagnose">&#10024; Diagnose this build with AI</button>
+    <button type="button" class="sanity-ai-btn" id="sanityDiagnose">&#10024; Analyze this result with AI</button>
     <p class="sanity-ai-note">One free AI analysis per day. Sends your build's numbers (not your account) to Google Gemini for a plain-language reason it scored well.</p>
     <div class="sanity-ai-out" id="sanityDiagnoseOut" hidden></div>
   </div>
@@ -4642,7 +4655,7 @@ if ("serviceWorker" in navigator) {
 <div id="diagBackdrop" class="diag-backdrop" hidden></div>
 <div id="diagModal" class="diag-modal" role="dialog" aria-modal="true" aria-label="Build analysis" hidden>
   <div class="diag-panel">
-    <div class="diag-head"><h3>&#10024; Build analysis</h3><button type="button" class="diag-close" id="diagClose" aria-label="Close">&times;</button></div>
+    <div class="diag-head"><h3>&#10024; Simulation analysis</h3><button type="button" class="diag-close" id="diagClose" aria-label="Close">&times;</button></div>
     <div class="diag-body" id="diagBody"></div>
     <div class="diag-foot" id="diagFoot" hidden></div>
   </div>
@@ -4749,7 +4762,7 @@ if ("serviceWorker" in navigator) {
     if(cooling()){ diagBtn.disabled=true; diagBtn.textContent="Resets in "+hms(resetsAt-Date.now()); }
     else if(busy){ diagBtn.disabled=true; }
     else {
-      diagBtn.disabled=false; diagBtn.innerHTML="&#10024; Diagnose this build with AI";
+      diagBtn.disabled=false; diagBtn.innerHTML="&#10024; Analyze this result with AI";
       if(resetsAt){ resetsAt=0; try{localStorage.removeItem(LS_KEY);}catch(_e){} }
     }
   }
