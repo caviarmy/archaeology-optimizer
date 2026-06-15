@@ -52,17 +52,35 @@ Return ONLY the JSON object.`;
 
 // Text-only "diagnose" prompt. The app POSTs { action:"explain", debug:{...} }
 // (a trimmed export from the optimizer) and gets back { explanation: "..." }.
-const EXPLAIN_PROMPT = `You are explaining the output of an optimizer for the idle game "Obelisk Miner" Archaeology mode to a player.
+const EXPLAIN_PROMPT = `You are explaining the result of a build optimizer for the idle game "Idle Obelisk Miner: Archaeology" to a player.
 
-How the optimizer works (so you can explain its reasoning):
-- The player spends attribute points (e.g. Strength, Agility, Perception, Intelligence, Luck). The tool searches for the point distribution that maximises the player's chosen objective.
-- It scores every candidate by running a Monte-Carlo SIMULATION of real archaeology runs (many runs, fixed seed) and reading the average result. A fast expected-value (EV) math model only seeds starting points; the final ranking always comes from the simulation, so it is not biased toward raw damage.
-- The objective is one of: total rewards per hour (loot value + XP), XP only, or reaching a target floor. "rewardsPerHour" / "rewardsPerTick" / "floorReached" in the data are simulation outputs.
-- Stats interact: damage and crit raise per-hit output, stamina and attack speed raise how many hits you get, armor penetration counters block scaling on higher floors and after ascension (Divinity/Corruption blocks), and XP/loot/fragment mods raise reward yield. Upgrades change how much each attribute point is worth.
+WHAT THE OPTIMIZER DID
+- The player has a fixed pool of stat points (from their Archaeology Level) to spend across the stats below, each capped. The tool searched distributions and SCORED each by running a Monte-Carlo SIMULATION of real archaeology runs (many runs on shared random rolls), then reported the distribution with the best average for the player's chosen goal. The ranking is the simulation's verdict, not a damage heuristic.
+- The goal is in "objective": total = loot value + XP per hour; xp = XP per hour; target = chance to reach a target floor. Explain everything in terms of THAT goal.
 
-You are given the player's parsed inputs, the chosen ("best") build, and the top few alternative builds the search compared.
+WHAT EACH STAT POINT GIVES (base per point, before upgrades; cap in parentheses)
+- Strength (50): +1 flat damage, +1% damage, +3% crit damage
+- Agility (50): +5 max stamina, +1% crit chance, +0.20% speed-mod chance
+- Perception (25): +4% fragment gain, +0.30% loot-mod chance, +2 flat armor penetration
+- Intellect (25): +5% experience gain, +0.30% experience-mod chance, +3% armor penetration (percent)
+- Luck (25): +2% crit chance, +0.20% to all mod chances, +0.50% gold-crosshair chance
+- Divinity (needs Ascension 1; 10): +2 flat damage, +2% super-crit chance, +2% crosshair auto-tap
+- Corruption (needs Ascension 2; 10): +6% damage, -3% max stamina, +1% to all mod multipliers
+Upgrade levels can raise what a point of a stat gives. Caps mean the optimizer must spread a limited pool, so over-investing one stat means starving another.
 
-Write a SHORT explanation (~4-6 sentences or tight lines) of WHY the recommended distribution scored best for THIS player: which attributes are carrying the result and the mechanism (e.g. "PER pushes armor pen so your hits stop getting blocked on deep floors"), and one notable trade-off vs the runner-up if visible. Speak to the player as "you". Use PLAIN TEXT only — no markdown, no asterisks for bold, no "#" headers; separate ideas with blank lines or "- " bullets. Do not dump raw numbers or restate the whole JSON; reference at most a few key figures. If the data shows no completed run/build, say so and suggest running the estimate first.`;
+SIM CONSTRAINTS BUILDS COMPETE UNDER
+- Damage per hit = flat * (1 + sum of ALL damage %). Percents are pooled then applied once, so a Strength point's +1% is +1% of the flat, not of an inflated total.
+- Stamina caps how many hits a run gets (Agility adds stamina; Corruption trades stamina for damage). Too little damage means you cannot break deep blocks before stamina runs out.
+- Each block has armor that subtracts from every hit; armor penetration (Perception flat, Intellect percent) keeps hits landing on deeper and ascended (divine/corrupt) blocks. Without enough pen, extra damage is wasted against armor and deep floors stall.
+- Rewards scale with mod chance/gain: XP via Intellect (+Luck), loot via Perception (+Luck); Corruption raises all mod-gain multipliers; crit/super-crit raise per-hit output; gleaming/gold-crosshair add reward multipliers.
+
+YOU ARE GIVEN: the player's parsed inputs and upgrades; "simulation.heroCard" (the winning build and its simulated scores); "simulation.topResults" (the top simulated builds, best first, each with its stat distribution and simulated scores/metrics); and "estimate.topBuilds" (the EV pre-ranking). Compare using the SIMULATED results.
+
+WRITE (plain text only — no markdown, no asterisks, no "#"; ~6-9 sentences or "- " bullets):
+1. Why THIS distribution performed best for the chosen goal: name the 2-3 attributes carrying it and the exact mechanism, tying to the stat effects and sim constraints above.
+2. Why alternatives that favor DIFFERENT attributes scored lower: reference one or two specific runner-ups from the simulated results, their attribute tilt, and what they gave up (e.g. "more Strength, but armor was already eating your hits so the extra damage was wasted", or "more Agility for more hits, but not enough damage to break deep blocks for their bigger rewards").
+3. One concrete trade-off or takeaway for the player.
+Speak to the player as "you". Reference at most a few key numbers; never dump the JSON. If there is no completed build/run in the data, say so and tell them to run the estimate (and Simulate) first.`;
 
 function corsHeaders(env, request) {
   const origin = request.headers.get("Origin") || "";
@@ -140,7 +158,7 @@ async function handleExplain(env, body, cors, gate) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
   const payload = {
     contents: [{ role: "user", parts: [{ text: EXPLAIN_PROMPT + "\n\nBUILD DATA (JSON):\n" + debugStr }] }],
-    generationConfig: { temperature: 0.3, maxOutputTokens: 600 }
+    generationConfig: { temperature: 0.3, maxOutputTokens: 750 }
   };
 
   let gem;
