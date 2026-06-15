@@ -50,6 +50,20 @@ Each "... Mod Chance" is a % and the "... Mod Gain" beneath it is a SEPARATE val
 
 Return ONLY the JSON object.`;
 
+// Text-only "diagnose" prompt. The app POSTs { action:"explain", debug:{...} }
+// (a trimmed export from the optimizer) and gets back { explanation: "..." }.
+const EXPLAIN_PROMPT = `You are explaining the output of an optimizer for the idle game "Obelisk Miner" Archaeology mode to a player.
+
+How the optimizer works (so you can explain its reasoning):
+- The player spends attribute points (e.g. Strength, Agility, Perception, Intelligence, Luck). The tool searches for the point distribution that maximises the player's chosen objective.
+- It scores every candidate by running a Monte-Carlo SIMULATION of real archaeology runs (many runs, fixed seed) and reading the average result. A fast expected-value (EV) math model only seeds starting points; the final ranking always comes from the simulation, so it is not biased toward raw damage.
+- The objective is one of: total rewards per hour (loot value + XP), XP only, or reaching a target floor. "rewardsPerHour" / "rewardsPerTick" / "floorReached" in the data are simulation outputs.
+- Stats interact: damage and crit raise per-hit output, stamina and attack speed raise how many hits you get, armor penetration counters block scaling on higher floors and after ascension (Divinity/Corruption blocks), and XP/loot/fragment mods raise reward yield. Upgrades change how much each attribute point is worth.
+
+You are given the player's parsed inputs, the chosen ("best") build, and the top few alternative builds the search compared.
+
+Write a SHORT, plain-language explanation (no markdown headers, ~4-6 sentences or tight bullet lines) of WHY the recommended distribution scored best for THIS player: which attributes are carrying the result and the mechanism (e.g. "PER pushes armor pen so your hits stop getting blocked on deep floors"), and one notable trade-off vs the runner-up if visible. Speak to the player as "you". Do not dump raw numbers or restate the whole JSON; reference at most a few key figures. If the data shows no completed run/build, say so and suggest running the estimate first.`;
+
 function corsHeaders(env, request) {
   const origin = request.headers.get("Origin") || "";
   let allow = "*";
@@ -72,18 +86,68 @@ function json(body, status, headers) {
   });
 }
 
-// Lightweight per-IP daily cap. Only active if a KV namespace is bound as `RL`.
-async function rateLimited(env, request) {
+const RL_TTL = 172800; // 2-day TTL so yesterday's counters self-clean.
+function ipOf(request) { return request.headers.get("CF-Connecting-IP") || "unknown"; }
+function today() { return new Date().toISOString().slice(0, 10); }
+
+// Lightweight per-IP daily cap for OCR. Only active if a KV namespace is bound as `RL`.
+async function ocrRateLimited(env, request) {
   if (!env.RL) return false;
-  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-  const day = new Date().toISOString().slice(0, 10);
-  const key = `rl:${day}:${ip}`;
+  const key = `rl:${today()}:${ipOf(request)}`;
   const limit = Number(env.DAILY_LIMIT || 100);
   const current = Number((await env.RL.get(key)) || 0);
   if (current >= limit) return true;
-  // 2-day TTL so yesterday's keys self-clean.
-  await env.RL.put(key, String(current + 1), { expirationTtl: 172800 });
+  await env.RL.put(key, String(current + 1), { expirationTtl: RL_TTL });
   return false;
+}
+
+// Stricter gate for the AI "diagnose" call: a per-IP daily cap (default 1) AND a
+// global daily ceiling (default 200) so total spend is bounded even under abuse.
+// Both counters are read first and only incremented when the call is allowed.
+async function explainGate(env, request) {
+  if (!env.RL) return { ok: true };
+  const day = today();
+  const ipKey = `rlx:${day}:${ipOf(request)}`;
+  const globKey = `rlxg:${day}`;
+  const ipLimit = Number(env.EXPLAIN_DAILY_LIMIT || 1);
+  const globLimit = Number(env.EXPLAIN_GLOBAL_LIMIT || 200);
+  const ipCur = Number((await env.RL.get(ipKey)) || 0);
+  if (ipCur >= ipLimit) return { ok: false, reason: "You have used today's AI diagnosis. Try again tomorrow." };
+  const globCur = Number((await env.RL.get(globKey)) || 0);
+  if (globCur >= globLimit) return { ok: false, reason: "AI diagnosis is busy today. Try again tomorrow." };
+  await env.RL.put(ipKey, String(ipCur + 1), { expirationTtl: RL_TTL });
+  await env.RL.put(globKey, String(globCur + 1), { expirationTtl: RL_TTL });
+  return { ok: true };
+}
+
+// Text-only Gemini call that explains why a build scored well.
+async function handleExplain(env, body, cors) {
+  let debugStr;
+  try { debugStr = JSON.stringify(body.debug); } catch { return json({ error: "'debug' is not serialisable" }, 400, cors); }
+  if (typeof debugStr !== "string" || debugStr.length < 2) return json({ error: "Missing 'debug' snapshot" }, 400, cors);
+  if (debugStr.length > 120000) debugStr = debugStr.slice(0, 120000); // bound tokens/cost
+
+  const model = env.GEMINI_MODEL || "gemini-2.0-flash-lite";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+  const payload = {
+    contents: [{ role: "user", parts: [{ text: EXPLAIN_PROMPT + "\n\nBUILD DATA (JSON):\n" + debugStr }] }],
+    generationConfig: { temperature: 0.3, maxOutputTokens: 600 }
+  };
+
+  let gem;
+  try {
+    gem = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  } catch (e) {
+    return json({ error: "Could not reach Gemini", detail: String(e) }, 502, cors);
+  }
+  if (!gem.ok) {
+    const detail = (await gem.text()).slice(0, 600);
+    return json({ error: "Gemini request failed", status: gem.status, detail }, 502, cors);
+  }
+  const out = await gem.json();
+  const text = (out?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+  if (!text) return json({ error: "Model returned an empty explanation" }, 502, cors);
+  return json({ explanation: text }, 200, cors);
 }
 
 export default {
@@ -99,10 +163,18 @@ export default {
       if (origin && !list.includes(origin)) return json({ error: "Origin not allowed" }, 403, cors);
     }
 
-    if (await rateLimited(env, request)) return json({ error: "Daily limit reached, try again tomorrow" }, 429, cors);
-
     let body;
     try { body = await request.json(); } catch { return json({ error: "Body must be JSON" }, 400, cors); }
+
+    // Two actions share this worker: OCR (image -> stats) and the AI "diagnose"
+    // explanation (debug snapshot -> text). They have separate daily caps.
+    if (body && (body.action === "explain" || body.debug)) {
+      const gate = await explainGate(env, request);
+      if (!gate.ok) return json({ error: gate.reason }, 429, cors);
+      return handleExplain(env, body, cors);
+    }
+
+    if (await ocrRateLimited(env, request)) return json({ error: "Daily limit reached, try again tomorrow" }, 429, cors);
 
     const dataUrl = body && body.image;
     if (typeof dataUrl !== "string") return json({ error: "Missing 'image' (base64 data URL)" }, 400, cors);
