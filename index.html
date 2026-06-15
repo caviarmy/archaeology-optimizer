@@ -261,6 +261,8 @@ body[data-target-used="true"] .target-only{
 body[data-target-used="false"] .target-only{
   display:none!important;
 }
+.goal-block-field{display:none!important}
+body[data-block-target="true"] .goal-block-field{display:block!important}
 
 
 /* v31: simulation results become the lead card after a simulation run */
@@ -401,6 +403,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <option value="legendary">Legendary loot</option>
           <option value="mythic">Mythic loot</option>
           <option value="divine">Divine loot</option>
+          <option value="block">Specific block</option>
           <option value="target">Target floor</option>
         </select>
       </div>
@@ -423,6 +426,13 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
       <div class="goal-target-field">
         <label>Target floor</label>
         <input id="targetFloor" type="number" min="1" max="1000" step="1" inputmode="numeric" value="13">
+      </div>
+      <div class="goal-block-field">
+        <label>Target block (most destroyed per hour)</label>
+        <div style="display:flex;gap:8px">
+          <select id="blockTargetTier" aria-label="Block tier"><option value="1">Tier 1</option><option value="2">Tier 2</option><option value="3" selected>Tier 3</option><option value="4">Tier 4</option></select>
+          <select id="blockTargetType" aria-label="Block rarity"><option value="dirt">Dirt</option><option value="common">Common</option><option value="rare">Rare</option><option value="epic" selected>Epic</option><option value="legendary">Legendary</option><option value="mythic">Mythic</option><option value="divine">Divine</option></select>
+        </div>
       </div>
       <div id="primaryProtectionField">
         <label>Primary protection</label>
@@ -960,7 +970,8 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.15.1";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.15.2";  // bump on notable releases; surfaced in the debug export
+let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
 function checked(id){ return document.getElementById(id).checked; }
@@ -989,6 +1000,7 @@ function rewardFocusLabel(key){
     allRewards:"All rewards", xp:"EXP", allLoot:"Loot only", common:"Common loot", rare:"Rare loot",
     epic:"Epic loot", legendary:"Legendary loot", mythic:"Mythic loot", divine:"Divine loot", target:"Target floor", none:"None"
   };
+  if(key==="block") return _blockTargetLabel || "Target block";
   return labels[key] || key;
 }
 function primaryFocusKey(inp){
@@ -1088,6 +1100,7 @@ function updateGoalUI(){
   document.body.dataset.workflow = "results";
   document.body.dataset.objective = primary === "xp" && !goalUsesLoot(secondary) ? "exp" : "custom";
   document.body.dataset.targetUsed = (goalUsesTarget(primary) || goalUsesTarget(secondary)) ? "true" : "false";
+  document.body.dataset.blockTarget = (primary === "block") ? "true" : "false";
   document.body.dataset.showLootSettings = (goalUsesLoot(primary) || goalUsesLoot(secondary)) ? "true" : "false";
 
   const title = document.getElementById("optimizerTitle");
@@ -1109,6 +1122,7 @@ function metricValue(sc, key, inp){
   if(key==="allRewards") return m.allRewards || 0;
   if(key==="xp") return m.xp || 0;
   if(key==="allLoot") return m.allLoot || 0;
+  if(key==="block"){ const cph=sc.countsPerHour; if(cph) return cph[inp && inp.blockTargetKey]||0; return m.allLoot||0; }
   return m[key] || 0;
 }
 function rankCandidates(candidates, inp){
@@ -1638,6 +1652,10 @@ function getInputs(){
   const bbPct = chkOr("blockBonker") ? Math.max(0, Math.min(100, Math.floor(numOr("blockBonkerStage", 100)))) / 100 : 0;
   out.inc.nonAttrDmgPct += bbPct;
   out.inc.blockBonkerStamPct = bbPct;
+  // Block-target goal: which tier+type the player wants the most of, per hour.
+  out.blockTarget = { tier: Math.max(1, Math.min(4, parseInt(v("blockTargetTier")||"3",10)||3)), type: (v("blockTargetType")||"epic") };
+  out.blockTargetKey = "t"+out.blockTarget.tier+"_"+out.blockTarget.type;
+  _blockTargetLabel = "Tier "+out.blockTarget.tier+" "+out.blockTarget.type.charAt(0).toUpperCase()+out.blockTarget.type.slice(1);
   // Infernal card global buffs appear in the player's displayed stats, so they
   // are walked out to recover the true base (percent buffs divided out, flat
   // buffs subtracted), then re-applied by getDerived / the simulation. Stats with
@@ -2590,6 +2608,7 @@ function simFocusValue(row, inp){
   if(k==="allRewards") return row.rewardsPerHour;
   if(k==="xp") return row.xpPerHour;
   if(k==="allLoot") return row.allLootPerHour;
+  if(k==="block") return (row.countsPerHour && row.countsPerHour[inp.blockTargetKey]) || 0;
   if(row.lootPerHour && row.lootPerHour[k]!=null) return row.lootPerHour[k];
   return row.rewardsPerHour;
 }
@@ -2601,7 +2620,7 @@ function simCandidate(st, row, inp){
   const metrics = {xp:row.xpPerHour||0, common:lp.common||0, rare:lp.rare||0, epic:lp.epic||0, legendary:lp.legendary||0, mythic:lp.mythic||0, divine:lp.divine||0};
   metrics.allLoot = row.allLootPerHour||0;
   metrics.allRewards = row.rewardsPerHour||0;
-  const out = {stats:{...st}, der, metrics, floorReached:row.mcAvgFloor,
+  const out = {stats:{...st}, der, metrics, countsPerHour:row.countsPerHour, floorReached:row.mcAvgFloor,
     rewardsPerHour:row.rewardsPerHour, rewardsPerTick:row.rewardsPerTick, rewardsPerStam:row.rewardsPerStam,
     targetPct:row.targetPct, totalTicks:0, channels:null};
   out.primaryMetric = metricValue(out, primaryFocusKey(inp), inp);
@@ -3088,9 +3107,11 @@ function renderSimResults(sortKey, dir){
   const tbody=document.querySelector("#monteRerankTable tbody");
   if(!results || !results.length || !tbody) return;
   if(sortKey){ _simSortKey=sortKey; _simSortDir = dir || simSortNaturalDir(sortKey); }
-  // Fixed rank: by the primary metric (rewards per real-time hour), stored on each
-  // record so sorting the table by another column doesn't change a build's rank.
-  results.slice().sort((a,b)=>b.rewardsPerHour-a.rewardsPerHour).forEach((r,i)=>{ r.simRank=i+1; });
+  // Fixed rank: by the chosen goal's metric (rewards/hr, a loot type, target %, or
+  // the targeted block's count/hr), stored on each record so sorting the table by
+  // another column doesn't change a build's rank.
+  const _focusInp = getInputs();
+  results.slice().sort((a,b)=>simFocusValue(b,_focusInp)-simFocusValue(a,_focusInp)).forEach((r,i)=>{ r.simRank=i+1; });
   // Display order for the chosen column (rank tiebreak keeps it stable).
   const key=_simSortKey, d=_simSortDir;
   const val=r=> key==="rank" ? r.simRank : (key==="detRank" ? (r.detRank||0) : (r[key]==null?-Infinity:r[key]));
@@ -4485,7 +4506,8 @@ function resetAllSettings(){
     mcRunsPerBuild:"1000",
     simSeedMode:"random",
     simSeedValue:"12345",
-    blockBonkerStage:"100"
+    blockBonkerStage:"100",
+    blockTargetTier:"3", blockTargetType:"epic"
   };
   for(const [id,val] of Object.entries(defaults)){
     const el = document.getElementById(id);
