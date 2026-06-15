@@ -62,7 +62,7 @@ How the optimizer works (so you can explain its reasoning):
 
 You are given the player's parsed inputs, the chosen ("best") build, and the top few alternative builds the search compared.
 
-Write a SHORT, plain-language explanation (no markdown headers, ~4-6 sentences or tight bullet lines) of WHY the recommended distribution scored best for THIS player: which attributes are carrying the result and the mechanism (e.g. "PER pushes armor pen so your hits stop getting blocked on deep floors"), and one notable trade-off vs the runner-up if visible. Speak to the player as "you". Do not dump raw numbers or restate the whole JSON; reference at most a few key figures. If the data shows no completed run/build, say so and suggest running the estimate first.`;
+Write a SHORT explanation (~4-6 sentences or tight lines) of WHY the recommended distribution scored best for THIS player: which attributes are carrying the result and the mechanism (e.g. "PER pushes armor pen so your hits stop getting blocked on deep floors"), and one notable trade-off vs the runner-up if visible. Speak to the player as "you". Use PLAIN TEXT only — no markdown, no asterisks for bold, no "#" headers; separate ideas with blank lines or "- " bullets. Do not dump raw numbers or restate the whole JSON; reference at most a few key figures. If the data shows no completed run/build, say so and suggest running the estimate first.`;
 
 function corsHeaders(env, request) {
   const origin = request.headers.get("Origin") || "";
@@ -101,27 +101,36 @@ async function ocrRateLimited(env, request) {
   return false;
 }
 
+// The per-day counters reset at the next UTC midnight (keys are keyed by UTC date).
+function nextUtcMidnight() {
+  const d = new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0, 0)).toISOString();
+}
+
 // Stricter gate for the AI "diagnose" call: a per-IP daily cap (default 1) AND a
 // global daily ceiling (default 200) so total spend is bounded even under abuse.
 // Both counters are read first and only incremented when the call is allowed.
+// Returns the per-IP limit/used and the reset time so the client can show a count
+// and a "resets in HH:MM:SS" countdown.
 async function explainGate(env, request) {
-  if (!env.RL) return { ok: true };
+  const ipLimit = Number(env.EXPLAIN_DAILY_LIMIT || 1);
+  const resetsAt = nextUtcMidnight();
+  if (!env.RL) return { ok: true, limit: ipLimit, used: 0, resetsAt };
   const day = today();
   const ipKey = `rlx:${day}:${ipOf(request)}`;
   const globKey = `rlxg:${day}`;
-  const ipLimit = Number(env.EXPLAIN_DAILY_LIMIT || 1);
   const globLimit = Number(env.EXPLAIN_GLOBAL_LIMIT || 200);
   const ipCur = Number((await env.RL.get(ipKey)) || 0);
-  if (ipCur >= ipLimit) return { ok: false, reason: "You have used today's AI diagnosis. Try again tomorrow." };
+  if (ipCur >= ipLimit) return { ok: false, reason: "You have used today's AI diagnosis.", limit: ipLimit, used: ipCur, resetsAt };
   const globCur = Number((await env.RL.get(globKey)) || 0);
-  if (globCur >= globLimit) return { ok: false, reason: "AI diagnosis is busy today. Try again tomorrow." };
+  if (globCur >= globLimit) return { ok: false, reason: "AI diagnosis is busy today. Try again tomorrow.", limit: ipLimit, used: ipCur, resetsAt };
   await env.RL.put(ipKey, String(ipCur + 1), { expirationTtl: RL_TTL });
   await env.RL.put(globKey, String(globCur + 1), { expirationTtl: RL_TTL });
-  return { ok: true };
+  return { ok: true, limit: ipLimit, used: ipCur + 1, resetsAt };
 }
 
 // Text-only Gemini call that explains why a build scored well.
-async function handleExplain(env, body, cors) {
+async function handleExplain(env, body, cors, gate) {
   let debugStr;
   try { debugStr = JSON.stringify(body.debug); } catch { return json({ error: "'debug' is not serialisable" }, 400, cors); }
   if (typeof debugStr !== "string" || debugStr.length < 2) return json({ error: "Missing 'debug' snapshot" }, 400, cors);
@@ -147,7 +156,8 @@ async function handleExplain(env, body, cors) {
   const out = await gem.json();
   const text = (out?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
   if (!text) return json({ error: "Model returned an empty explanation" }, 502, cors);
-  return json({ explanation: text }, 200, cors);
+  const usage = gate ? { limit: gate.limit, used: gate.used, resetsAt: gate.resetsAt } : {};
+  return json({ explanation: text, ...usage }, 200, cors);
 }
 
 export default {
@@ -170,8 +180,8 @@ export default {
     // explanation (debug snapshot -> text). They have separate daily caps.
     if (body && (body.action === "explain" || body.debug)) {
       const gate = await explainGate(env, request);
-      if (!gate.ok) return json({ error: gate.reason }, 429, cors);
-      return handleExplain(env, body, cors);
+      if (!gate.ok) return json({ error: gate.reason, limit: gate.limit, used: gate.used, resetsAt: gate.resetsAt }, 429, cors);
+      return handleExplain(env, body, cors, gate);
     }
 
     if (await ocrRateLimited(env, request)) return json({ error: "Daily limit reached, try again tomorrow" }, 429, cors);
