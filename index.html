@@ -84,7 +84,8 @@ th{position:sticky;top:0;background:#f1f5f9;color:#111827;z-index:1}
 #monteRerankTable th.sorted{background:#dbe7f3}
 #monteRerankTable th.sort-desc::after{content:" \25BC";font-size:10px;opacity:.75}
 #monteRerankTable th.sort-asc::after{content:" \25B2";font-size:10px;opacity:.75}
-.stepper{display:flex;align-items:stretch;max-width:170px}
+.stepper{display:flex;align-items:stretch;max-width:230px}
+.stepper-btn.stepper-max{width:auto;padding:0 10px;font-size:12px;font-weight:800;border-left:1px solid var(--line)}
 .stepper input{text-align:center;border-radius:0;flex:1;min-width:0}
 .stepper-btn{width:38px;flex:none;border:1px solid var(--line);background:var(--soft);color:#111827;cursor:pointer;font-size:18px;font-weight:600;line-height:1;user-select:none;padding:0}
 .stepper-btn:hover{background:#e2e8f0}
@@ -703,6 +704,10 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         </div>
         <div class="check-grid" style="margin-bottom:10px">
           <label class="check-row"><input id="statCapBonus" type="checkbox"> +5 Stat Pt. Caps</label>
+          <label class="check-row"><input id="blockBonker" type="checkbox"> Block Bonker (Obelisk Lv 30)</label>
+        </div>
+        <div class="form-grid" style="margin-bottom:10px">
+          <div><label>Block Bonker — highest stage reached (capped at 100): +1% dmg &amp; +1% max stamina per stage</label><input id="blockBonkerStage" type="number" inputmode="numeric" min="0" max="100" step="1" value="100"></div>
         </div>
         <h3>Attribute modifiers</h3>
         <div class="form-grid">
@@ -955,7 +960,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.15";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.15.1";  // bump on notable releases; surfaced in the debug export
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
 function checked(id){ return document.getElementById(id).checked; }
@@ -1624,6 +1629,15 @@ function getInputs(){
   out.inc.intXpModPct   += 0.0001 * mInt;                    // +0.01% exp-mod chance / lvl
   out.inc.nonAttrDmgPct = 0.02 * lvl("bonusDmgArpenA0", 20) + 0.10 * lvl("bonusDmgExpA1", 5);
   out.inc.nonAttrPenPct = 0.02 * lvl("bonusArpenCdA0", 10);
+  // Block Bonker (Obelisk Lv 30 skill): +1% damage and +1% max stamina per highest
+  // stage, capped at stage 100 (so up to +100% each). Both are in the imported
+  // stats, so the damage% joins the additive pool (nonAttrDmgPct, which getDerived
+  // and reverseBaseStats already use to walk damage out/in), and the stamina% is
+  // applied/backed-out as a multiplier. (+15 speed-mod gain is a flat stat already
+  // captured by the imported Speed Mod Gain, so it needs no separate handling.)
+  const bbPct = chkOr("blockBonker") ? Math.max(0, Math.min(100, Math.floor(numOr("blockBonkerStage", 100)))) / 100 : 0;
+  out.inc.nonAttrDmgPct += bbPct;
+  out.inc.blockBonkerStamPct = bbPct;
   // Infernal card global buffs appear in the player's displayed stats, so they
   // are walked out to recover the true base (percent buffs divided out, flat
   // buffs subtracted), then re-applied by getDerived / the simulation. Stats with
@@ -1665,7 +1679,7 @@ function reverseBaseStats(b, pts, inc, inf={}){
     ...b,
     // Invert getDerived. Damage: (base + S*flat + D*divFlat + infFlat)(1 + infDmg%)(1 + nonAttr% + S*str% + C*corr%).
     damage: cl("Damage", b.damage / ((1 + infv("dmgPct")) * (1 + (inc.nonAttrDmgPct||0) + S*inc.strDamagePct + C*(inc.corrDamagePct||0))) - S*inc.strFlatDamage - D*(inc.divFlatDamage||0) - infv("flatDamage"), 0),
-    stamina: cl("Max stamina", b.stamina / (corrStam*(1+infv("staminaPct"))) - A*inc.agiStamina - infv("staminaFlat"), 0),
+    stamina: cl("Max stamina", b.stamina / (corrStam*(1+infv("staminaPct"))*(1+(inc.blockBonkerStamPct||0))) - A*inc.agiStamina - infv("staminaFlat"), 0),
     critChance: cl("Crit chance", b.critChance - A*inc.agiCritPct - L*inc.luckCritPct, 0),
     critDamage: cl("Crit damage", b.critDamage/(1+infv("critDmgPct")) - S*inc.strCritDamage, 1),
     superChance: cl("Super crit chance", (b.superChance||0) - D*(inc.divSuperCritPct||0), 0),
@@ -1752,7 +1766,7 @@ function getDerived(stats, inp){
   // Stamina-mod chance: base + Luck (All Mod Chances). Agility does NOT affect it
   // (wiki: Agility = Max Stamina, Crit Chance, Speed Mod Chance only).
   const staminaModChance = clamp(b.staminaMod + L*inc.luckAllModPct,0,0.95);
-  const stamina = ((b.stamina + A*inc.agiStamina) + (inf.staminaFlat||0)) * Math.max(0.05, 1 - C*(inc.corrMaxStaminaPct||0)) * (1 + (inf.staminaPct||0)); // Corruption -3%/pt max stamina; infernal flat + %
+  const stamina = ((b.stamina + A*inc.agiStamina) + (inf.staminaFlat||0)) * Math.max(0.05, 1 - C*(inc.corrMaxStaminaPct||0)) * (1 + (inf.staminaPct||0)) * (1 + (inc.blockBonkerStamPct||0)); // Corruption -3%/pt max stamina; infernal flat + %; Block Bonker +1%/stage
   // PER gives flat armor penetration (+2/level), INT gives percent (+3%/level).
   // Percent armor pen buffs the flat armor-pen stat (e.g. 100 pen +9% = 109 pen).
   // Infernal adds flat pen and a multiplicative armor-pen layer.
@@ -3177,6 +3191,12 @@ function wireSteppers(){
     wrap.appendChild(mk("−",-1));   // minus
     wrap.appendChild(input);
     wrap.appendChild(mk("+",1));
+    if(isFinite(max)){              // one-tap "Max" for this single upgrade
+      const mx=document.createElement("button");
+      mx.type="button"; mx.className="stepper-btn stepper-max"; mx.textContent="Max"; mx.tabIndex=-1;
+      mx.addEventListener("click",()=>{ input.value=String(max); input.dispatchEvent(new Event("change",{bubbles:true})); });
+      wrap.appendChild(mx);
+    }
   });
 }
 
@@ -4464,7 +4484,8 @@ function resetAllSettings(){
     mcTopCount:"25",
     mcRunsPerBuild:"1000",
     simSeedMode:"random",
-    simSeedValue:"12345"
+    simSeedValue:"12345",
+    blockBonkerStage:"100"
   };
   for(const [id,val] of Object.entries(defaults)){
     const el = document.getElementById(id);
@@ -4478,6 +4499,7 @@ function resetAllSettings(){
     const el=document.getElementById(id); if(el) el.checked=false;
   });
   const capBonus=document.getElementById("statCapBonus"); if(capBonus) capBonus.checked=false;
+  const bbonk=document.getElementById("blockBonker"); if(bbonk) bbonk.checked=false;
 
   if(typeof ARCHAEOLOGY_CARD_KEYS !== "undefined"){
     ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
