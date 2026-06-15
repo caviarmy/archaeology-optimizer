@@ -3244,15 +3244,18 @@ function buildDebugForAI(){
       const ATTRS=["S","A","P","I","L","D","C"];
       const dist=(a,b)=>ATTRS.reduce((s,k)=>s+Math.abs(((a&&a[k])||0)-((b&&b[k])||0)),0);
       const byRank=r.slice().sort((a,b)=>((a.simRank||1e9)-(b.simRank||1e9)) || ((b.rewardsPerHour||0)-(a.rewardsPerHour||0)));
-      // The top builds by reward are usually near-duplicates of the winner, which
-      // gives the AI nothing to contrast. Instead send the winner plus the best
-      // representative of each STRATEGICALLY DIFFERENT build, so it can explain
-      // why a very different distribution (e.g. heavy Luck) competes or falls short.
-      const chosen=[byRank[0]];
-      const fill=(thresh,cap)=>{ for(const x of byRank){ if(chosen.length>=cap) break;
-        if(chosen.indexOf(x)===-1 && chosen.every(c=>dist(c.stats,x.stats)>=thresh)) chosen.push(x); } };
-      fill(10,6);   // distinct strategies first (>=10 stat points apart)
-      fill(5,6);    // then fill remaining slots with the next most-different builds
+      // The top builds by reward are near-duplicates of the winner, giving the AI
+      // nothing to contrast. Send instead: the overall winner; the HEAVIEST build
+      // the search actually tried for each stat (a cap-respecting "what this lever
+      // buys at its limit" anchor — these are real simulated builds, so they never
+      // exceed the caps); and a few of the most different remaining builds.
+      const chosen=[];
+      const add=x=>{ if(x && chosen.indexOf(x)===-1) chosen.push(x); };
+      const champ=k=>{ let best=null,bv=0; for(const x of byRank){ const val=(x.stats&&x.stats[k])||0; if(val>bv){ bv=val; best=x; } } return best; };
+      add(byRank[0]);
+      ATTRS.forEach(k=>add(champ(k)));            // strongest real build leaning into each stat
+      for(const x of byRank){ if(chosen.length>=10) break;
+        if(chosen.indexOf(x)===-1 && chosen.every(c=>dist(c.stats,x.stats)>=8)) add(x); }
       chosen.sort((a,b)=>(a.simRank||1e9)-(b.simRank||1e9));
       simTop=chosen.map(pick);
     }
