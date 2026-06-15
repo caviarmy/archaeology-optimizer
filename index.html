@@ -448,7 +448,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <summary>Top candidate builds</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="topBuildsTable">
-            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>EV rewards / hr</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
+            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>Est. rewards / hr</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -742,7 +742,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <div><label>Crosshair spawn % / block</label><input id="crosshairSpawnPct" type="number" step="0.001" value="2.175"></div>
           <div><label>Crosshair interval s</label><input id="crosshairInterval" type="number" step="0.001" value="1.005"></div>
           <div><label>Crosshair fire delay s</label><input id="crosshairFireDelay" type="number" step="0.001" value="2"></div>
-          <div><label>Top reward builds to rerank</label><input id="mcTopCount" type="number" min="1" max="100" value="25"></div>
+          <div><label>Top builds to keep (shown in the estimate, re-simulated by Simulate)</label><input id="mcTopCount" type="number" min="1" max="1000" value="25"></div>
           <div><label>Runs per reward build</label><input id="mcRunsPerBuild" type="number" min="100" max="20000" value="1000"></div>
           <div><label>Simulation seed mode</label><select id="simSeedMode"><option value="random" selected>Random each run</option><option value="fixed">Fixed seed</option></select></div>
           <div><label>Fixed simulation seed</label><input id="simSeedValue" type="text" value="12345"></div>
@@ -1459,7 +1459,7 @@ function getInputs(){
     },
     nodeSpawnModel:v("nodeSpawnModel") || "activeCount",
     speedModel:"none", // speed/ticks-per-second intentionally excluded from tick-efficiency optimization
-    mcTopCount:Math.max(1, Math.min(100, Math.floor(n("mcTopCount") || 25))),
+    mcTopCount:Math.max(1, Math.min(1000, Math.floor(n("mcTopCount") || 25))),
     mcRunsPerBuild:Math.max(100, Math.min(20000, Math.floor(n("mcRunsPerBuild") || 1000))),
     simSeedMode:v("simSeedMode") || "random",
     simSeedValue:String(v("simSeedValue") || "12345"),
@@ -2229,7 +2229,7 @@ async function runExact(){
   const btn = document.getElementById("runExact");
   let thorough = !!document.getElementById("thoroughSearch")?.checked;
   btn.disabled = true; btn.classList.add("btn-spin");
-  showStatus(thorough ? "Searching every build..." : "Searching builds...", 30000);
+  showStatus(thorough ? "Searching every build..." : "Searching (simulated)…", 30000);
   await new Promise(r=>setTimeout(r,20));
 
   clearMonteRerank();
@@ -2247,15 +2247,17 @@ async function runExact(){
       topBuilds = res.topBuilds; count = res.count;
     }
   }else{
-    const all = fastSearch(inp, blocks, level);
-    count = all.length;
-    topBuilds = rankCandidates(all, inp).slice(0, topLimit);
+    // Simulation-driven guided search (EV used only to seed; the climb follows the
+    // unbiased simulation), so no class of builds is filtered out by EV bias.
+    const res = await simGuidedSearch(inp, blocks, level, status);
+    topBuilds = res.topBuilds;
+    count = res.count;
   }
 
   const best = topBuilds[0];
   lastExactTopBuilds = topBuilds.map((x, i2) => ({...x, detRank: i2 + 1}));
   lastExactSignature = exactSignature;
-  renderBest(best, topBuilds.slice(0, 10), count);
+  renderBest(best, topBuilds.slice(0, inp.mcTopCount), count);
   showStatus(`Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s (${count.toLocaleString()} build${count===1?"":"s"}${thorough?"":", smart search"})${extra}.`, 5000);
   btn.disabled = false; btn.classList.remove("btn-spin");
   isRunningExact = false;
@@ -2481,6 +2483,114 @@ function fastSearch(inp, blocks, level){
   return all;
 }
 
+// ---- Simulation-driven guided search -------------------------------------
+// The EV is biased (it over-credits some build types), so using it to rank/filter
+// can hide the true best build. Here the EV only supplies starting seeds; the
+// optimizer hill-climbs on a SHORT simulation (the unbiased truth) using common
+// random numbers (same RNG seed for every candidate) for low-noise comparisons.
+// Finalists are re-ranked precisely by the full simulation in runMonteRerank.
+function simFocusValue(row, inp){
+  const k = primaryFocusKey(inp);
+  if(k==="target") return row.targetPct;
+  if(k==="allRewards") return row.rewardsPerHour;
+  if(k==="xp") return row.xpPerHour;
+  if(k==="allLoot") return row.allLootPerHour;
+  if(row.lootPerHour && row.lootPerHour[k]!=null) return row.lootPerHour[k];
+  return row.rewardsPerHour;
+}
+// Shape a sim-aggregate row like a scoreBuild output so renderBest / rankCandidates
+// / runMonteRerank all work unchanged (metrics are per-real-time-hour from the sim).
+function simCandidate(st, row, inp){
+  const der = getDerived(st, inp);
+  const lp = row.lootPerHour || {};
+  const metrics = {xp:row.xpPerHour||0, common:lp.common||0, rare:lp.rare||0, epic:lp.epic||0, legendary:lp.legendary||0, mythic:lp.mythic||0, divine:lp.divine||0};
+  metrics.allLoot = row.allLootPerHour||0;
+  metrics.allRewards = row.rewardsPerHour||0;
+  const out = {stats:{...st}, der, metrics, floorReached:row.mcAvgFloor,
+    rewardsPerHour:row.rewardsPerHour, rewardsPerTick:row.rewardsPerTick, rewardsPerStam:row.rewardsPerStam,
+    targetPct:row.targetPct, totalTicks:0, channels:null};
+  out.primaryMetric = metricValue(out, primaryFocusKey(inp), inp);
+  out.secondaryMetric = metricValue(out, secondaryFocusKey(inp), inp);
+  out.rewardHr = out.primaryMetric;
+  return out;
+}
+async function simGuidedSearch(inp, blocks, level, status){
+  const spec = activeSkillSpec(inp);
+  const keys = spec.map(s=>s[0]);
+  const caps = Object.fromEntries(spec);
+  const target = Math.min(level, spec.reduce((a,[,c])=>a+c,0));
+  const baseSeed = 1234567;
+  const newRng = ()=>{ let s=baseSeed>>>0; return ()=>{ s=(Math.imul(s,1103515245)+12345)>>>0; return s/4294967296; }; };
+
+  // Adaptive runs-per-candidate. Each simulated run costs roughly in proportion to
+  // its depth, which grows sharply with level (stamina refunds make high-level runs
+  // hundreds of floors deep). We time one representative build and pick K so a
+  // candidate costs ~TARGET_MS: cheap low levels get high fidelity (up to 64 runs),
+  // expensive high levels settle near ~16-24. Near the optimum the reward surface
+  // is a flat plateau, so the climb reaches a near-best build even at modest K; the
+  // full Monte-Carlo re-rank (Simulate) then orders the finalists at high fidelity.
+  const fill = (order)=>{ const a={}; for(const k of keys) a[k]=0; let rem=target; for(const k of order){ const put=Math.min(caps[k],rem); a[k]=put; rem-=put; if(rem<=0) break; } return a; };
+  const evenSplit = (()=>{ const a={}; for(const k of keys) a[k]=0; let rem=target,i=0; while(rem>0&&i<1e5){ const k=keys[i%keys.length]; if(a[k]<caps[k]){a[k]++;rem--;} i++; } return a; })();
+  let warmMs;
+  { const r=newRng(); const t0=performance.now(); const probe=Math.min(6, Math.max(3, target)); for(let i=0;i<probe;i++) simulateOneRun(evenSplit, inp, blocks, r); warmMs=(performance.now()-t0)/probe; }
+  const TARGET_MS = (inp.simSearchTargetMs||120);
+  const K = Math.max(8, Math.min(inp.simSearchRuns||64, Math.round(TARGET_MS/Math.max(0.05,warmMs))));
+  // Wall-clock budget: stop opening new starts once exceeded (the current climb
+  // always finishes). EV/corner seeds run first, so the most promising basins are
+  // covered even if randoms get cut off. Default scales a little with level.
+  const BUDGET_MS = inp.simSearchBudgetMs || Math.min(45000, 12000 + level*300);
+
+  const cache = new Map();
+  const fit = (a)=>{
+    const st={S:0,A:0,P:0,I:0,L:0,D:0,C:0}; for(const k of keys) st[k]=a[k]||0;
+    const key = keys.map(k=>st[k]).join(",");
+    let c = cache.get(key);
+    if(c===undefined){
+      const row = aggregateBuildSim(st, inp, blocks, K, newRng());   // common random numbers
+      c = {st, row, v: simFocusValue(row, inp)};
+      cache.set(key, c);
+    }
+    return c;
+  };
+  // Seeds: EV's polished top builds (fast) + pure-stat corners + an even split + randoms.
+  let evSeeds = [];
+  try { evSeeds = rankCandidates(fastSearch(inp, blocks, level), inp).slice(0, 30).map(c=>c.stats); } catch(e){}
+  const seeds = [];
+  evSeeds.slice(0, 12).forEach(s=>seeds.push(s));           // core EV seeds
+  for(const k of keys) seeds.push(fill([k, ...keys.filter(x=>x!==k)]));   // pure-stat corners
+  seeds.push(evenSplit);
+  const guaranteedSeeds = seeds.length;   // core EV + corners + even split always run; the rest are budget-bound
+  evSeeds.slice(12).forEach(s=>seeds.push(s));             // remaining EV seeds
+  for(let r=0;r<16;r++) seeds.push(fill(keys.slice().sort(()=>Math.random()-0.5)));  // random restarts
+  // Multi-start hill-climb on the simulated objective (shift one point between stats).
+  const climb = (seed)=>{
+    let cur={}; for(const k of keys) cur[k]=seed[k]||0;
+    let curV=fit(cur).v, guard=0;
+    for(;;){
+      if(guard++ > 4000) break;
+      let bestV=curV, bestA=null;
+      for(const f of keys){ if(cur[f]<=0) continue;
+        for(const t of keys){ if(f===t || (cur[t]||0)>=caps[t]) continue;
+          const ns={...cur}; ns[f]--; ns[t]++;
+          const v=fit(ns).v; if(v > bestV+1e-9){ bestV=v; bestA=ns; }
+        } }
+      if(!bestA) break; cur=bestA; curV=bestV;
+    }
+  };
+  const t0=performance.now();
+  for(let i=0;i<seeds.length;i++){
+    climb(seeds[i]);
+    const elapsed=performance.now()-t0;
+    if(status) showStatus(`Searching (simulated, ${K} runs/build)… ${i+1}/${seeds.length} starts, ${cache.size.toLocaleString()} builds tried.`, 30000);
+    await new Promise(r=>setTimeout(r,0));
+    if(elapsed>BUDGET_MS && i+1>=guaranteedSeeds) break;   // EV/corner seeds always run; then honor the budget
+  }
+  const topLimit = Math.max(10, inp.mcTopCount);
+  const finalists = [...cache.values()].sort((a,b)=>b.v-a.v).slice(0, topLimit).map(c=>simCandidate(c.st, c.row, inp));
+  rankCandidates(finalists, inp);   // apply secondary/tolerance ordering over the finalists
+  return {topBuilds: finalists, count: cache.size};
+}
+
 // Build label "S/A/P/I/L" (+"/D/C" once Divinity/Corruption are allocated).
 function buildLabel(s){
   let lbl = `${s.S||0}/${s.A||0}/${s.P||0}/${s.I||0}/${s.L||0}`;
@@ -2562,7 +2672,12 @@ function rollCritMult(rng, cc, cd, sc, sd, uc, ud){
   return 1;
 }
 
-function simulateOneRun(stats, inp, blocks, rng=Math.random){
+function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
+  // maxTicks > 0 stops the run after that many stamina points are spent. It is a
+  // SCREENING aid only (used by the guided search to rank builds cheaply): both
+  // builds are judged on the same stamina budget, so the per-rate ranking is a
+  // fair, depth-aware comparison. The full search re-ranks finalists uncapped.
+  const cap = maxTicks>0 ? maxTicks : Infinity;
   stats = fullStats(stats);   // guarantee S/A/P/I/L/D/C are all present (missing keys -> 0)
   const der=getDerived(stats,inp);
   let stamina=der.stamina;
@@ -2670,7 +2785,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
     }
   }
 
-  for(let floor=1; floor<=FLOOR_CAP && stamina>0; floor++){
+  for(let floor=1; floor<=FLOOR_CAP && stamina>0 && ticksSpent<cap; floor++){
     const activeNodeCount = rollNodeAttemptsForFloor(floor, inp, rng);
     let clearedCount = 0;
     chQueue.length = 0; // new floor: crosshairs from the previous floor are gone
@@ -2691,9 +2806,9 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random){
         gleam: floorGleam, cleared:false});
     }
     for(const node of nodes){
-      if(stamina<=0) break;
+      if(stamina<=0 || ticksSpent>=cap) break;
       if(node.cleared) continue; // already cleared by a Quake AoE
-      while(node.hp>0 && stamina>0){
+      while(node.hp>0 && stamina>0 && ticksSpent<cap){
         tryCast();
         const enr = sched.enrage.left>0, flu = sched.flurry.left>0, qk = sched.quake.left>0;
         let dmg = der.damage, cdmg = der.critDamage;
