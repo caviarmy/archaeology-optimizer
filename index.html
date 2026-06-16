@@ -1126,7 +1126,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.7";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.8";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -5166,7 +5166,15 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   }
   function reveal(el, smooth){ if(!el) return; if(el.scrollIntoView) el.scrollIntoView({block:"center", behavior:smooth?"smooth":"auto"}); flash(el); }
   function jump(check){
-    var m=MAP[check]; close(); if(!m) return;
+    close();
+    // In guided mode the advanced settings sit behind the full-screen wizard, so
+    // route to the matching guided step instead of opening the modal out of view.
+    var wiz=gid("wizard");
+    if(wiz && !wiz.hidden && window.__wizard){
+      var STEP={ascension:"ascension", basestats:"stats", statcap:"upgrades", upgrades:"upgrades", cards:"cards", infernal:"cards", polychrome:"cards"};
+      if(STEP[check]){ window.__wizard.go(window.__wizard.stepIndex(STEP[check])); return; }
+    }
+    var m=MAP[check]; if(!m) return;
     if(m.el){ reveal(gid(m.el), true); return; }
     if(typeof window.openSettings==="function") window.openSettings(m.section);
     // openSettings shows a group's first tab; force the exact section (e.g. Upgrades).
@@ -5176,6 +5184,9 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   document.querySelectorAll("[data-sanity]").forEach(function(btn){
     btn.addEventListener("click", function(e){ e.preventDefault(); if(!bubble.hidden){ close(); return; } openAt(btn); });
   });
+  // Let the guided flow open this same checklist (its AI button is the only way
+  // into the analyzer, so users troubleshoot common issues first).
+  window.__sanityOpen=function(trigger){ if(trigger) openAt(trigger); };
   bubble.querySelectorAll(".sanity-item").forEach(function(it){
     it.addEventListener("click", function(){ jump(it.dataset.check); });
   });
@@ -5543,14 +5554,16 @@ window.refreshAscensionWarning=refreshAscensionWarning;
       +metric("Blocks / hour", fmt(best.blocksPerHour,1))
       +'</div>';
     html+='<div class="wiz-result-actions">'
-      +'<button type="button" id="wizDiag" class="ghost">✨ Why this build? (AI)</button>'
+      +'<button type="button" id="wizSanity" class="ghost">Something not look right?</button>'
       +'<button type="button" id="wizTables" class="ghost">View result tables</button>'
       +'<button type="button" id="wizRestart">Start over</button>'
       +'</div>'
       +'<div id="wizTablesPanel" class="wiz-reveal" hidden></div>'
       +'<div style="text-align:center;margin-top:16px"><button type="button" class="wiz-linkbtn" id="wizDetails">Open the full app</button></div>';
     nativeEl.innerHTML=html;
-    gid("wizDiag").addEventListener("click", function(){ var d=gid("sanityDiagnose"); if(d) d.click(); });
+    // Troubleshoot common issues first; the AI analyzer lives at the bottom of
+    // this checklist, so that's how guided users reach it.
+    gid("wizSanity").addEventListener("click", function(){ if(window.__sanityOpen) window.__sanityOpen(this); });
     gid("wizDetails").addEventListener("click", function(){ exitWizard(true); });
     gid("wizRestart").addEventListener("click", function(){ goStep(0); });
     // View the result tables inline, without leaving guided mode. We borrow the

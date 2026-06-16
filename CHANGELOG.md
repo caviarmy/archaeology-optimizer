@@ -2,6 +2,9 @@
 
 ## 2026-06-16
 
+### Changed
+- **Guided result reaches the AI analyzer through the troubleshooting checklist.** The guided result no longer has a button that jumps straight to the AI. Instead it has "Something not look right?", which opens the same common-issues checklist (ascension, stat import, upgrades, cards, infernal multiplier, polychrome bonus) with your current values, and the "Analyze this result with AI" button sits at the bottom of it, so you check the usual mistakes first. Tapping a checklist item in guided mode now jumps to the matching guided step instead of opening a settings panel behind the wizard.
+
 ### Fixed
 - **The target-floor goal now optimizes for the chance of reaching the floor, not the average floor.** It used to rank builds by expected (average) floor relative to the target, so a build with a deeper average but a worse hit rate could be chosen. Now it ranks by the simulated probability of reaching the target floor, with a faint average-floor tiebreak so builds that all reach it about 100% of the time are ordered by their margin. The estimate, the simulation table, and the guided result all show the target as a hit percentage.
 
