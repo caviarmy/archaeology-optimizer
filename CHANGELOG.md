@@ -3,6 +3,8 @@
 ## 2026-06-16
 
 ### Changed
+- **Result tables now open inside the guided flow.** The result screen has a "View result tables" button that reveals the detailed simulation table and the per-hour throughput breakdown in place, so you no longer have to leave guided setup to see them. "Open the full app" is still there if you want the whole interface.
+- **AI analysis gets the data to argue from cause, not score.** The diagnosis payload now includes, per build, the exact per-hour amount of your primary and secondary goal metrics (e.g. epic-loot/hr when that's your secondary), plus each build's derived damage, crit chance and max stamina. The goals block now spells out your secondary goal and how its protection tolerance trades against the primary. The prompt was tightened to require a mechanism for every comparison (which lever and why, given how rewards are produced) and to address the secondary goal explicitly. (Worker prompt change — redeploy with `wrangler deploy`.)
 - **Block Bonker is now derived from your highest floor cleared, not entered by hand.** The skill grants +1% damage and +1% max stamina per stage (up to +100%), where the stage is your highest floor cleared, capped at 100. There is no longer a Block Bonker toggle or stage field; instead the app reads "highest floor cleared" (from the stat screenshot, or you can type it in) and computes the bonus from it. The damage and stamina percents are still removed from your shown stats and re-applied in the pooled math, so per-point valuations stay correct. (The screenshot import now also reads highest floor — requires the worker to be redeployed with `wrangler deploy`.)
 
 ### Added

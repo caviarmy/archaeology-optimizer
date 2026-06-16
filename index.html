@@ -1111,7 +1111,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.3";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.4";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -3481,13 +3481,37 @@ function buildDebugData(){
 function buildDebugForAI(){
   const d=buildDebugData();
   let simTop=[];
+  let inp=null; try{ inp=getInputs(); }catch(_e){}
+  const pk = inp ? primaryFocusKey(inp) : "allRewards";
+  const sk = inp ? secondaryFocusKey(inp) : "none";
+  const r1=v=>(typeof v==="number"&&isFinite(v))?Math.round(v*10)/10:v;
+  // Per-build value of an arbitrary goal metric (mirrors simFocusValue for any key),
+  // so we can hand the AI each build's PRIMARY and SECONDARY goal numbers.
+  const focusVal=(row,key)=>{
+    if(!key||key==="none") return undefined;
+    if(key==="target") return row.targetPct;
+    if(key==="allRewards") return row.rewardsPerHour;
+    if(key==="xp") return row.xpPerHour;
+    if(key==="allLoot") return row.allLootPerHour;
+    if(key==="block") return (inp && row.countsPerHour && row.countsPerHour[inp.blockTargetKey]) || 0;
+    if(row.lootPerHour && row.lootPerHour[key]!=null) return row.lootPerHour[key];
+    return undefined;
+  };
   try{
     const r=window.__simResults;
     if(Array.isArray(r) && r.length){
-      const pick=x=>({ stats:x.stats, simRank:x.simRank,
-        rewardsPerHour:x.rewardsPerHour, rewardsPerStam:x.rewardsPerTick,  // reward per stamina spent (one swing = 1 stamina)
-        blocksPerHour:x.blocksPerHour, xpPerHour:x.xpPerHour, allLootPerHour:x.allLootPerHour,
-        floorReached:(x.floorReached!=null?x.floorReached:x.mcAvgFloor) });
+      const pick=x=>{
+        let der=null; try{ if(inp) der=getDerived(x.stats, inp); }catch(_e){}
+        const o={ stats:x.stats, simRank:x.simRank,
+          rewardsPerHour:r1(x.rewardsPerHour), rewardsPerStam:x.rewardsPerTick,  // reward per stamina spent (one swing = 1 stamina)
+          blocksPerHour:r1(x.blocksPerHour), xpPerHour:r1(x.xpPerHour), allLootPerHour:r1(x.allLootPerHour),
+          floorReached:r1(x.floorReached!=null?x.floorReached:x.mcAvgFloor) };
+        const pv=focusVal(x,pk); if(pv!==undefined) o.primaryGoalValue=r1(pv);
+        const sv=focusVal(x,sk); if(sv!==undefined) o.secondaryGoalValue=r1(sv);
+        // Mechanistic levers so the model can argue from cause, not just score.
+        if(der){ o.damage=r1(der.damage); o.critChancePct=r1((der.critChance||0)*100); o.maxStamina=Math.round(der.stamina||0); }
+        return o;
+      };
       const ATTRS=["S","A","P","I","L","D","C"];
       const dist=(a,b)=>ATTRS.reduce((s,k)=>s+Math.abs(((a&&a[k])||0)-((b&&b[k])||0)),0);
       const byRank=r.slice().sort((a,b)=>((a.simRank||1e9)-(b.simRank||1e9)) || ((b.rewardsPerHour||0)-(a.rewardsPerHour||0)));
@@ -3507,13 +3531,16 @@ function buildDebugForAI(){
       simTop=chosen.map(pick);
     }
   }catch(_e){}
+  const ip=d.inputs||{};
   return {
     app:{version:d.app && d.app.version},
-    goals:{ primaryGoal:d.inputs&&d.inputs.primaryGoal, secondaryGoal:d.inputs&&d.inputs.secondaryGoal,
-            primaryProtectionStrict:d.inputs&&d.inputs.primaryProtectionStrict,
-            primaryToleranceValue:d.inputs&&d.inputs.primaryToleranceValue,
-            objective:d.inputs&&d.inputs.objective, targetFloor:d.inputs&&d.inputs.targetFloor },
-    ascension:d.inputs && d.inputs.ascension,
+    goals:{ primaryGoal:ip.primaryGoal, primaryGoalLabel:(inp?rewardFocusLabel(pk):ip.primaryGoal),
+            secondaryGoal:ip.secondaryGoal, secondaryGoalLabel:((sk&&sk!=="none")?rewardFocusLabel(sk):"none"),
+            protection:(ip.primaryProtectionStrict
+              ? "primary is strictly protected; the secondary goal only breaks ties between otherwise-equal builds"
+              : ("the secondary goal may reduce the primary by up to "+(ip.primaryToleranceValue||0)+"% if doing so improves the secondary")),
+            objective:ip.objective, targetFloor:ip.targetFloor },
+    ascension:ip.ascension,
     parsedInputs:d.parsedInputs,
     estimate:d.estimate,
     simulation:{ heroCard:d.simulation && d.simulation.heroCard, sort:d.simulation && d.simulation.sort, topResults:simTop }
@@ -5472,13 +5499,30 @@ window.refreshAscensionWarning=refreshAscensionWarning;
       +'</div>';
     html+='<div class="wiz-result-actions">'
       +'<button type="button" id="wizDiag" class="ghost">✨ Why this build? (AI)</button>'
-      +'<button type="button" id="wizDetails" class="ghost">See full details &amp; tables</button>'
+      +'<button type="button" id="wizTables" class="ghost">View result tables</button>'
       +'<button type="button" id="wizRestart">Start over</button>'
-      +'</div>';
+      +'</div>'
+      +'<div id="wizTablesPanel" class="wiz-reveal" hidden></div>'
+      +'<div style="text-align:center;margin-top:16px"><button type="button" class="wiz-linkbtn" id="wizDetails">Open the full app</button></div>';
     nativeEl.innerHTML=html;
     gid("wizDiag").addEventListener("click", function(){ var d=gid("sanityDiagnose"); if(d) d.click(); });
     gid("wizDetails").addEventListener("click", function(){ exitWizard(true); });
     gid("wizRestart").addEventListener("click", function(){ goStep(0); });
+    // View the result tables inline, without leaving guided mode. We borrow the
+    // real simulation + throughput tables (and the estimate's candidates) and
+    // return them home when the step changes.
+    gid("wizTables").addEventListener("click", function(){
+      var panel=gid("wizTablesPanel");
+      if(panel.hidden){
+        if(!panel.dataset.filled){
+          adopt("simulationDetails", panel);
+          adopt("throughputDetails", panel);
+          panel.dataset.filled="1";
+        }
+        panel.hidden=false; this.textContent="Hide result tables";
+        setTimeout(function(){ try{ panel.scrollIntoView({behavior:"smooth", block:"start"}); }catch(_e){} }, 30);
+      } else { panel.hidden=true; this.textContent="View result tables"; }
+    });
   }
 
   // ---------- navigation ----------
