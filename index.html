@@ -415,6 +415,13 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .wiz-check-item .body{flex:1;line-height:1.4}
 .wiz-check-item .body b{display:block;font-weight:900}
 .wiz-check-item .edit{flex:none;background:none;border:0;color:var(--accent);font-weight:800;font-size:12px;padding:2px 4px;cursor:pointer;text-decoration:underline}
+.wiz-stat-instr{margin:0 0 16px;padding-left:20px;line-height:1.55;font-size:14px;color:var(--ink)}
+.wiz-stat-instr li{margin-bottom:9px}
+.wiz-linkbtn{background:none;border:0;color:var(--accent);font-weight:800;text-decoration:underline;cursor:pointer;padding:0;font:inherit}
+.wiz-confirm{display:flex;align-items:flex-start;gap:9px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-weight:700;color:var(--ink);margin-bottom:16px;font-size:14px;cursor:pointer}
+.wiz-confirm input{margin-top:1px;flex:none}
+.wiz-upload{text-align:center;margin:4px 0 10px}
+#wizard #statScreenshotInput{display:none}
 .wiz-run-box{text-align:center;padding:18px 0}
 .wiz-run-box .runbtn{font-size:16px;padding:14px 22px}
 .wiz-run-status{margin-top:14px;color:var(--muted);font-size:13px;min-height:18px}
@@ -5188,8 +5195,8 @@ window.refreshAscensionWarning=refreshAscensionWarning;
      intro:"Pick your main goal — all rewards, XP, a specific loot rarity, a specific block, or a target floor. Add a secondary goal if you want; you can change this later.", render:renderIntent},
     {key:"ascension", title:"What's your Ascension?",
      intro:"This decides which blocks and stats exist. Match it to your account.", render:renderAscension},
-    {key:"stats", title:"Your stats", adopt:"settings-base",
-     intro:"Import a screenshot, or type your stats in. If you've spent attribute points, switch to “I have spent attribute points” and enter them."},
+    {key:"stats", title:"Your stats", render:renderStats,
+     intro:"Reset your attributes to 0, then upload one screenshot — that's all we need."},
     {key:"skills", title:"Your abilities", adopt:"settings-skills",
      intro:"Turn on the abilities you auto-use and set their numbers. Skip any you don't use."},
     {key:"upgrades", title:"Your upgrades", adopt:"settings-upgrades",
@@ -5228,6 +5235,32 @@ window.refreshAscensionWarning=refreshAscensionWarning;
         nativeEl.querySelectorAll(".wiz-choice").forEach(function(x){ x.classList.toggle("sel", x===b); });
       });
     });
+  }
+  // Low-touch stats step: instruct + confirm attributes are at 0, then a single
+  // upload. We don't surface the manual grid, the spent-points mode, or the
+  // AI-response panel here — the real (hidden) fields are still filled by the
+  // import, so the engine is unchanged. Guided import is always the zero-base path.
+  var _attrZeroConfirmed=false;
+  function renderStats(){
+    var zero=gid("baseStatModeZero");
+    if(zero && !zero.checked){ zero.checked=true; zero.dispatchEvent(new Event("change",{bubbles:true})); }
+    nativeEl.innerHTML=
+      '<ol class="wiz-stat-instr">'
+      + '<li>In game, open your <b>Stats</b> page and <b>reset all attribute points to 0</b> (respec). We need your stats with points unspent so we can work out the best way to spend them.</li>'
+      + '<li>Screenshot the stat panel together with your Enrage / Flurry / Quake ability cards. <button type="button" class="wiz-linkbtn" id="wizExample">See an example</button></li>'
+      + '</ol>'
+      + '<div id="wizExampleImg" hidden style="margin:0 0 14px"><img src="stat-skill-example.jpg" alt="Example screenshot" style="max-width:100%;border:1px solid var(--line);border-radius:10px"></div>'
+      + '<label class="wiz-confirm"><input type="checkbox" id="wizAttrZero"> <span>I\'ve set all my attribute points to <b>0</b> in game.</span></label>'
+      + '<div class="wiz-upload"><button type="button" id="wizUpload" class="runbtn" disabled>Upload stat screenshot</button></div>'
+      + '<div id="wizStatStatusHost"></div>';
+    adopt("statScreenshotInput", nativeEl);
+    adopt("ocrStatus", gid("wizStatStatusHost"));
+    adopt("ocrParsedPreview", gid("wizStatStatusHost"));
+    gid("wizExample").addEventListener("click", function(){ var im=gid("wizExampleImg"); im.hidden=!im.hidden; });
+    var conf=gid("wizAttrZero"), up=gid("wizUpload");
+    conf.checked=!!_attrZeroConfirmed; up.disabled=!conf.checked;
+    conf.addEventListener("change", function(){ _attrZeroConfirmed=conf.checked; up.disabled=!conf.checked; });
+    up.addEventListener("click", function(){ var fi=gid("statScreenshotInput"); if(fi) fi.click(); });
   }
   function renderCheck(){
     var inp=null; try{ inp=getInputs(); }catch(_e){}
