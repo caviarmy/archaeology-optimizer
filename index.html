@@ -395,11 +395,11 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 body[data-landing="true"] #landing{display:block}
 body[data-landing="true"] main>:not(#landing){display:none}
 body[data-landing="true"] #guidedReenter{display:none}
-.landing-card{max-width:560px;margin:7vh auto 0;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:28px 24px;text-align:center}
-.landing-card h2{font-size:24px;margin:0 0 10px}
-.landing-card p{color:var(--muted);font-size:15px;line-height:1.6;margin:0 0 22px}
-.landing-actions{display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto}
-.landing-actions button{padding:13px 18px;font-size:15px}
+.landing-card{max-width:480px;margin:12vh auto 0;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:32px 26px;text-align:center}
+.landing-card h2{font-size:22px;line-height:1.35;margin:0 0 24px;font-weight:800}
+#landingStart{display:block;width:100%;padding:16px 20px;font-size:16px}
+#landingSkip{display:inline-block;margin-top:16px;background:none;border:0;color:var(--muted);font-size:13px;font-weight:700;text-decoration:underline;padding:4px}
+#landingSkip:hover{color:var(--accent)}
 .wiz-exit{background:transparent;color:#cbd5e1;border:1px solid #ffffff44;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800}
 .wiz-exit:hover{background:#ffffff18;color:#fff}
 .wiz-progress{flex:none;display:flex;flex-direction:column;gap:6px;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line)}
@@ -461,12 +461,9 @@ body[data-landing="true"] #guidedReenter{display:none}
 <main>
   <section id="landing">
     <div class="landing-card">
-      <h2>Find your best archaeology build</h2>
-      <p>Tell the optimizer your stats and what you want to maximize. It works out the best way to spend your attribute points and shows you the build. Guided setup takes about a minute.</p>
-      <div class="landing-actions">
-        <button type="button" id="landingStart">Start guided setup</button>
-        <button type="button" id="landingSkip" class="ghost">No thanks, show me the full app</button>
-      </div>
+      <h2>Tell us your stats and your goal, and we'll find your best build.</h2>
+      <button type="button" id="landingStart">Start guided setup</button>
+      <button type="button" id="landingSkip">No thanks, show me the full app</button>
     </div>
   </section>
   <input id="mode" class="hidden-control" value="reward">
@@ -5438,7 +5435,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
 
   gid("wizExit").addEventListener("click", function(){ exitWizard(true); });
   var reenter=gid("guidedReenter");
-  if(reenter) reenter.addEventListener("click", function(){ enterWizard(false); });
+  if(reenter) reenter.addEventListener("click", function(){ setLanding(true); });
   var lStart=gid("landingStart"), lSkip=gid("landingSkip");
   if(lStart) lStart.addEventListener("click", function(){ enterWizard(true); });
   if(lSkip) lSkip.addEventListener("click", function(){ setLanding(false); try{ localStorage.setItem(PREF_KEY,"advanced"); }catch(_e){} });
@@ -5446,11 +5443,10 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   // expose for tests / programmatic control
   window.__wizard={ enter:enterWizard, exit:exitWizard, go:goStep, stepIndex:stepIndex, landing:setLanding, get step(){ return step; } };
 
-  // ---------- landing decision ----------
-  // First visit (and anyone who hasn't switched to the full app) sees a brief
-  // intro under the real header, then chooses to start guided setup or not.
-  var pref=null; try{ pref=localStorage.getItem(PREF_KEY); }catch(_e){}
-  setLanding(pref!=="advanced");
+  // ---------- landing ----------
+  // Every visit opens on the brief landing under the real header; the visitor
+  // chooses to start guided setup or go to the full app each time.
+  setLanding(true);
 })();
 </script>
 </body>
