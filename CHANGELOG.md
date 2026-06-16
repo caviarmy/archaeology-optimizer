@@ -2,6 +2,9 @@
 
 ## 2026-06-16
 
+### Fixed
+- **The target-floor goal now optimizes for the chance of reaching the floor, not the average floor.** It used to rank builds by expected (average) floor relative to the target, so a build with a deeper average but a worse hit rate could be chosen. Now it ranks by the simulated probability of reaching the target floor, with a faint average-floor tiebreak so builds that all reach it about 100% of the time are ordered by their margin. The estimate, the simulation table, and the guided result all show the target as a hit percentage.
+
 ### Changed
 - **Cards are now compact and shown directly in guided setup.** The guided cards step no longer hides behind a "Set my cards" button; the card list is right there. Each card is a single row (checkbox, name, then Normal / Gilded / Polychrome / Infernal inline), so far more fits on screen at once, and picking a rarity now marks the card as owned for you. The infernal multiplier field only appears once a card is set to Infernal, and it (plus the Polychrome Bonus toggle) now sits below the card list rather than above it. If an infernal card is set while the multiplier is still 1x the field is flagged red, and pressing Next once raises a soft, non-blocking notice for that and for having polychrome cards with the Polychrome Bonus off.
 - **Result tables now open inside the guided flow.** The result screen has a "View result tables" button that reveals the detailed simulation table and the per-hour throughput breakdown in place, so you no longer have to leave guided setup to see them. "Open the full app" is still there if you want the whole interface.

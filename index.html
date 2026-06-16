@@ -1126,7 +1126,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.6";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.7";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1262,11 +1262,17 @@ function updateGoalUI(){
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
   const label = document.getElementById("bestValueLabel");
-  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(getInputs()))} / hr`;
+  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(getInputs()))} / hr`;
   const modeLabel = document.getElementById("bestModeLabel");
   if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(getInputs()));
 }
+// Target-floor goal = chance of REACHING the target floor. When a simulated
+// hit-rate is available (sc.targetPct, 0..100) rank by that, with a faint
+// average-floor term so builds that all reach it ~100% are ordered by margin.
+// The EV estimate has no distribution, so it falls back to an expected-floor
+// proxy (only used to seed the simulation-driven search).
 function targetMetric(sc, inp){
+  if(sc && sc.targetPct != null) return sc.targetPct + Math.min(2, (sc.floorReached || 0) / Math.max(1, inp.targetFloor || 1)) * 1e-3;
   const target = Math.max(1, inp.targetFloor || 1);
   const floor = sc.floorReached || 0;
   if(floor >= target) return 1 + Math.min(1, floor - target) * 0.001;
@@ -2785,7 +2791,8 @@ function fastSearch(inp, blocks, level){
 // Finalists are re-ranked precisely by the full simulation in runMonteRerank.
 function simFocusValue(row, inp){
   const k = primaryFocusKey(inp);
-  if(k==="target") return row.targetPct;
+  // Maximize the chance of reaching the target floor; faint avg-floor tiebreak.
+  if(k==="target") return (row.targetPct||0) + Math.min(2, (row.mcAvgFloor||0) / Math.max(1, inp.targetFloor||1)) * 1e-3;
   if(k==="allRewards") return row.rewardsPerHour;
   if(k==="xp") return row.xpPerHour;
   if(k==="allLoot") return row.allLootPerHour;
@@ -2913,7 +2920,8 @@ function renderBest(best, top, count){
   if(!best) return;
   const s=best.stats, d=best.der;
   document.getElementById("bestBuild").textContent = buildLabel(s);
-  document.getElementById("bestRph").textContent = fmt(best.rewardHr,1);
+  const _pkBest = primaryFocusKey(getInputs());
+  document.getElementById("bestRph").textContent = (_pkBest==="target") ? fmt(best.targetPct||0,1)+"%" : fmt(best.rewardHr,1);
   const ptEl = document.getElementById("bestPerTick");
   if(ptEl) ptEl.textContent = fmt(best.rewardsPerTick != null ? best.rewardsPerTick : 0, 3);
   document.getElementById("bestFloor").textContent = fmt(best.floorReached,2);
@@ -2923,7 +2931,7 @@ function renderBest(best, top, count){
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
   const valueLabel = document.getElementById("bestValueLabel");
-  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))} / hr`;
+  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(inp))} / hr`;
   const ccEl = document.getElementById("candidateCount");
   if(ccEl) ccEl.textContent = count.toLocaleString();
   const bandEl = document.getElementById("primaryBandFloor");
