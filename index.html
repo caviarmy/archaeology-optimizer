@@ -384,10 +384,22 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .guided-reenter{background:transparent;color:#fff;border:1px solid #ffffff55;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800;white-space:nowrap}
 .guided-reenter:hover{background:#ffffff22}
 #wizard[hidden]{display:none}
-#wizard{position:fixed;inset:0;z-index:55;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px}
-.wiz-panel{background:var(--bg);width:min(880px,100%);height:min(940px,94vh);border-radius:16px;box-shadow:0 24px 70px rgba(16,24,40,.42);display:flex;flex-direction:column;overflow:hidden}
+#wizard{position:fixed;inset:0;z-index:55;background:var(--bg);display:flex}
+.wiz-panel{background:var(--bg);width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden}
 .wiz-top{background:#101828;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;flex:none}
-.wiz-top h1{margin:0;font-size:16px;flex:1;line-height:1.2}
+.wiz-brand{flex:1;display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.wiz-brand .wiz-app{font-size:16px;font-weight:900}
+.wiz-brand .wiz-sub{font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-top:1px}
+/* landing: brief intro shown under the real header on first visit */
+#landing{display:none}
+body[data-landing="true"] #landing{display:block}
+body[data-landing="true"] main>:not(#landing){display:none}
+body[data-landing="true"] #guidedReenter{display:none}
+.landing-card{max-width:560px;margin:7vh auto 0;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:28px 24px;text-align:center}
+.landing-card h2{font-size:24px;margin:0 0 10px}
+.landing-card p{color:var(--muted);font-size:15px;line-height:1.6;margin:0 0 22px}
+.landing-actions{display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto}
+.landing-actions button{padding:13px 18px;font-size:15px}
 .wiz-exit{background:transparent;color:#cbd5e1;border:1px solid #ffffff44;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800}
 .wiz-exit:hover{background:#ffffff18;color:#fff}
 .wiz-progress{flex:none;display:flex;flex-direction:column;gap:6px;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line)}
@@ -431,8 +443,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .wiz-result-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
 .wiz-result-actions{display:grid;gap:8px}
 @media (max-width:640px){
-  #wizard{padding:10px}
-  .wiz-panel{width:100%;height:min(92vh,940px);border-radius:14px}
   .wiz-nav button{min-width:92px}
   .wiz-result-metrics{grid-template-columns:1fr}
 }
@@ -449,6 +459,16 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 </header>
 
 <main>
+  <section id="landing">
+    <div class="landing-card">
+      <h2>Find your best archaeology build</h2>
+      <p>Tell the optimizer your stats and what you want to maximize. It works out the best way to spend your attribute points and shows you the build. Guided setup takes about a minute.</p>
+      <div class="landing-actions">
+        <button type="button" id="landingStart">Start guided setup</button>
+        <button type="button" id="landingSkip" class="ghost">No thanks, show me the full app</button>
+      </div>
+    </div>
+  </section>
   <input id="mode" class="hidden-control" value="reward">
   <input id="objective" class="hidden-control" value="total">
   <input id="speedModel" class="hidden-control" value="none">
@@ -650,9 +670,9 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
      that need data entry adopt the real settings <section> nodes; native
      steps drive the same hidden controls. -->
 <div id="wizard" hidden aria-label="Guided setup">
-  <div class="wiz-panel" role="dialog" aria-modal="true">
+  <div class="wiz-panel">
     <div class="wiz-top">
-      <h1>Guided setup</h1>
+      <div class="wiz-brand"><span class="wiz-app">Obelisk Miner Optimizer</span><span class="wiz-sub">Guided setup</span></div>
       <a class="help-link" href="about.html" target="_blank" rel="noopener" style="width:30px;height:30px;font-size:17px" title="How this works" aria-label="How this works">?</a>
       <button type="button" id="wizExit" class="wiz-exit">Exit guided mode</button>
     </div>
@@ -5192,11 +5212,11 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   // --- step definitions -----------------------------------------------------
   var STEPS=[
     {key:"intent", title:"What are you optimizing for?",
-     intro:"Pick your main goal — all rewards, XP, a specific loot rarity, a specific block, or a target floor. Add a secondary goal if you want; you can change this later.", render:renderIntent},
+     intro:"Pick your main goal: all rewards, XP, a specific loot rarity, a specific block, or a target floor. Add a secondary goal if you want. You can change this later.", render:renderIntent},
     {key:"ascension", title:"What's your Ascension?",
      intro:"This decides which blocks and stats exist. Match it to your account.", render:renderAscension},
     {key:"stats", title:"Your stats", render:renderStats,
-     intro:"Reset your attributes to 0, then upload one screenshot — that's all we need."},
+     intro:"Reset your attributes to 0, then upload one screenshot. That's all we need."},
     {key:"skills", title:"Your abilities", adopt:"settings-skills",
      intro:"Turn on the abilities you auto-use and set their numbers. Skip any you don't use."},
     {key:"upgrades", title:"Your upgrades", adopt:"settings-upgrades",
@@ -5390,11 +5410,11 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   });
 
   // ---------- enter / exit ----------
+  function setLanding(show){ document.body.dataset.landing = show ? "true" : "false"; }
   function enterWizard(resume){
     try{ localStorage.setItem(PREF_KEY,"guided"); }catch(_e){}
-    // Modal over the dimmed, still-visible site — the page stays in place; the
-    // step's adopted panel is simply pulled into the modal while it's open.
-    document.body.style.overflow="hidden";
+    setLanding(false);
+    document.body.style.overflow="hidden";   // full-screen flow; lock the page behind
     wiz.hidden=false;
     var saved=0;
     if(resume){ try{ saved=parseInt(localStorage.getItem(STEP_KEY)||"0",10)||0; }catch(_e){} }
@@ -5405,6 +5425,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   function exitWizard(toAdvanced){
     homeAll();
     wiz.hidden=true;
+    setLanding(false);
     document.body.style.overflow="";
     try{ localStorage.setItem(PREF_KEY,"advanced"); }catch(_e){}
     if(typeof updateGoalUI==="function") updateGoalUI();
@@ -5420,13 +5441,18 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   gid("wizExit").addEventListener("click", function(){ exitWizard(true); });
   var reenter=gid("guidedReenter");
   if(reenter) reenter.addEventListener("click", function(){ enterWizard(false); });
+  var lStart=gid("landingStart"), lSkip=gid("landingSkip");
+  if(lStart) lStart.addEventListener("click", function(){ enterWizard(true); });
+  if(lSkip) lSkip.addEventListener("click", function(){ setLanding(false); try{ localStorage.setItem(PREF_KEY,"advanced"); }catch(_e){} });
 
   // expose for tests / programmatic control
-  window.__wizard={ enter:enterWizard, exit:exitWizard, go:goStep, stepIndex:stepIndex, get step(){ return step; } };
+  window.__wizard={ enter:enterWizard, exit:exitWizard, go:goStep, stepIndex:stepIndex, landing:setLanding, get step(){ return step; } };
 
-  // ---------- landing decision: guided is the default (and after "guided"). ----------
+  // ---------- landing decision ----------
+  // First visit (and anyone who hasn't switched to the full app) sees a brief
+  // intro under the real header, then chooses to start guided setup or not.
   var pref=null; try{ pref=localStorage.getItem(PREF_KEY); }catch(_e){}
-  if(pref!=="advanced") enterWizard(true);
+  setLanding(pref!=="advanced");
 })();
 </script>
 </body>
