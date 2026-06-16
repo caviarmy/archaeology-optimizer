@@ -433,7 +433,12 @@ body[data-landing="true"] #guidedReenter{display:none}
 .wiz-confirm{display:flex;align-items:flex-start;gap:9px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-weight:700;color:var(--ink);margin-bottom:16px;font-size:14px;cursor:pointer}
 .wiz-confirm input{margin-top:1px;flex:none}
 .wiz-upload{text-align:center;margin:4px 0 10px}
-#wizard #statScreenshotInput{display:none}
+.wiz-statusline{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:8px;font-size:14px;color:var(--ink);font-weight:700;text-align:center;line-height:1.4}
+.wiz-statusline.ok{color:#15803d}
+.wiz-statusline.err{color:#b42318;font-weight:600}
+.wiz-statusline .wiz-tick{font-size:17px;flex:none}
+.wiz-spin{width:18px;height:18px;border:3px solid #cbd5e1;border-top-color:var(--accent);border-radius:50%;animation:wizspin .8s linear infinite;flex:none}
+@keyframes wizspin{to{transform:rotate(360deg)}}
 .wiz-run-box{text-align:center;padding:18px 0}
 .wiz-run-box .runbtn{font-size:16px;padding:14px 22px}
 .wiz-run-status{margin-top:14px;color:var(--muted);font-size:13px;min-height:18px}
@@ -5256,6 +5261,12 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   // AI-response panel here — the real (hidden) fields are still filled by the
   // import, so the engine is unchanged. Guided import is always the zero-base path.
   var _attrZeroConfirmed=false;
+  function showStatsOk(status, up){
+    status.className="wiz-statusline ok";
+    status.innerHTML='<span class="wiz-tick">&#10003;</span> Stats are loaded in and look good! Hit Next to continue.';
+    if(up){ up.disabled=false; up.textContent="Upload a different screenshot"; }
+    nextBtn.disabled=false;   // a good parse unlocks Next
+  }
   function renderStats(){
     var zero=gid("baseStatModeZero");
     if(zero && !zero.checked){ zero.checked=true; zero.dispatchEvent(new Event("change",{bubbles:true})); }
@@ -5267,15 +5278,35 @@ window.refreshAscensionWarning=refreshAscensionWarning;
       + '<div id="wizExampleImg" hidden style="margin:0 0 14px"><img src="stat-skill-example.jpg" alt="Example screenshot" style="max-width:100%;border:1px solid var(--line);border-radius:10px"></div>'
       + '<label class="wiz-confirm"><input type="checkbox" id="wizAttrZero"> <span>I\'ve set all my attribute points to <b>0</b> in game.</span></label>'
       + '<div class="wiz-upload"><button type="button" id="wizUpload" class="runbtn" disabled>Upload stat screenshot</button></div>'
-      + '<div id="wizStatStatusHost"></div>';
-    adopt("statScreenshotInput", nativeEl);
-    adopt("ocrStatus", gid("wizStatStatusHost"));
-    adopt("ocrParsedPreview", gid("wizStatStatusHost"));
+      + '<input type="file" id="wizStatFile" accept="image/*" style="display:none">'
+      + '<div class="wiz-statusline" id="wizStatStatus"></div>';
     gid("wizExample").addEventListener("click", function(){ var im=gid("wizExampleImg"); im.hidden=!im.hidden; });
-    var conf=gid("wizAttrZero"), up=gid("wizUpload");
+    var conf=gid("wizAttrZero"), up=gid("wizUpload"), file=gid("wizStatFile"), status=gid("wizStatStatus");
     conf.checked=!!_attrZeroConfirmed; up.disabled=!conf.checked;
     conf.addEventListener("change", function(){ _attrZeroConfirmed=conf.checked; up.disabled=!conf.checked; });
-    up.addEventListener("click", function(){ var fi=gid("statScreenshotInput"); if(fi) fi.click(); });
+    up.addEventListener("click", function(){ file.click(); });
+    // returning to the step after a successful import: show the success line.
+    if(typeof statsImported!=="undefined" && statsImported) showStatsOk(status, up);
+    // We own the status here: spinner while the worker reads it, then a single
+    // success line (no parsed dump). The real import still fills the hidden fields.
+    file.addEventListener("change", async function(){
+      var f=file.files && file.files[0];
+      if(!f) return;
+      status.className="wiz-statusline";
+      status.innerHTML='<span class="wiz-spin"></span> Reading your screenshot&hellip;';
+      up.disabled=true;
+      try{ statsImported=false; }catch(_e){}
+      try{ await importStatsFromScreenshot(f); }catch(_e){}
+      if(typeof statsImported!=="undefined" && statsImported){
+        showStatsOk(status, up);
+      }else{
+        status.className="wiz-statusline err";
+        status.textContent="Couldn't read that screenshot. Make sure the stat panel and ability cards are both visible, then try again.";
+        up.disabled=!conf.checked;
+        nextBtn.disabled=true;
+      }
+      file.value="";   // let the same file be re-selected
+    });
   }
   function renderCheck(){
     var inp=null; try{ inp=getInputs(); }catch(_e){}
@@ -5393,6 +5424,8 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     if(s.key==="run"){ nextBtn.style.display="none"; }
     else if(s.key==="result"){ nextBtn.style.display=""; nextBtn.textContent="Finish"; }
     else { nextBtn.style.display=""; nextBtn.innerHTML="Next &rarr;"; }
+    // Can't continue past the stats step until a screenshot has parsed.
+    nextBtn.disabled = (s.key==="stats" && !(typeof statsImported!=="undefined" && statsImported));
     var stage=wiz.querySelector(".wiz-stage"); if(stage) stage.scrollTop=0;
     try{ localStorage.setItem(STEP_KEY, String(step)); }catch(_e){}
   }
