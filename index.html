@@ -436,6 +436,8 @@ body[data-landing="true"] #guidedReenter{display:none}
 .wiz-check-item .body{flex:1;line-height:1.4}
 .wiz-check-item .body b{display:block;font-weight:900}
 .wiz-check-item .edit{flex:none;background:none;border:0;color:var(--accent);font-weight:800;font-size:12px;padding:2px 4px;cursor:pointer;text-decoration:underline}
+.wiz-leadin{color:var(--muted);font-size:14px;line-height:1.55;margin:0 0 18px}
+.wiz-reveal{margin-top:18px}
 .wiz-stat-instr{margin:0 0 16px;padding-left:20px;line-height:1.55;font-size:14px;color:var(--ink)}
 .wiz-stat-instr li{margin-bottom:9px}
 .wiz-linkbtn{background:none;border:0;color:var(--accent);font-weight:800;text-decoration:underline;cursor:pointer;padding:0;font:inherit}
@@ -1109,7 +1111,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.1";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.2";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -5266,10 +5268,10 @@ window.refreshAscensionWarning=refreshAscensionWarning;
      intro:"This decides which blocks and stats exist. Match it to your account.", render:renderAscension},
     {key:"stats", title:"Your stats", render:renderStats,
      intro:"Reset your attributes to 0, then upload one screenshot. That's all we need."},
-    {key:"upgrades", title:"Your upgrades", adopt:"settings-upgrades",
-     intro:"Set the upgrade levels you own. “Max all upgrades” fills everything available at your Ascension."},
-    {key:"cards", title:"Your cards", adopt:"settings-cards",
-     intro:"Mark each archaeology card you own; leave the rest as none."},
+    {key:"upgrades", title:"Your upgrades", render:renderUpgrades,
+     intro:"Tell the optimizer which upgrades you own."},
+    {key:"cards", title:"Your cards", render:renderCards,
+     intro:"Add any archaeology cards you own."},
     {key:"check", title:"Quick check", render:renderCheck,
      intro:"A glance at what you entered before we crunch the numbers. Tap Edit to fix anything."},
     {key:"run", title:"Find your best build", render:renderRun,
@@ -5353,6 +5355,37 @@ window.refreshAscensionWarning=refreshAscensionWarning;
         nextBtn.disabled=true;
       }
       file.value="";   // let the same file be re-selected
+    });
+  }
+  // Low-touch upgrades: one-tap Max all (the common case), with the full panel
+  // revealed only if the user wants to set levels by hand.
+  function renderUpgrades(){
+    nativeEl.innerHTML=
+      '<p class="wiz-leadin">Have every upgrade for your Ascension? Max them in one tap. If not, set them yourself.</p>'
+      + '<div class="wiz-upload"><button type="button" id="wizMaxUpg" class="runbtn">Max all my upgrades</button></div>'
+      + '<div class="wiz-statusline" id="wizUpgStatus"></div>'
+      + '<div style="text-align:center;margin-top:14px"><button type="button" class="wiz-linkbtn" id="wizUpgManual">Set upgrades manually</button></div>'
+      + '<div id="wizUpgPanel" class="wiz-reveal"></div>';
+    gid("wizMaxUpg").addEventListener("click", function(){
+      if(typeof setAllUpgrades==="function") setAllUpgrades(true);
+      var st=gid("wizUpgStatus"); st.className="wiz-statusline ok";
+      st.innerHTML='<span class="wiz-tick">&#10003;</span> All upgrades set to max for your Ascension.';
+    });
+    gid("wizUpgManual").addEventListener("click", function(){
+      adopt("settings-upgrades", gid("wizUpgPanel"));
+      this.style.display="none";
+    });
+  }
+  // Low-touch cards: skip by default (most players have none), reveal the grid
+  // only when they choose to set cards.
+  function renderCards(){
+    nativeEl.innerHTML=
+      '<p class="wiz-leadin">Set any archaeology cards you own. No cards? Just hit Next.</p>'
+      + '<div class="wiz-upload"><button type="button" id="wizCardsBtn" class="runbtn">Set my cards</button></div>'
+      + '<div id="wizCardsPanel" class="wiz-reveal"></div>';
+    gid("wizCardsBtn").addEventListener("click", function(){
+      adopt("settings-cards", gid("wizCardsPanel"));
+      this.style.display="none";
     });
   }
   function renderCheck(){
