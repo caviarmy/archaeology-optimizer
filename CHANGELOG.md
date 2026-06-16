@@ -2,6 +2,9 @@
 
 ## 2026-06-16
 
+### Changed
+- **Block Bonker is now derived from your highest floor cleared, not entered by hand.** The skill grants +1% damage and +1% max stamina per stage (up to +100%), where the stage is your highest floor cleared, capped at 100. There is no longer a Block Bonker toggle or stage field; instead the app reads "highest floor cleared" (from the stat screenshot, or you can type it in) and computes the bonus from it. The damage and stamina percents are still removed from your shown stats and re-applied in the pooled math, so per-point valuations stay correct. (The screenshot import now also reads highest floor — requires the worker to be redeployed with `wrangler deploy`.)
+
 ### Added
 - **Guided setup — a step-by-step flow that's now the default landing.** First-time visitors (and anyone who hasn't switched to the full view) start in a full-screen, on-rails wizard that walks through one decision at a time: what you're optimizing for, your Ascension, your stats (type them in or import a screenshot), abilities, upgrades, cards, a quick check of what you entered, and then a single button that estimates and simulates your best build and shows the result. Each screen has Back/Next and an "Exit guided mode" that drops you into the full advanced view; a "✨ Guided setup" button in the header re-enters it. Progress is remembered between visits. Under the hood it reuses the exact same inputs and engine — the wizard borrows the real settings panels rather than duplicating any field — so nothing about the numbers changes, and switching between guided and advanced never loses what you entered.
 

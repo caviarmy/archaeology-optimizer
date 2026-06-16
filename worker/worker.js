@@ -10,7 +10,7 @@
 
 // Field keys returned to the app — these match the input element IDs in index.html.
 const FIELDS = [
-  "selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage",
+  "selectedLevel","highestFloor","baseDamage","baseStamina","baseCritChance","baseCritDamage",
   "baseSuperChance","baseSuperDamage","baseUltraChance","baseUltraDamage","baseAtkSpeed",
   "baseArmorPenFlat","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti",
   "baseGleamingChance","baseGleamingMulti","baseXpGain","baseFragGain","baseXpMod","baseXpModGain",
@@ -37,7 +37,7 @@ Formatting rules:
 - If a field is NOT visible in the image, set it to null. Never guess or infer.
 
 Stat panel mapping (label -> key):
-Archaeology Level=selectedLevel, Damage=baseDamage, Max Stamina=baseStamina, Crit Chance=baseCritChance, Crit Damage=baseCritDamage, Super Crit Chance=baseSuperChance, Super Crit Damage=baseSuperDamage, Ultra Crit Chance=baseUltraChance, Ultra Crit Damage=baseUltraDamage, Atk Speed=baseAtkSpeed, Armor Penetration=baseArmorPenFlat, Ability Instacharge=baseInstacharge, Crosshair Auto-Tap=baseAutoTap, Gold Crosshair Chance=baseGoldCrosshairChance, Gold Crosshair Multi=baseGoldCrosshairMulti, Gleaming Floor Chance=baseGleamingChance, Gleaming Floor Multi=baseGleamingMulti, Exp Gain=baseXpGain, Fragment Gain=baseFragGain, Exp Mod Chance=baseXpMod, Exp Mod Gain=baseXpModGain, Loot Mod Chance=baseLootMod, Loot Mod Gain=baseLootModGain, Speed Mod Chance=baseSpeedMod, Speed Mod Gain=baseSpeedModGain, Speed Mod Atk Rate=baseSpeedModAtkRate, Stamina Mod Chance=baseStaminaMod, Stamina Mod Gain=staminaModGain.
+Archaeology Level=selectedLevel, Highest Floor / Deepest Floor reached (the largest floor number the player has cleared; if shown as "Floor N" use N)=highestFloor, Damage=baseDamage, Max Stamina=baseStamina, Crit Chance=baseCritChance, Crit Damage=baseCritDamage, Super Crit Chance=baseSuperChance, Super Crit Damage=baseSuperDamage, Ultra Crit Chance=baseUltraChance, Ultra Crit Damage=baseUltraDamage, Atk Speed=baseAtkSpeed, Armor Penetration=baseArmorPenFlat, Ability Instacharge=baseInstacharge, Crosshair Auto-Tap=baseAutoTap, Gold Crosshair Chance=baseGoldCrosshairChance, Gold Crosshair Multi=baseGoldCrosshairMulti, Gleaming Floor Chance=baseGleamingChance, Gleaming Floor Multi=baseGleamingMulti, Exp Gain=baseXpGain, Fragment Gain=baseFragGain, Exp Mod Chance=baseXpMod, Exp Mod Gain=baseXpModGain, Loot Mod Chance=baseLootMod, Loot Mod Gain=baseLootModGain, Speed Mod Chance=baseSpeedMod, Speed Mod Gain=baseSpeedModGain, Speed Mod Atk Rate=baseSpeedModAtkRate, Stamina Mod Chance=baseStaminaMod, Stamina Mod Gain=staminaModGain.
 
 Ability cards (each card has a charges badge next to a sword/charge icon and a cooldown-in-seconds badge next to an hourglass icon, plus effect text):
 Enrage "+N% Damage"=enrageDmgPct, Enrage "+N% Crit Damage"=enrageCritDmgPct, Enrage charges=enrageCharges, Enrage cooldown seconds=enrageCooldown,
