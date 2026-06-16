@@ -753,7 +753,7 @@ body[data-landing="true"] #guidedReenter{display:none}
         </div>
         <div id="spentAttrs" style="display:none">
           <h3>Current spent attribute points</h3>
-          <label class="check-row" style="margin-bottom:8px"><input id="statCapBonusStats" type="checkbox"> +5 Stat Pt. Caps (upgrade)</label>
+          <label class="check-row req-a1" style="margin-bottom:8px"><input id="statCapBonusStats" type="checkbox"> +5 Stat Pt. Caps (upgrade)</label>
           <div class="form-grid">
             <div><label>Spent STR</label><input id="spentStr" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent AGI</label><input id="spentAgi" type="number" min="0" step="1" value="0"></div>
@@ -852,7 +852,7 @@ body[data-landing="true"] #guidedReenter{display:none}
           <button type="button" id="clearAllUpgrades" class="ghost">Clear all</button>
         </div>
         <div class="check-grid" style="margin-bottom:10px">
-          <label class="check-row"><input id="statCapBonus" type="checkbox"> +5 Stat Pt. Caps</label>
+          <label class="check-row req-a1"><input id="statCapBonus" type="checkbox"> +5 Stat Pt. Caps</label>
           <label class="check-row"><input id="blockBonker" type="checkbox"> Block Bonker (Obelisk Lv 30)</label>
         </div>
         <div class="form-grid" style="margin-bottom:10px">
@@ -1567,6 +1567,11 @@ function applyAscensionGating(){
   if(asc < 1){
     const d = document.getElementById("worthlessDivine");
     if(d) d.checked = false;
+  }
+
+  // +5 Stat Pt. Caps is an Ascension-1 upgrade; can't be owned below A1.
+  if(asc < 1){
+    ["statCapBonus","statCapBonusStats"].forEach(id=>{ const e=document.getElementById(id); if(e) e.checked=false; });
   }
 
   // Infernal rarity needs A2: downgrade any visible infernal pick to gilded.
@@ -4866,8 +4871,14 @@ function setAllUpgrades(toMax){
     inp.value = String(toMax && asc>=req ? max : 0);
     inp.dispatchEvent(new Event("change",{bubbles:true}));
   });
+  // +5 Stat Pt. Caps is an Ascension-1 upgrade; only max it when unlocked.
   const cap=document.getElementById("statCapBonus");
-  if(cap){ cap.checked=!!toMax; cap.dispatchEvent(new Event("change",{bubbles:true})); }
+  if(cap){ cap.checked = !!toMax && asc>=1; cap.dispatchEvent(new Event("change",{bubbles:true})); }
+  // Block Bonker (Obelisk Lv 30) isn't ascension-gated; max it and its stage too.
+  const bbonk=document.getElementById("blockBonker");
+  if(bbonk){ bbonk.checked=!!toMax; bbonk.dispatchEvent(new Event("change",{bubbles:true})); }
+  const bbStage=document.getElementById("blockBonkerStage");
+  if(bbStage && toMax){ bbStage.value=String(bbStage.max!=="" ? +bbStage.max : 100); bbStage.dispatchEvent(new Event("change",{bubbles:true})); }
 }
 document.getElementById("maxAllUpgrades")?.addEventListener("click",()=>{ setAllUpgrades(true); showStatus("Upgrades maxed for your ascension.",3000); });
 document.getElementById("clearAllUpgrades")?.addEventListener("click",()=>{ setAllUpgrades(false); showStatus("Upgrades cleared.",3000); });
