@@ -4676,6 +4676,15 @@ function resetAllSettings(){
   });
   const capBonus=document.getElementById("statCapBonus"); if(capBonus) capBonus.checked=false;
 
+  // Zero every upgrade level field too (modStrA0, bonusDmgExpA1, ...) — these are
+  // .lvl-step inputs and were previously left untouched by a reset.
+  document.querySelectorAll("#settings-upgrades .lvl-step").forEach(el=>{ el.value="0"; });
+  // Manual "Simulate a specific build" fields are independent of the optimizer but
+  // should also clear on a full reset.
+  ["customStr","customAgi","customPer","customInt","customLuck","customDiv","customCor"].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value="0";
+  });
+
   if(typeof ARCHAEOLOGY_CARD_KEYS !== "undefined"){
     ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
       const owned=document.querySelector(`input[name="card_state_${c.key}"][value="owned"]`);
