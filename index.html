@@ -5121,6 +5121,10 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   var modal=gid("diagModal"), modalBack=gid("diagBackdrop"), diagBody=gid("diagBody"), diagFoot=gid("diagFoot");
   var LS_KEY="obeliskDiagResetsAt", resetsAt=0, busy=false;
   try{ resetsAt=Number(localStorage.getItem(LS_KEY))||0; }catch(_e){}
+  // Cache the analysis against the exact data we send the AI, so re-clicking for
+  // the same build/simulation shows the saved answer instead of querying again
+  // (no wasted quota, no different wording). Changing inputs/build/sim -> new key.
+  var aiCache={key:null, html:null};
 
   function note(msg, isErr){ if(!diagOut) return; diagOut.hidden=false; diagOut.textContent=msg; diagOut.classList.toggle("err", !!isErr); }
   function hasBuild(){
@@ -5176,6 +5180,14 @@ window.refreshAscensionWarning=refreshAscensionWarning;
       var snapshot;
       try{ snapshot=(typeof buildDebugForAI==="function")?buildDebugForAI():null; }catch(e){ snapshot=null; }
       if(!snapshot){ note("Could not read the current build.", true); return; }
+      var key=null; try{ key=JSON.stringify(snapshot); }catch(_e){ key=null; }
+      // Same build/simulation as a previous analysis? Show the saved one.
+      if(key && aiCache.key===key && aiCache.html){
+        if(diagOut) diagOut.hidden=true;
+        close(); openModal(); modalHTML(aiCache.html, false);
+        if(diagFoot){ diagFoot.hidden=false; diagFoot.textContent="✨ Saved analysis for this result — run a new simulation for a fresh one."; }
+        return;
+      }
       if(diagOut) diagOut.hidden=true;
       busy=true; updateBtn();
       close();                       // hand off from the checklist bubble to the modal
@@ -5190,7 +5202,9 @@ window.refreshAscensionWarning=refreshAscensionWarning;
         var p=r.p||{}; applyUsage(p);
         if(r.res.status===429){ modalHTML("<p>"+esc(p.error||"You've used today's AI analysis.")+"</p>", true); modalFoot(p); return; }
         if(!r.res.ok || !p.explanation){ modalHTML("<p>Analysis failed: "+esc(p.error||("HTTP "+r.res.status))+"</p>", true); return; }
-        modalHTML(fmt(p.explanation), false); modalFoot(p);
+        var html=fmt(p.explanation);
+        modalHTML(html, false); modalFoot(p);
+        if(key) aiCache={key:key, html:html};   // save for this build/simulation
       }).catch(function(){
         modalHTML("<p>Network error reaching the AI worker. Check your connection and try again.</p>", true);
       }).finally(function(){ busy=false; updateBtn(); });
