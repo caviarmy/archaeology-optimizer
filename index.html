@@ -908,7 +908,7 @@ body[data-landing="true"] #guidedReenter{display:none}
               <option value="owned">Normal</option>
               <option value="gilded">Gilded</option>
               <option value="polychrome">Polychrome</option>
-              <option value="infernal" class="req-a2">Infernal</option>
+              <option value="infernal">Infernal</option>
             </select>
           </div>
           <div class="bulk-field">
@@ -1126,7 +1126,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.8";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.9";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1417,7 +1417,6 @@ function computeInfernalMods(cardStates, mult, asc){
     armorPenFlat:0,armorPenMultPct:0,staminaPct:0,staminaFlat:0,staminaModChance:0,
     staminaModGain:0,instacharge:0,gleamingChance:0,gleamingMultiPct:0,
     xpGainPct:0,fragGainPct:0,lootModGainPct:0,xpModChance:0,lootModChance:0,speedModChance:0};
-  if((asc || 0) < 2) return acc;
   for(const c of ARCHAEOLOGY_CARD_KEYS){
     if(cardStates?.[c.key] !== "infernal") continue;
     if(!cardAvailableAtAscension(c.key, asc)) continue;
@@ -1504,7 +1503,7 @@ function populateCardSettings(){
         <label><input type="radio" name="card_state_${c.key}" value="owned" checked>Norm</label>
         <label><input type="radio" name="card_state_${c.key}" value="gilded">Gild</label>
         <label><input type="radio" name="card_state_${c.key}" value="polychrome">Poly</label>
-        <label class="req-a2"><input type="radio" name="card_state_${c.key}" value="infernal">Inf</label>
+        <label><input type="radio" name="card_state_${c.key}" value="infernal">Inf</label>
       </div>
     </div>`;
   }).join("");
@@ -1606,14 +1605,6 @@ function applyAscensionGating(){
   // +5 Stat Pt. Caps is an Ascension-1 upgrade; can't be owned below A1.
   if(asc < 1){
     ["statCapBonus","statCapBonusStats"].forEach(id=>{ const e=document.getElementById(id); if(e) e.checked=false; });
-  }
-
-  // Infernal rarity needs A2: downgrade any visible infernal pick to gilded.
-  if(asc < 2){
-    ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
-      const hidden = document.getElementById(cardSettingId(c.key));
-      if(hidden && hidden.value === "infernal") setCardState(c.key, "gilded");
-    });
   }
 
   syncSecondaryGoalOptions();
@@ -5553,8 +5544,8 @@ window.refreshAscensionWarning=refreshAscensionWarning;
       +metric("Reward / stamina", fmt(best.rewardsPerTick,3))
       +metric("Blocks / hour", fmt(best.blocksPerHour,1))
       +'</div>';
+    html+='<div style="text-align:center;margin:2px 0 14px"><button type="button" class="wiz-linkbtn" id="wizSanity" style="font-size:13px">Something not look right?</button></div>';
     html+='<div class="wiz-result-actions">'
-      +'<button type="button" id="wizSanity" class="ghost">Something not look right?</button>'
       +'<button type="button" id="wizTables" class="ghost">View result tables</button>'
       +'<button type="button" id="wizRestart">Start over</button>'
       +'</div>'

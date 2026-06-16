@@ -2,7 +2,11 @@
 
 ## 2026-06-16
 
+### Fixed
+- **Infernal cards are no longer treated as Ascension-2 only.** The Infernal rarity is now selectable at any ascension (per-card and in bulk set), the model applies an infernal card's global buff regardless of ascension, and ascension changes no longer downgrade infernal picks. Cards whose block does not exist yet (divine below A1, tier 4 below A2) are still gated as before.
+
 ### Changed
+- **"Something not look right?" on the guided result is now a small link, not a card.** It sits between the result stats and the View result tables button, and still opens the troubleshooting checklist (with the AI analyzer at the bottom).
 - **Guided result reaches the AI analyzer through the troubleshooting checklist.** The guided result no longer has a button that jumps straight to the AI. Instead it has "Something not look right?", which opens the same common-issues checklist (ascension, stat import, upgrades, cards, infernal multiplier, polychrome bonus) with your current values, and the "Analyze this result with AI" button sits at the bottom of it, so you check the usual mistakes first. Tapping a checklist item in guided mode now jumps to the matching guided step instead of opening a settings panel behind the wizard.
 
 ### Fixed
