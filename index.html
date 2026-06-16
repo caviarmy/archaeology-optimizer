@@ -5177,7 +5177,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
    Placed last so every global it calls is already defined.
    ========================================================================= */
 (function(){
-  var PREF_KEY="obeliskGuidedPref", STEP_KEY="obeliskGuidedStep";
+  var PREF_KEY="obeliskGuidedPref";
   var wiz=document.getElementById("wizard");
   if(!wiz) return;
   function gid(id){ return document.getElementById(id); }
@@ -5427,7 +5427,6 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     // Can't continue past the stats step until a screenshot has parsed.
     nextBtn.disabled = (s.key==="stats" && !(typeof statsImported!=="undefined" && statsImported));
     var stage=wiz.querySelector(".wiz-stage"); if(stage) stage.scrollTop=0;
-    try{ localStorage.setItem(STEP_KEY, String(step)); }catch(_e){}
   }
   function goStep(i){ step=Math.max(0, Math.min(STEPS.length-1, i)); renderStep(); }
 
@@ -5439,16 +5438,12 @@ window.refreshAscensionWarning=refreshAscensionWarning;
 
   // ---------- enter / exit ----------
   function setLanding(show){ document.body.dataset.landing = show ? "true" : "false"; }
-  function enterWizard(resume){
+  function enterWizard(){
     try{ localStorage.setItem(PREF_KEY,"guided"); }catch(_e){}
     setLanding(false);
     document.body.style.overflow="hidden";   // full-screen flow; lock the page behind
     wiz.hidden=false;
-    var saved=0;
-    if(resume){ try{ saved=parseInt(localStorage.getItem(STEP_KEY)||"0",10)||0; }catch(_e){} }
-    // never resume into run/result with no simulation data
-    if(saved>=stepIndex("run") && !(window.__simResults && window.__simResults.length)) saved=0;
-    goStep(saved);
+    goStep(0);   // starting the guide always begins at the start
   }
   function exitWizard(toAdvanced){
     homeAll();
@@ -5470,7 +5465,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   var reenter=gid("guidedReenter");
   if(reenter) reenter.addEventListener("click", function(){ setLanding(true); });
   var lStart=gid("landingStart"), lSkip=gid("landingSkip");
-  if(lStart) lStart.addEventListener("click", function(){ enterWizard(true); });
+  if(lStart) lStart.addEventListener("click", function(){ enterWizard(); });
   if(lSkip) lSkip.addEventListener("click", function(){ setLanding(false); try{ localStorage.setItem(PREF_KEY,"advanced"); }catch(_e){} });
 
   // expose for tests / programmatic control
