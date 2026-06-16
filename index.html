@@ -378,12 +378,64 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .sanity-target-flash{animation:sanityFlash 1.7s ease-out}
 @keyframes sanityFlash{0%,55%{box-shadow:0 0 0 3px #fde68a;border-radius:6px}100%{box-shadow:0 0 0 3px transparent}}
 
+/* ---- Guided wizard: a low-touch, on-rails flow over the existing engine.
+   Data-entry steps adopt the real settings <section> nodes (IDs/listeners/
+   persistence intact); native steps drive the same hidden controls. ---- */
+.guided-reenter{background:transparent;color:#fff;border:1px solid #ffffff55;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800;white-space:nowrap}
+.guided-reenter:hover{background:#ffffff22}
+#wizard[hidden]{display:none}
+#wizard{position:fixed;inset:0;z-index:40;background:var(--bg);display:flex;flex-direction:column}
+.wiz-top{background:#101828;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;flex:none}
+.wiz-top h1{margin:0;font-size:16px;flex:1;line-height:1.2}
+.wiz-exit{background:transparent;color:#cbd5e1;border:1px solid #ffffff44;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800}
+.wiz-exit:hover{background:#ffffff18;color:#fff}
+.wiz-progress{flex:none;display:flex;flex-direction:column;gap:6px;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line)}
+.wiz-progress-label{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.wiz-progress-bar{height:6px;border-radius:999px;background:#e6ebf3;overflow:hidden}
+.wiz-progress-bar>span{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .25s ease}
+.wiz-stage{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+.wiz-stage-inner{max-width:760px;margin:0 auto;padding:18px 16px 28px}
+.wiz-head h2{font-size:22px;margin:4px 0 6px}
+.wiz-head p{margin:0 0 16px;color:var(--muted);font-size:14px;line-height:1.5}
+.wiz-nav{flex:none;display:flex;gap:10px;align-items:center;padding:12px 16px;background:#fff;border-top:1px solid var(--line)}
+.wiz-nav .spacer{flex:1}
+.wiz-nav button{min-width:120px}
+.wiz-choices{display:grid;gap:10px}
+.wiz-choice{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;color:var(--ink);box-shadow:var(--shadow);cursor:pointer}
+.wiz-choice:hover{border-color:var(--accent)}
+.wiz-choice.sel{border-color:var(--accent);background:var(--accent2);box-shadow:inset 0 0 0 1px var(--accent)}
+.wiz-choice b{display:block;font-size:15px;margin-bottom:3px;font-weight:900}
+.wiz-choice span{font-size:12.5px;color:var(--muted);font-weight:600}
+.wiz-params{margin-top:14px}
+.wiz-check-item{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);font-size:13px}
+.wiz-check-item:last-child{border-bottom:0}
+.wiz-check-item .ic{flex:none;font-weight:900;font-size:15px;line-height:1.3}
+.wiz-check-item .ic.ok{color:#15803d}.wiz-check-item .ic.warn{color:#b42318}
+.wiz-check-item .body{flex:1;line-height:1.4}
+.wiz-check-item .body b{display:block;font-weight:900}
+.wiz-check-item .edit{flex:none;background:none;border:0;color:var(--accent);font-weight:800;font-size:12px;padding:2px 4px;cursor:pointer;text-decoration:underline}
+.wiz-run-box{text-align:center;padding:18px 0}
+.wiz-run-box .runbtn{font-size:16px;padding:14px 22px}
+.wiz-run-status{margin-top:14px;color:var(--muted);font-size:13px;min-height:18px}
+.wiz-result-hero{background:var(--green);border:1px solid #bbf7d0;border-radius:14px;padding:16px;text-align:center;margin-bottom:12px}
+.wiz-result-hero .lbl{font-size:12px;color:#15803d;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+.wiz-result-hero .val{font-size:26px;font-weight:900;margin-top:4px;word-break:break-word}
+.wiz-result-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.wiz-result-actions{display:grid;gap:8px}
+@media (max-width:640px){
+  .wiz-nav button{min-width:92px}
+  .wiz-result-metrics{grid-template-columns:1fr}
+}
+
 </style>
 </head>
 <body data-workflow="results" data-target-used="false" data-simulation-ready="false" data-ascension="0">
 <header>
   <h1>Obelisk Miner Archaeology Optimizer</h1>
-  <a class="help-link" href="about.html" target="_blank" rel="noopener" title="How this app works" aria-label="How this app works">?</a>
+  <div style="display:flex;align-items:center;gap:10px;flex:none">
+    <button type="button" id="guidedReenter" class="guided-reenter">&#10024; Guided setup</button>
+    <a class="help-link" href="about.html" target="_blank" rel="noopener" title="How this app works" aria-label="How this app works">?</a>
+  </div>
 </header>
 
 <main>
@@ -426,11 +478,11 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <option value="target">Target floor</option>
         </select>
       </div>
-      <div class="goal-target-field">
+      <div class="goal-target-field" id="goalTargetField">
         <label>Target floor</label>
         <input id="targetFloor" type="number" min="1" max="1000" step="1" inputmode="numeric" value="13">
       </div>
-      <div class="goal-block-field">
+      <div class="goal-block-field" id="goalBlockField">
         <label>Target block (most destroyed per hour)</label>
         <div style="display:flex;gap:8px">
           <select id="blockTargetTier" aria-label="Block tier"><option value="1">Tier 1</option><option value="2">Tier 2</option><option value="3" selected>Tier 3</option><option value="4">Tier 4</option></select>
@@ -583,6 +635,33 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 </main>
 
 <div id="status" class="status-toast"></div>
+
+<!-- Guided wizard overlay. Steps that need data entry adopt the real settings
+     <section> nodes; native steps drive the same hidden controls. -->
+<div id="wizard" hidden aria-label="Guided setup">
+  <div class="wiz-top">
+    <h1>Guided setup</h1>
+    <a class="help-link" href="about.html" target="_blank" rel="noopener" style="width:30px;height:30px;font-size:17px" title="How this works" aria-label="How this works">?</a>
+    <button type="button" id="wizExit" class="wiz-exit">Exit guided mode</button>
+  </div>
+  <div class="wiz-progress">
+    <div class="wiz-progress-label" id="wizStepLabel">Step 1</div>
+    <div class="wiz-progress-bar"><span id="wizProgressFill" style="width:0%"></span></div>
+  </div>
+  <div class="wiz-stage">
+    <div class="wiz-stage-inner">
+      <div class="wiz-head"><h2 id="wizTitle"></h2><p id="wizIntro"></p></div>
+      <div id="wizAscWarn" class="asc-warning" hidden></div>
+      <div id="wizNative"></div>
+      <div id="wizSlot"></div>
+    </div>
+  </div>
+  <div class="wiz-nav">
+    <button type="button" id="wizBack" class="ghost">&larr; Back</button>
+    <span class="spacer"></span>
+    <button type="button" id="wizNext">Next &rarr;</button>
+  </div>
+</div>
 
 <div id="settingsModal" class="settings-modal" aria-hidden="true">
   <div class="settings-panel">
@@ -973,7 +1052,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.15.3";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.1";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -3715,7 +3794,7 @@ async function recognizeWithTesseract(image, statusPrefix, whitelist, psm){
   // when something actually changes (it forces a re-init).
   const wl = whitelist === undefined ? STAT_CHAR_WHITELIST : whitelist;
   const ps = psm === undefined ? "6" : String(psm); // 6 = single uniform block
-  const key = ps + " " + wl;
+  const key = ps + " " + wl;
   if(key !== _ocrParamKey){
     await worker.setParameters({ tessedit_char_whitelist: wl, tessedit_pageseg_mode: ps });
     _ocrParamKey = key;
@@ -5050,6 +5129,283 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     });
   }
   updateBtn();
+})();
+</script>
+<script>
+/* =========================================================================
+   Guided wizard. An on-rails flow over the existing engine — it never
+   duplicates an input. Data-entry steps physically adopt the real settings
+   <section> nodes (IDs, listeners and persistence all stay intact, since
+   save/load and getInputs work document-wide by id); native steps drive the
+   same hidden controls (#primaryGoal, #ascension). Exiting returns every
+   adopted node to its home and reveals the full (advanced) view.
+   Placed last so every global it calls is already defined.
+   ========================================================================= */
+(function(){
+  var PREF_KEY="obeliskGuidedPref", STEP_KEY="obeliskGuidedStep";
+  var wiz=document.getElementById("wizard");
+  if(!wiz) return;
+  function gid(id){ return document.getElementById(id); }
+  function valOf(id){ var e=gid(id); return e?e.value:""; }
+  function chkOf(id){ var e=gid(id); return !!(e&&e.checked); }
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function setSelect(id,v){ var e=gid(id); if(!e) return; e.value=v; e.dispatchEvent(new Event("change",{bubbles:true})); }
+  function metric(k,v){ return '<div class="metric"><div class="k">'+esc(k)+'</div><div class="v">'+esc(v)+'</div></div>'; }
+
+  var titleEl=gid("wizTitle"), introEl=gid("wizIntro"), nativeEl=gid("wizNative"),
+      slotEl=gid("wizSlot"), backBtn=gid("wizBack"), nextBtn=gid("wizNext"),
+      fill=gid("wizProgressFill"), stepLabel=gid("wizStepLabel"), ascWarn=gid("wizAscWarn");
+
+  // --- adopt / return arbitrary elements (single source of truth) ----------
+  var HOMES={};
+  function adopt(id, into){
+    var el=gid(id); if(!el) return;
+    if(!HOMES[id]) HOMES[id]={parent:el.parentNode, next:el.nextSibling};
+    (into||slotEl).appendChild(el);
+    if(el.classList.contains("settings-section")) el.classList.add("active");
+  }
+  function homeAll(){
+    // Reverse insertion order so contiguous siblings (e.g. the two goal fields
+    // adopted together on the Intent step) land back in their original order.
+    Object.keys(HOMES).reverse().forEach(function(id){
+      var el=gid(id), h=HOMES[id]; if(!el||!h) return;
+      if(el.classList.contains("settings-section")) el.classList.remove("active");
+      if(h.next && h.next.parentNode===h.parent) h.parent.insertBefore(el, h.next);
+      else h.parent.appendChild(el);
+    });
+    HOMES={};
+  }
+
+  // --- step definitions -----------------------------------------------------
+  var STEPS=[
+    {key:"intent", title:"What are you optimizing for?",
+     intro:"Pick the one thing you care most about. You can change this later.", render:renderIntent},
+    {key:"ascension", title:"What's your Ascension?",
+     intro:"This decides which blocks and stats exist. Match it to your account.", render:renderAscension},
+    {key:"stats", title:"Your stats", adopt:"settings-base",
+     intro:"Import a screenshot, or type your stats in. If you've spent attribute points, switch to “I have spent attribute points” and enter them."},
+    {key:"skills", title:"Your abilities", adopt:"settings-skills",
+     intro:"Turn on the abilities you auto-use and set their numbers. Skip any you don't use."},
+    {key:"upgrades", title:"Your upgrades", adopt:"settings-upgrades",
+     intro:"Set the upgrade levels you own. “Max all upgrades” fills everything available at your Ascension."},
+    {key:"cards", title:"Your cards", adopt:"settings-cards",
+     intro:"Mark each archaeology card you own; leave the rest as none."},
+    {key:"check", title:"Quick check", render:renderCheck,
+     intro:"A glance at what you entered before we crunch the numbers. Tap Edit to fix anything."},
+    {key:"run", title:"Find your best build", render:renderRun,
+     intro:"We'll estimate the best build, then simulate the top candidates to confirm it."},
+    {key:"result", title:"Your best build", render:renderResult, intro:""}
+  ];
+  function stepIndex(key){ for(var i=0;i<STEPS.length;i++){ if(STEPS[i].key===key) return i; } return 0; }
+  var step=0, running=false;
+
+  // ---------- native step renderers ----------
+  var GOALS=[
+    ["allRewards","Maximize all rewards","Best overall haul — XP and loot combined."],
+    ["xp","Maximize XP","Level your archaeology as fast as possible."],
+    ["allLoot","Maximize loot","All fragment loot, ignoring XP."],
+    ["block","A specific block","Destroy the most of one block tier + rarity per hour."],
+    ["target","Reach a target floor","Push as deep as possible toward a chosen floor."]
+  ];
+  function renderIntent(){
+    var cur=valOf("primaryGoal")||"allRewards";
+    var listed=GOALS.some(function(g){ return g[0]===cur; });
+    var html='<div class="wiz-choices">';
+    GOALS.forEach(function(g){
+      var sel=(g[0]===cur)||(g[0]==="allLoot" && !listed);
+      html+='<button type="button" class="wiz-choice'+(sel?' sel':'')+'" data-goal="'+g[0]+'"><b>'+g[1]+'</b><span>'+g[2]+'</span></button>';
+    });
+    html+='</div><div class="wiz-params" id="wizGoalParams"></div>';
+    nativeEl.innerHTML=html;
+    var params=gid("wizGoalParams");
+    adopt("goalTargetField", params);
+    adopt("goalBlockField", params);
+    nativeEl.querySelectorAll(".wiz-choice").forEach(function(b){
+      b.addEventListener("click", function(){
+        setSelect("primaryGoal", b.dataset.goal);
+        nativeEl.querySelectorAll(".wiz-choice").forEach(function(x){ x.classList.toggle("sel", x===b); });
+      });
+    });
+  }
+  function renderAscension(){
+    var cur=valOf("ascension")||"0";
+    var A=[["0","Ascension 0","Pre-ascension — base blocks only."],
+           ["1","Ascension 1","Divine blocks unlocked."],
+           ["2","Ascension 2","Divine + Tier 4 blocks unlocked."]];
+    var html='<div class="wiz-choices">';
+    A.forEach(function(a){ html+='<button type="button" class="wiz-choice'+(a[0]===cur?' sel':'')+'" data-asc="'+a[0]+'"><b>'+a[1]+'</b><span>'+a[2]+'</span></button>'; });
+    html+='</div>';
+    nativeEl.innerHTML=html;
+    nativeEl.querySelectorAll(".wiz-choice").forEach(function(b){
+      b.addEventListener("click", function(){
+        setSelect("ascension", b.dataset.asc);
+        nativeEl.querySelectorAll(".wiz-choice").forEach(function(x){ x.classList.toggle("sel", x===b); });
+      });
+    });
+  }
+  function renderCheck(){
+    var inp=null; try{ inp=getInputs(); }catch(_e){}
+    var asc=valOf("ascension")||"0";
+    var conflicts=(typeof ascensionConflicts==="function")?ascensionConflicts():[];
+    var goalLabel="—"; try{ goalLabel=rewardFocusLabel(primaryFocusKey(inp)); }catch(_e){}
+    var level=valOf("selectedLevel");
+    var spent=chkOf("baseStatModeSpent");
+    var cardsActive=0;
+    document.querySelectorAll('input[type=hidden][id^="card_t"]').forEach(function(i){ if(i.value && i.value!=="none") cardsActive++; });
+    var rows=[
+      {ok:true, b:"Goal", t:goalLabel, go:"intent"},
+      {ok:conflicts.length===0, b:"Ascension", t:"A"+asc+(conflicts.length?" — conflicts with your stats":""), go:"ascension"},
+      {ok:!!level, b:"Archaeology level", t:level?("Level "+level):"Not set", go:"stats"},
+      {ok:true, b:"Attribute points", t:spent?"Using your spent points":"Attributes at 0", go:"stats"},
+      {ok:true, b:"Cards", t:cardsActive?(cardsActive+" set"):"None set", go:"cards"}
+    ];
+    var html="";
+    rows.forEach(function(r){
+      html+='<div class="wiz-check-item"><span class="ic '+(r.ok?'ok':'warn')+'">'+(r.ok?'✓':'!')+'</span>'
+        +'<span class="body"><b>'+esc(r.b)+'</b>'+esc(r.t)+'</span>'
+        +'<button type="button" class="edit" data-go="'+r.go+'">Edit</button></div>';
+    });
+    nativeEl.innerHTML=html;
+    nativeEl.querySelectorAll(".edit").forEach(function(b){ b.addEventListener("click", function(){ goStep(stepIndex(b.dataset.go)); }); });
+  }
+  function renderRun(){
+    nativeEl.innerHTML='<div class="wiz-run-box">'
+      +'<button type="button" id="wizGo" class="runbtn">Find my best build</button>'
+      +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
+      +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
+    var t=gid("thoroughSearch"); if(t) gid("wizThorough").checked=!!t.checked;
+    gid("wizThorough").addEventListener("change", function(){ var th=gid("thoroughSearch"); if(th) th.checked=this.checked; });
+    gid("wizGo").addEventListener("click", doRun);
+  }
+  async function doRun(){
+    if(running) return; running=true;
+    var go=gid("wizGo"), st=gid("wizRunStatus");
+    if(go){ go.disabled=true; go.classList.add("btn-spin"); }
+    nextBtn.disabled=true; backBtn.disabled=true;
+    try{
+      if(st) st.textContent="Searching builds…";
+      await runExact();
+      var have = (typeof lastExactTopBuilds!=="undefined" && lastExactTopBuilds && lastExactTopBuilds.length);
+      if(have){
+        if(st) st.textContent="Simulating top candidates…";
+        await runMonteRerank();
+      }
+      if(st) st.textContent="Done.";
+      goStep(stepIndex("result"));
+    }catch(e){
+      if(st) st.textContent="Something went wrong: "+((e&&e.message)||e);
+    }finally{
+      running=false;
+      if(go){ go.disabled=false; go.classList.remove("btn-spin"); }
+      nextBtn.disabled=false; backBtn.disabled=false;
+    }
+  }
+  function renderResult(){
+    var results=window.__simResults;
+    var best=(results&&results.length)?(results.find(function(r){ return r.simRank===1; })||results[0]):null;
+    if(!best){ nativeEl.innerHTML='<p class="small">No result yet — go back and run the optimizer.</p>'; return; }
+    var inp=null; try{ inp=getInputs(); }catch(_e){}
+    var focusKey="allRewards"; try{ focusKey=primaryFocusKey(inp); }catch(_e){}
+    var focusLabel="Rewards"; try{ focusLabel=rewardFocusLabel(focusKey); }catch(_e){}
+    var hero;
+    if(focusKey==="block"){ var fv=0; try{ fv=simFocusValue(best,inp); }catch(_e){} hero={lbl:focusLabel+" / hr", val:fmt(fv,1)}; }
+    else if(focusKey==="target"){ hero={lbl:"Target reached", val:fmt(best.targetPct,1)+"%"}; }
+    else { hero={lbl:focusLabel+" / hr", val:fmt(best.rewardsPerHour,1)}; }
+    var html='<div class="wiz-result-hero"><div class="lbl">'+esc(hero.lbl)+'</div><div class="val">'+esc(hero.val)+'</div></div>';
+    html+='<div class="wiz-result-hero" style="background:var(--accent2);border-color:#c7d2fe"><div class="lbl" style="color:var(--accent)">Recommended build</div><div class="val" style="font-size:22px">'+esc(buildLabel(best.stats))+'</div></div>';
+    html+='<div class="wiz-result-metrics">'
+      +metric("Rewards / hour", fmt(best.rewardsPerHour,1))
+      +metric("Expected floor", fmt(best.mcAvgFloor,2))
+      +metric("Reward / stamina", fmt(best.rewardsPerTick,3))
+      +metric("Blocks / hour", fmt(best.blocksPerHour,1))
+      +'</div>';
+    html+='<div class="wiz-result-actions">'
+      +'<button type="button" id="wizDiag" class="ghost">✨ Why this build? (AI)</button>'
+      +'<button type="button" id="wizDetails" class="ghost">See full details &amp; tables</button>'
+      +'<button type="button" id="wizRestart">Start over</button>'
+      +'</div>';
+    nativeEl.innerHTML=html;
+    gid("wizDiag").addEventListener("click", function(){ var d=gid("sanityDiagnose"); if(d) d.click(); });
+    gid("wizDetails").addEventListener("click", function(){ exitWizard(true); });
+    gid("wizRestart").addEventListener("click", function(){ goStep(0); });
+  }
+
+  // ---------- navigation ----------
+  function renderStep(){
+    homeAll();
+    nativeEl.innerHTML="";
+    var s=STEPS[step];
+    titleEl.textContent=s.title;
+    introEl.textContent=s.intro||"";
+    introEl.style.display=s.intro?"":"none";
+    ascWarn.hidden=true;
+    if(s.adopt) adopt(s.adopt, slotEl);
+    if(s.render) s.render();
+    if(s.key==="check" && typeof ascensionConflicts==="function"){
+      var c=ascensionConflicts();
+      if(c.length){
+        ascWarn.innerHTML="<b>Check your Ascension.</b> Your stats include "
+          +c.map(function(x){ return esc(x.label)+" (needs A"+x.need+")"; }).join(", ")
+          +", which can't exist at A"+(valOf("ascension")||"0")+". Fix it or these results will be off.";
+        ascWarn.hidden=false;
+      }
+    }
+    var pct=Math.round((step/(STEPS.length-1))*100);
+    fill.style.width=pct+"%";
+    stepLabel.textContent="Step "+(step+1)+" of "+STEPS.length+" · "+s.title;
+    backBtn.style.visibility = step===0 ? "hidden" : "visible";
+    if(s.key==="run"){ nextBtn.style.display="none"; }
+    else if(s.key==="result"){ nextBtn.style.display=""; nextBtn.textContent="Finish"; }
+    else { nextBtn.style.display=""; nextBtn.innerHTML="Next &rarr;"; }
+    var stage=wiz.querySelector(".wiz-stage"); if(stage) stage.scrollTop=0;
+    try{ localStorage.setItem(STEP_KEY, String(step)); }catch(_e){}
+  }
+  function goStep(i){ step=Math.max(0, Math.min(STEPS.length-1, i)); renderStep(); }
+
+  backBtn.addEventListener("click", function(){ if(step>0) goStep(step-1); });
+  nextBtn.addEventListener("click", function(){
+    if(STEPS[step].key==="result"){ exitWizard(true); return; }
+    goStep(step+1);
+  });
+
+  // ---------- enter / exit ----------
+  function enterWizard(resume){
+    try{ localStorage.setItem(PREF_KEY,"guided"); }catch(_e){}
+    var hdr=document.querySelector("body>header"); if(hdr) hdr.style.display="none";
+    var m=document.querySelector("body>main"); if(m) m.style.display="none";
+    wiz.hidden=false;
+    var saved=0;
+    if(resume){ try{ saved=parseInt(localStorage.getItem(STEP_KEY)||"0",10)||0; }catch(_e){} }
+    // never resume into run/result with no simulation data
+    if(saved>=stepIndex("run") && !(window.__simResults && window.__simResults.length)) saved=0;
+    goStep(saved);
+  }
+  function exitWizard(toAdvanced){
+    homeAll();
+    wiz.hidden=true;
+    var hdr=document.querySelector("body>header"); if(hdr) hdr.style.display="";
+    var m=document.querySelector("body>main"); if(m) m.style.display="";
+    try{ localStorage.setItem(PREF_KEY,"advanced"); }catch(_e){}
+    if(typeof updateGoalUI==="function") updateGoalUI();
+    if(typeof updateSettingsSummary==="function") updateSettingsSummary();
+    if(typeof refreshAscensionWarning==="function") refreshAscensionWarning();
+    if(toAdvanced){
+      var hasSim=window.__simResults && window.__simResults.length;
+      var card=document.getElementById(hasSim?"simulationCard":"deterministicCard");
+      if(card) setTimeout(function(){ try{ card.scrollIntoView({behavior:"smooth", block:"start"}); }catch(_e){} }, 60);
+    }
+  }
+
+  gid("wizExit").addEventListener("click", function(){ exitWizard(true); });
+  var reenter=gid("guidedReenter");
+  if(reenter) reenter.addEventListener("click", function(){ enterWizard(false); });
+
+  // expose for tests / programmatic control
+  window.__wizard={ enter:enterWizard, exit:exitWizard, go:goStep, stepIndex:stepIndex, get step(){ return step; } };
+
+  // ---------- landing decision: guided is the default (and after "guided"). ----------
+  var pref=null; try{ pref=localStorage.getItem(PREF_KEY); }catch(_e){}
+  if(pref!=="advanced") enterWizard(true);
 })();
 </script>
 </body>

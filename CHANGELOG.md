@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-06-16
+
+### Added
+- **Guided setup — a step-by-step flow that's now the default landing.** First-time visitors (and anyone who hasn't switched to the full view) start in a full-screen, on-rails wizard that walks through one decision at a time: what you're optimizing for, your Ascension, your stats (type them in or import a screenshot), abilities, upgrades, cards, a quick check of what you entered, and then a single button that estimates and simulates your best build and shows the result. Each screen has Back/Next and an "Exit guided mode" that drops you into the full advanced view; a "✨ Guided setup" button in the header re-enters it. Progress is remembered between visits. Under the hood it reuses the exact same inputs and engine — the wizard borrows the real settings panels rather than duplicating any field — so nothing about the numbers changes, and switching between guided and advanced never loses what you entered.
+
 ## 2026-06-15
 
 ### Fixed
