@@ -180,7 +180,20 @@ summary{font-weight:900;cursor:pointer;color:#344054}
 .inf-eff{color:var(--muted)}
 .card-tier-header{grid-column:1/-1;font-weight:800;color:var(--accent);font-size:12px;letter-spacing:.5px;text-transform:uppercase;margin:8px 0 0;padding-top:8px;border-top:1px solid var(--line)}
 .card-tier-header:first-child{margin-top:0;padding-top:0;border-top:0}
-#cardSettingsGrid{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+#cardSettingsGrid{display:block}
+/* compact single-column card rows: [x] Name  (o)Norm ()Gild ()Poly ()Inf */
+.card-row{display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid #edf0f5;flex-wrap:wrap}
+.card-row-name{display:flex;align-items:center;gap:8px;font-weight:700;color:#1f2937;flex:1;min-width:120px;margin:0}
+.card-row-name input[type="checkbox"]{width:17px;height:17px;accent-color:var(--accent)}
+.card-row-opts{display:flex;gap:12px;flex-wrap:wrap}
+.card-row-opts label{display:flex;align-items:center;gap:4px;font-size:12.5px;color:#475467;font-weight:600;margin:0}
+.card-row-opts input[type="radio"]{accent-color:var(--accent)}
+.card-row-opts.disabled{opacity:.38}
+.card-globals{margin-top:16px;display:flex;flex-direction:column;gap:12px}
+.card-globals[hidden]{display:none}
+.card-inf-field[hidden]{display:none}
+.wiz-cards-warn{background:var(--amber);border:1px solid #fed7aa;border-radius:10px;padding:10px 12px;color:#7c2d12;font-size:13px;line-height:1.45;margin-bottom:14px;font-weight:600}
+.wiz-cards-warn div{margin:3px 0}
 
 /* v25: force the primary tolerance field to be a compact 3-character control */
 .goal-card .protection-options .tolerance-option{
@@ -888,10 +901,6 @@ body[data-landing="true"] #guidedReenter{display:none}
 
 
       <section id="settings-cards" class="settings-section">
-        <div class="form-grid">
-          <div><label>Archaeology infernal multiplier x</label><input id="archInfernalMult" type="number" step="0.0001" min="0" value="1"></div>
-          <label class="check-row"><input id="polyUpgrade" type="checkbox"> Polychrome Archaeology Card Bonus +15%</label>
-        </div>
         <div class="card-bulk">
           <div class="bulk-field">
             <label for="cardBulkRarity">Bulk set rarity</label>
@@ -914,7 +923,11 @@ body[data-landing="true"] #guidedReenter{display:none}
             </div>
           </div>
         </div>
-        <div class="form-grid" id="cardSettingsGrid"></div>
+        <div id="cardSettingsGrid"></div>
+        <div class="card-globals">
+          <label class="check-row"><input id="polyUpgrade" type="checkbox"> Polychrome Archaeology Card Bonus +15%</label>
+          <div id="infMultField" class="card-inf-field bulk-field" hidden><label>Archaeology infernal multiplier x</label><input id="archInfernalMult" type="number" step="0.0001" min="0" value="1"></div>
+        </div>
       </section>
 
 <section id="settings-scaling" class="settings-section">
@@ -1113,7 +1126,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.5";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.6";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1447,11 +1460,24 @@ function syncCardField(key){
   if(!hidden || !owned || !radios) return;
   if(!owned.checked){
     hidden.value = "none";
-    radios.classList.remove("open");
+    radios.classList.add("disabled");
   }else{
     hidden.value = checked ? checked.value : "owned";
-    radios.classList.add("open");
+    radios.classList.remove("disabled");
   }
+  updateInfernalMultVisibility();
+}
+// The infernal multiplier only matters once a card is set to Infernal, so it
+// stays hidden until then; and if an infernal card is set while the multiplier
+// is still 1x (i.e. unset), flag the field so the player notices.
+function updateInfernalMultVisibility(){
+  let anyInf = false;
+  ARCHAEOLOGY_CARD_KEYS.forEach(c=>{ const h=document.getElementById(cardSettingId(c.key)); if(h && h.value==="infernal") anyInf=true; });
+  const field = document.getElementById("infMultField");
+  if(field) field.hidden = !anyInf;
+  const mult = document.getElementById("archInfernalMult");
+  if(mult) mult.classList.toggle("input-error", anyInf && (Number(mult.value)||0) <= 1);
+  return anyInf;
 }
 
 function populateCardSettings(){
@@ -1465,17 +1491,14 @@ function populateCardSettings(){
     let head = "";
     if(tier !== _lastTier){ _lastTier = tier; head = `<div class="card-tier-header${tier==='4'?' req-a2':''}">Tier ${tier} cards</div>`; }
     return head + `
-    <div class="card-field ${cardGateClass(c.key)}">
-      <label class="card-toggle-head">
-        <input type="checkbox" id="card_enabled_${c.key}">
-        <span>${rarity}</span>
-      </label>
+    <div class="card-row ${cardGateClass(c.key)}">
+      <label class="card-row-name"><input type="checkbox" id="card_enabled_${c.key}"> <span>${rarity}</span></label>
       <input type="hidden" id="${cardSettingId(c.key)}" value="none">
-      <div class="card-tier-options" id="card_options_${c.key}">
-        <label><input type="radio" name="card_state_${c.key}" value="owned" checked>Normal</label>
-        <label><input type="radio" name="card_state_${c.key}" value="gilded">Gilded</label>
-        <label><input type="radio" name="card_state_${c.key}" value="polychrome">Polychrome</label>
-        <label class="req-a2"><input type="radio" name="card_state_${c.key}" value="infernal">Infernal <span class="inf-eff" id="inf_eff_${c.key}"></span></label>
+      <div class="card-row-opts disabled" id="card_options_${c.key}">
+        <label><input type="radio" name="card_state_${c.key}" value="owned" checked>Norm</label>
+        <label><input type="radio" name="card_state_${c.key}" value="gilded">Gild</label>
+        <label><input type="radio" name="card_state_${c.key}" value="polychrome">Poly</label>
+        <label class="req-a2"><input type="radio" name="card_state_${c.key}" value="infernal">Inf</label>
       </div>
     </div>`;
   }).join("");
@@ -1487,6 +1510,7 @@ function populateCardSettings(){
       markOptimizerStale(); updateSettingsSummary();
     });
     radios.forEach(r=>r.addEventListener("change", ()=>{
+      if(cb && !cb.checked) cb.checked = true;   // picking a rarity means you own it
       syncCardField(c.key);
       markOptimizerStale(); updateSettingsSummary();
     }));
@@ -3747,6 +3771,7 @@ const BASE_STAT_FIELD_IDS = ["selectedLevel","highestFloor","baseDamage","baseSt
 function updateSettingsSummary(){
   const setText=(id,text)=>{ const el=document.getElementById(id); if(el) el.textContent=text; };
   updateInfernalEffectLabels();
+  updateInfernalMultVisibility();
   const asc = currentAscension();
   // Run Scope value: verbose ascension descriptor.
   setText("summaryAscension", asc === 0 ? "Ascension 0: Base blocks only"
@@ -5305,7 +5330,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     {key:"upgrades", title:"Your upgrades", render:renderUpgrades,
      intro:"Tell the optimizer which upgrades you own."},
     {key:"cards", title:"Your cards", render:renderCards,
-     intro:"Add any archaeology cards you own."},
+     intro:"Check the cards you own and set each one's rarity. No cards? Just hit Next."},
     {key:"check", title:"Quick check", render:renderCheck,
      intro:"A glance at what you entered before we crunch the numbers. Tap Edit to fix anything."},
     {key:"run", title:"Find your best build", render:renderRun,
@@ -5410,17 +5435,26 @@ window.refreshAscensionWarning=refreshAscensionWarning;
       this.style.display="none";
     });
   }
-  // Low-touch cards: skip by default (most players have none), reveal the grid
-  // only when they choose to set cards.
+  // Almost everyone has cards, so show the card UI directly (no gate screen).
+  var _cardsWarnAck=false;
   function renderCards(){
-    nativeEl.innerHTML=
-      '<p class="wiz-leadin">Set any archaeology cards you own. No cards? Just hit Next.</p>'
-      + '<div class="wiz-upload"><button type="button" id="wizCardsBtn" class="runbtn">Set my cards</button></div>'
-      + '<div id="wizCardsPanel" class="wiz-reveal"></div>';
-    gid("wizCardsBtn").addEventListener("click", function(){
-      adopt("settings-cards", gid("wizCardsPanel"));
-      this.style.display="none";
+    nativeEl.innerHTML='<div id="wizCardsWarn" class="wiz-cards-warn" hidden></div><div id="wizCardsHost"></div>';
+    adopt("settings-cards", gid("wizCardsHost"));
+    _cardsWarnAck=false;
+  }
+  // Soft, non-blocking checks for the cards step (combined into one notice).
+  function cardsStepWarnings(){
+    var w=[], anyInf=false, anyPoly=false;
+    var keys=(typeof ARCHAEOLOGY_CARD_KEYS!=="undefined") ? ARCHAEOLOGY_CARD_KEYS : [];
+    keys.forEach(function(c){
+      var h=gid(cardSettingId(c.key)); if(!h) return;
+      if(h.value==="infernal") anyInf=true;
+      if(h.value==="polychrome") anyPoly=true;
     });
+    var mult=Number((gid("archInfernalMult")||{}).value)||0;
+    if(anyInf && mult<=1) w.push("You set an infernal card but the infernal multiplier is still 1x. Enter your real multiplier so its bonus is counted.");
+    if(anyPoly && !((gid("polyUpgrade")||{}).checked)) w.push("You have polychrome cards but the Polychrome Bonus is off. Turn it on if you own that upgrade.");
+    return w;
   }
   function renderCheck(){
     var inp=null; try{ inp=getInputs(); }catch(_e){}
@@ -5563,7 +5597,18 @@ window.refreshAscensionWarning=refreshAscensionWarning;
 
   backBtn.addEventListener("click", function(){ if(step>0) goStep(step-1); });
   nextBtn.addEventListener("click", function(){
-    if(STEPS[step].key==="result"){ exitWizard(true); return; }
+    var key=STEPS[step].key;
+    if(key==="result"){ exitWizard(true); return; }
+    if(key==="cards"){
+      var w=cardsStepWarnings();
+      if(w.length && !_cardsWarnAck){
+        var box=gid("wizCardsWarn");
+        if(box){ box.innerHTML=w.map(function(m){ return "<div>! "+esc(m)+"</div>"; }).join(""); box.hidden=false;
+          try{ box.scrollIntoView({behavior:"smooth", block:"start"}); }catch(_e){} }
+        _cardsWarnAck=true;       // soft: surface once, then let them proceed
+        return;
+      }
+    }
     goStep(step+1);
   });
 
