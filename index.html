@@ -384,7 +384,8 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .guided-reenter{background:transparent;color:#fff;border:1px solid #ffffff55;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800;white-space:nowrap}
 .guided-reenter:hover{background:#ffffff22}
 #wizard[hidden]{display:none}
-#wizard{position:fixed;inset:0;z-index:40;background:var(--bg);display:flex;flex-direction:column}
+#wizard{position:fixed;inset:0;z-index:55;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.wiz-panel{background:var(--bg);width:min(880px,100%);height:min(940px,94vh);border-radius:16px;box-shadow:0 24px 70px rgba(16,24,40,.42);display:flex;flex-direction:column;overflow:hidden}
 .wiz-top{background:#101828;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;flex:none}
 .wiz-top h1{margin:0;font-size:16px;flex:1;line-height:1.2}
 .wiz-exit{background:transparent;color:#cbd5e1;border:1px solid #ffffff44;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800}
@@ -423,6 +424,8 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .wiz-result-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
 .wiz-result-actions{display:grid;gap:8px}
 @media (max-width:640px){
+  #wizard{padding:0}
+  .wiz-panel{width:100%;height:100%;border-radius:0}
   .wiz-nav button{min-width:92px}
   .wiz-result-metrics{grid-template-columns:1fr}
 }
@@ -443,7 +446,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
   <input id="objective" class="hidden-control" value="total">
   <input id="speedModel" class="hidden-control" value="none">
 
-  <section class="workflow-card goal-card">
+  <section class="workflow-card goal-card" id="goalCard">
     <div class="workflow-label">Optimization priority</div>
     <div class="goal-grid">
       <div>
@@ -636,30 +639,33 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
 <div id="status" class="status-toast"></div>
 
-<!-- Guided wizard overlay. Steps that need data entry adopt the real settings
-     <section> nodes; native steps drive the same hidden controls. -->
+<!-- Guided wizard: a large modal over the dimmed (still-visible) site. Steps
+     that need data entry adopt the real settings <section> nodes; native
+     steps drive the same hidden controls. -->
 <div id="wizard" hidden aria-label="Guided setup">
-  <div class="wiz-top">
-    <h1>Guided setup</h1>
-    <a class="help-link" href="about.html" target="_blank" rel="noopener" style="width:30px;height:30px;font-size:17px" title="How this works" aria-label="How this works">?</a>
-    <button type="button" id="wizExit" class="wiz-exit">Exit guided mode</button>
-  </div>
-  <div class="wiz-progress">
-    <div class="wiz-progress-label" id="wizStepLabel">Step 1</div>
-    <div class="wiz-progress-bar"><span id="wizProgressFill" style="width:0%"></span></div>
-  </div>
-  <div class="wiz-stage">
-    <div class="wiz-stage-inner">
-      <div class="wiz-head"><h2 id="wizTitle"></h2><p id="wizIntro"></p></div>
-      <div id="wizAscWarn" class="asc-warning" hidden></div>
-      <div id="wizNative"></div>
-      <div id="wizSlot"></div>
+  <div class="wiz-panel" role="dialog" aria-modal="true">
+    <div class="wiz-top">
+      <h1>Guided setup</h1>
+      <a class="help-link" href="about.html" target="_blank" rel="noopener" style="width:30px;height:30px;font-size:17px" title="How this works" aria-label="How this works">?</a>
+      <button type="button" id="wizExit" class="wiz-exit">Exit guided mode</button>
     </div>
-  </div>
-  <div class="wiz-nav">
-    <button type="button" id="wizBack" class="ghost">&larr; Back</button>
-    <span class="spacer"></span>
-    <button type="button" id="wizNext">Next &rarr;</button>
+    <div class="wiz-progress">
+      <div class="wiz-progress-label" id="wizStepLabel">Step 1</div>
+      <div class="wiz-progress-bar"><span id="wizProgressFill" style="width:0%"></span></div>
+    </div>
+    <div class="wiz-stage">
+      <div class="wiz-stage-inner">
+        <div class="wiz-head"><h2 id="wizTitle"></h2><p id="wizIntro"></p></div>
+        <div id="wizAscWarn" class="asc-warning" hidden></div>
+        <div id="wizNative"></div>
+        <div id="wizSlot"></div>
+      </div>
+    </div>
+    <div class="wiz-nav">
+      <button type="button" id="wizBack" class="ghost">&larr; Back</button>
+      <span class="spacer"></span>
+      <button type="button" id="wizNext">Next &rarr;</button>
+    </div>
   </div>
 </div>
 
@@ -5179,7 +5185,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   // --- step definitions -----------------------------------------------------
   var STEPS=[
     {key:"intent", title:"What are you optimizing for?",
-     intro:"Pick the one thing you care most about. You can change this later.", render:renderIntent},
+     intro:"Pick your main goal — all rewards, XP, a specific loot rarity, a specific block, or a target floor. Add a secondary goal if you want; you can change this later.", render:renderIntent},
     {key:"ascension", title:"What's your Ascension?",
      intro:"This decides which blocks and stats exist. Match it to your account.", render:renderAscension},
     {key:"stats", title:"Your stats", adopt:"settings-base",
@@ -5200,32 +5206,12 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   var step=0, running=false;
 
   // ---------- native step renderers ----------
-  var GOALS=[
-    ["allRewards","Maximize all rewards","Best overall haul — XP and loot combined."],
-    ["xp","Maximize XP","Level your archaeology as fast as possible."],
-    ["allLoot","Maximize loot","All fragment loot, ignoring XP."],
-    ["block","A specific block","Destroy the most of one block tier + rarity per hour."],
-    ["target","Reach a target floor","Push as deep as possible toward a chosen floor."]
-  ];
+  // Intent adopts the real "Optimization priority" card so the guided flow keeps
+  // every goal the full view has — all loot rarities, a secondary goal with a
+  // tolerance, the target-floor and target-block pickers — with no duplication.
   function renderIntent(){
-    var cur=valOf("primaryGoal")||"allRewards";
-    var listed=GOALS.some(function(g){ return g[0]===cur; });
-    var html='<div class="wiz-choices">';
-    GOALS.forEach(function(g){
-      var sel=(g[0]===cur)||(g[0]==="allLoot" && !listed);
-      html+='<button type="button" class="wiz-choice'+(sel?' sel':'')+'" data-goal="'+g[0]+'"><b>'+g[1]+'</b><span>'+g[2]+'</span></button>';
-    });
-    html+='</div><div class="wiz-params" id="wizGoalParams"></div>';
-    nativeEl.innerHTML=html;
-    var params=gid("wizGoalParams");
-    adopt("goalTargetField", params);
-    adopt("goalBlockField", params);
-    nativeEl.querySelectorAll(".wiz-choice").forEach(function(b){
-      b.addEventListener("click", function(){
-        setSelect("primaryGoal", b.dataset.goal);
-        nativeEl.querySelectorAll(".wiz-choice").forEach(function(x){ x.classList.toggle("sel", x===b); });
-      });
-    });
+    nativeEl.innerHTML='<div id="wizGoalHost"></div>';
+    adopt("goalCard", gid("wizGoalHost"));
   }
   function renderAscension(){
     var cur=valOf("ascension")||"0";
@@ -5248,6 +5234,8 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     var asc=valOf("ascension")||"0";
     var conflicts=(typeof ascensionConflicts==="function")?ascensionConflicts():[];
     var goalLabel="—"; try{ goalLabel=rewardFocusLabel(primaryFocusKey(inp)); }catch(_e){}
+    var sec=valOf("secondaryGoal")||"none";
+    if(sec!=="none"){ try{ goalLabel+=" + "+rewardFocusLabel(sec); }catch(_e){} }
     var level=valOf("selectedLevel");
     var spent=chkOf("baseStatModeSpent");
     var cardsActive=0;
@@ -5371,8 +5359,9 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   // ---------- enter / exit ----------
   function enterWizard(resume){
     try{ localStorage.setItem(PREF_KEY,"guided"); }catch(_e){}
-    var hdr=document.querySelector("body>header"); if(hdr) hdr.style.display="none";
-    var m=document.querySelector("body>main"); if(m) m.style.display="none";
+    // Modal over the dimmed, still-visible site — the page stays in place; the
+    // step's adopted panel is simply pulled into the modal while it's open.
+    document.body.style.overflow="hidden";
     wiz.hidden=false;
     var saved=0;
     if(resume){ try{ saved=parseInt(localStorage.getItem(STEP_KEY)||"0",10)||0; }catch(_e){} }
@@ -5383,8 +5372,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   function exitWizard(toAdvanced){
     homeAll();
     wiz.hidden=true;
-    var hdr=document.querySelector("body>header"); if(hdr) hdr.style.display="";
-    var m=document.querySelector("body>main"); if(m) m.style.display="";
+    document.body.style.overflow="";
     try{ localStorage.setItem(PREF_KEY,"advanced"); }catch(_e){}
     if(typeof updateGoalUI==="function") updateGoalUI();
     if(typeof updateSettingsSummary==="function") updateSettingsSummary();
