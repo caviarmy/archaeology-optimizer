@@ -407,8 +407,10 @@ body[data-landing="true"] #guidedReenter{display:none}
 .wiz-confirm-panel{background:#fff;border-radius:14px;box-shadow:0 18px 50px rgba(16,24,40,.3);max-width:400px;width:100%;padding:20px 20px 18px}
 .wiz-confirm-panel h3{margin:0 0 8px;font-size:18px}
 .wiz-confirm-panel p{margin:0 0 18px;color:var(--muted);font-size:14px;line-height:1.55}
-.wiz-confirm-actions{display:flex;gap:10px;justify-content:flex-end}
-.wiz-confirm-actions button{min-width:108px}
+.wiz-confirm-actions{display:flex;flex-direction:column;gap:10px}
+.wiz-confirm-actions button{width:100%;padding:13px 16px;font-size:15px}
+.wiz-confirm-cancel{display:block;margin:14px auto 0;background:none;border:0;color:var(--muted);font-size:13px;font-weight:700;text-decoration:underline;padding:4px;cursor:pointer}
+.wiz-confirm-cancel:hover{color:var(--accent)}
 .wiz-exit{background:transparent;color:#cbd5e1;border:1px solid #ffffff44;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800}
 .wiz-exit:hover{background:#ffffff18;color:#fff}
 .wiz-progress{flex:none;display:flex;flex-direction:column;gap:6px;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line)}
@@ -713,12 +715,13 @@ body[data-landing="true"] #guidedReenter{display:none}
 <div id="wizResetBackdrop" class="wiz-confirm-backdrop" hidden></div>
 <div id="wizResetModal" class="wiz-confirm-modal" role="dialog" aria-modal="true" aria-label="Start fresh" hidden>
   <div class="wiz-confirm-panel">
-    <h3>Start fresh?</h3>
-    <p>You have stats, settings, or results saved from before. Guided setup will clear them and start from scratch.</p>
+    <h3>You have saved stats</h3>
+    <p>You have stats and settings saved from before. Use them, or clear everything and start over.</p>
     <div class="wiz-confirm-actions">
-      <button type="button" id="wizResetCancel" class="ghost">Cancel</button>
-      <button type="button" id="wizResetGo">Clear and start</button>
+      <button type="button" id="wizResetKeep">Use previous stats</button>
+      <button type="button" id="wizResetGo" class="ghost">Start fresh</button>
     </div>
+    <button type="button" id="wizResetCancel" class="wiz-confirm-cancel">Cancel</button>
   </div>
 </div>
 
@@ -5572,7 +5575,8 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     else enterWizard();
   });
   if(lSkip) lSkip.addEventListener("click", function(){ setLanding(false); try{ localStorage.setItem(PREF_KEY,"advanced"); }catch(_e){} });
-  var rGo=gid("wizResetGo"), rCancel=gid("wizResetCancel"), rModal=gid("wizResetModal");
+  var rGo=gid("wizResetGo"), rKeep=gid("wizResetKeep"), rCancel=gid("wizResetCancel"), rModal=gid("wizResetModal");
+  if(rKeep) rKeep.addEventListener("click", function(){ showResetModal(false); enterWizard(); });               // keep saved stats
   if(rGo) rGo.addEventListener("click", function(){ showResetModal(false); if(typeof resetAllSettings==="function") resetAllSettings(); enterWizard(); });
   if(rCancel) rCancel.addEventListener("click", function(){ showResetModal(false); });
   if(rModal) rModal.addEventListener("click", function(e){ if(e.target===rModal) showResetModal(false); });  // click outside the panel
