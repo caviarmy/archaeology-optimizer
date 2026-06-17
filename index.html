@@ -1129,7 +1129,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.17.1";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.17.2";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -2904,12 +2904,25 @@ async function simGuidedSearch(inp, blocks, level, status){
   const add=(st,row)=>{ const k=keys.map(x=>st[x]||0).join(","); if(seen.has(k)||finalists.length>=topLimit) return; seen.add(k); finalists.push(simCandidate(st,row,inp)); };
   refined.forEach(e=>add(e.st, e.row));                                  // local optima first (high-fidelity scored)
   [...cache.values()].sort((a,b)=>b.v-a.v).forEach(c=>add(c.st, c.row)); // then fill from the climb cache
-  rankCandidates(finalists, inp);   // apply secondary/tolerance ordering over the finalists
+  // The keep-cut handed to Simulate must retain the genuine contenders. Ranking
+  // purely by the goal (primary tolerance + secondary) is unsafe here: the
+  // secondary metric (e.g. a specific loot rarity) is very noisy at the search's
+  // low run count, so a build with the best true secondary can get an unlucky low
+  // estimate and be dropped. So we keep the UNION of the goal order and the
+  // primary order (interleaved), guaranteeing both a build's primary-strength and
+  // its goal-strength keep it in the set. The secondary/tolerance ranking is then
+  // applied for real on the HIGH-fidelity Simulate pass.
+  const _pk = primaryFocusKey(inp);
+  const byGoal = rankCandidates(finalists.slice(), inp);
+  const byPrimary = finalists.slice().sort((a,b)=> metricValue(b,_pk,inp) - metricValue(a,_pk,inp));
+  const kk = x=> keys.map(k=>(x.stats[k]||0)).join(",");
+  const kept=[], kseen=new Set();
+  const keep=x=>{ if(!x) return; const k=kk(x); if(!kseen.has(k)){ kseen.add(k); kept.push(x); } };
+  for(let i=0; i<Math.max(byGoal.length, byPrimary.length); i++){ keep(byGoal[i]); keep(byPrimary[i]); }
   // Stash the distinct builds the search actually simulated (EV/corner seeds + the
-  // climb), so the AI analysis can contrast genuinely different REAL builds the
-  // optimizer evaluated, not invented ones.
+  // climb), so the AI analysis can contrast genuinely different REAL builds.
   try{ window.__simSearchBuilds = [...cache.values()].map(c=>({stats:c.st})); }catch(_e){}
-  return {topBuilds: finalists, count: cache.size};
+  return {topBuilds: kept, count: cache.size};
 }
 
 // Build label "S/A/P/I/L" (+"/D/C" once Divinity/Corruption are allocated).
@@ -3334,10 +3347,33 @@ function renderSimResults(sortKey, dir){
   const thead = table && table.querySelector("thead");
   if(!results || !results.length || !tbody || !thead) return;
   if(sortKey){ _simSortKey=sortKey; _simSortDir = dir || simSortNaturalDir(sortKey); }
-  // Fixed rank: by the chosen goal's metric, stored on each record so sorting the
-  // table by another column doesn't change a build's rank.
+  // Fixed rank by the chosen goal, computed here on the HIGH-fidelity results so
+  // the secondary goal + tolerance is honored with accurate numbers (not the noisy
+  // search estimate). With a secondary goal: builds whose primary is within the
+  // tolerance band of the best are ordered by the secondary metric; otherwise by
+  // primary. Stored per-record so re-sorting the table by a column can't change it.
   const _focusInp = getInputs();
-  results.slice().sort((a,b)=>simFocusValue(b,_focusInp)-simFocusValue(a,_focusInp)).forEach((r,i)=>{ r.simRank=i+1; });
+  const _sk = secondaryFocusKey(_focusInp);
+  const _tol = Math.max(0, (_focusInp.goal && _focusInp.goal.tolerancePct || 0) / 100);
+  const _rowVal = (rw, key)=>{
+    if(!key || key==="none") return undefined;
+    if(key==="target") return rw.targetPct;
+    if(key==="allRewards") return rw.rewardsPerHour;
+    if(key==="xp") return rw.xpPerHour;
+    if(key==="allLoot") return rw.allLootPerHour;
+    if(key==="block") return (rw.countsPerHour && rw.countsPerHour[_focusInp.blockTargetKey]) || 0;
+    if(rw.lootPerHour && rw.lootPerHour[key]!=null) return rw.lootPerHour[key];
+    return undefined;
+  };
+  const _bestP = results.reduce((m,rw)=>Math.max(m, simFocusValue(rw,_focusInp)), -Infinity);
+  const _thr = _bestP - Math.abs(_bestP) * _tol;
+  results.slice().sort((a,b)=>{
+    const pa=simFocusValue(a,_focusInp), pb=simFocusValue(b,_focusInp);
+    const ai=pa>=_thr-1e-9, bi=pb>=_thr-1e-9;
+    if(ai!==bi) return ai?-1:1;
+    if(ai && bi && _sk!=="none"){ const sa=_rowVal(a,_sk)||0, sb=_rowVal(b,_sk)||0; if(Math.abs(sb-sa)>1e-9) return sb-sa; }
+    return pb-pa;
+  }).forEach((r,i)=>{ r.simRank=i+1; });
   const asc = currentAscension();
   const cols = buildSimColumns(_focusInp);
   // A column from a previous goal may no longer exist; fall back to Sim Rank.

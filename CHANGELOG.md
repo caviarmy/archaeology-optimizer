@@ -7,6 +7,7 @@
 - **The guided "find my best build" step shows a progress bar** with the live counts the optimizer is already reporting (builds tried, simulation progress) instead of a single static line.
 
 ### Fixed
+- **The best build no longer gets dropped before Simulate when a secondary goal is set.** With a secondary goal + tolerance, the estimate ranked builds (and chose which to keep) by the secondary metric — but at the search's low run count a specific loot rarity is very noisy, so a genuinely top build could get an unlucky estimate and fall outside the kept set, never reaching Simulate. The search now keeps the union of the top builds by primary reward and by goal, so a build that is strong on either survives; and the secondary/tolerance ranking is applied on the high-fidelity Simulate pass, where the numbers are accurate. The simulation now also honors the secondary goal (it previously ranked by primary only), so the estimate and simulation agree on what "best" means.
 - **The AI analysis retries once automatically** if the first request hits a transient network or server error, instead of failing outright (a real failure or the daily cap still reports normally).
 
 ## 2026-06-16
