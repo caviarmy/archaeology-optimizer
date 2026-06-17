@@ -180,7 +180,25 @@ summary{font-weight:900;cursor:pointer;color:#344054}
 .inf-eff{color:var(--muted)}
 .card-tier-header{grid-column:1/-1;font-weight:800;color:var(--accent);font-size:12px;letter-spacing:.5px;text-transform:uppercase;margin:8px 0 0;padding-top:8px;border-top:1px solid var(--line)}
 .card-tier-header:first-child{margin-top:0;padding-top:0;border-top:0}
-#cardSettingsGrid{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+/* highlight the simulation columns for the primary (blue) and secondary (green) goals */
+#monteRerankTable th.goal-col,#monteRerankTable td.goal-col{background:var(--accent2)}
+#monteRerankTable th.goal-col{color:var(--accent)}
+#monteRerankTable th.goal-col-2,#monteRerankTable td.goal-col-2{background:#eaf6ee}
+#monteRerankTable th.goal-col-2{color:#15803d}
+#cardSettingsGrid{display:block}
+/* compact single-column card rows: [x] Name  (o)Norm ()Gild ()Poly ()Inf */
+.card-row{display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid #edf0f5;flex-wrap:wrap}
+.card-row-name{display:flex;align-items:center;gap:8px;font-weight:700;color:#1f2937;flex:1;min-width:120px;margin:0}
+.card-row-name input[type="checkbox"]{width:17px;height:17px;accent-color:var(--accent)}
+.card-row-opts{display:flex;gap:12px;flex-wrap:wrap}
+.card-row-opts label{display:flex;align-items:center;gap:4px;font-size:12.5px;color:#475467;font-weight:600;margin:0}
+.card-row-opts input[type="radio"]{accent-color:var(--accent)}
+.card-row-opts.disabled{opacity:.38}
+.card-globals{margin-top:16px;display:flex;flex-direction:column;gap:12px}
+.card-globals[hidden]{display:none}
+.card-inf-field[hidden]{display:none}
+.wiz-cards-warn{background:var(--amber);border:1px solid #fed7aa;border-radius:10px;padding:10px 12px;color:#7c2d12;font-size:13px;line-height:1.45;margin-bottom:14px;font-weight:600}
+.wiz-cards-warn div{margin:3px 0}
 
 /* v25: force the primary tolerance field to be a compact 3-character control */
 .goal-card .protection-options .tolerance-option{
@@ -355,6 +373,8 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .sanity-ai-note{margin:6px 2px 0;font-size:10.5px;color:var(--muted);line-height:1.35}
 .sanity-ai-out{margin-top:8px;font-size:12px;line-height:1.45;color:var(--ink);white-space:pre-wrap;background:var(--soft);border-radius:8px;padding:8px 10px}
 .sanity-ai-out.err{background:#fff7ed;color:#b42318}
+.sanity-fallback{margin:12px 2px 0;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);line-height:1.4}
+.sanity-fallback a{color:var(--accent);font-weight:700}
 /* AI build-analysis modal (opened from the Diagnose button) */
 .diag-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70}
 .diag-modal{position:fixed;inset:0;z-index:71;display:flex;align-items:center;justify-content:center;padding:14px}
@@ -378,20 +398,117 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 .sanity-target-flash{animation:sanityFlash 1.7s ease-out}
 @keyframes sanityFlash{0%,55%{box-shadow:0 0 0 3px #fde68a;border-radius:6px}100%{box-shadow:0 0 0 3px transparent}}
 
+/* ---- Guided wizard: a low-touch, on-rails flow over the existing engine.
+   Data-entry steps adopt the real settings <section> nodes (IDs/listeners/
+   persistence intact); native steps drive the same hidden controls. ---- */
+.guided-reenter{background:transparent;color:#fff;border:1px solid #ffffff55;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800;white-space:nowrap}
+.guided-reenter:hover{background:#ffffff22}
+#wizard[hidden]{display:none}
+#wizard{position:fixed;inset:0;z-index:55;background:var(--bg);display:flex}
+.wiz-panel{background:var(--bg);width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden}
+.wiz-top{background:#101828;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;flex:none}
+.wiz-brand{flex:1;display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.wiz-brand .wiz-app{font-size:16px;font-weight:900}
+.wiz-brand .wiz-sub{font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-top:1px}
+/* landing: brief intro shown under the real header on first visit */
+#landing{display:none}
+body[data-landing="true"] #landing{display:block}
+body[data-landing="true"] main>:not(#landing){display:none}
+body[data-landing="true"] #guidedReenter{display:none}
+.landing-card{max-width:480px;margin:12vh auto 0;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:32px 26px;text-align:center}
+.landing-card h2{font-size:22px;line-height:1.35;margin:0 0 24px;font-weight:800}
+#landingStart{display:block;width:100%;padding:16px 20px;font-size:16px}
+#landingSkip{display:inline-block;margin-top:16px;background:none;border:0;color:var(--muted);font-size:13px;font-weight:700;text-decoration:underline;padding:4px;cursor:pointer}
+#landingSkip:hover{color:var(--accent)}
+/* "Start fresh?" warning modal */
+.wiz-confirm-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:60}
+.wiz-confirm-modal{position:fixed;inset:0;z-index:61;display:flex;align-items:center;justify-content:center;padding:16px}
+.wiz-confirm-backdrop[hidden],.wiz-confirm-modal[hidden]{display:none}
+.wiz-confirm-panel{background:#fff;border-radius:14px;box-shadow:0 18px 50px rgba(16,24,40,.3);max-width:400px;width:100%;padding:20px 20px 18px}
+.wiz-confirm-panel h3{margin:0 0 8px;font-size:18px}
+.wiz-confirm-panel p{margin:0 0 18px;color:var(--muted);font-size:14px;line-height:1.55}
+.wiz-confirm-actions{display:flex;flex-direction:column;gap:10px}
+.wiz-confirm-actions button{width:100%;padding:13px 16px;font-size:15px}
+.wiz-confirm-cancel{display:block;margin:14px auto 0;background:none;border:0;color:var(--muted);font-size:13px;font-weight:700;text-decoration:underline;padding:4px;cursor:pointer}
+.wiz-confirm-cancel:hover{color:var(--accent)}
+.wiz-exit{background:transparent;color:#cbd5e1;border:1px solid #ffffff44;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800}
+.wiz-exit:hover{background:#ffffff18;color:#fff}
+.wiz-progress{flex:none;display:flex;flex-direction:column;gap:6px;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line)}
+.wiz-progress-label{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.wiz-progress-bar{height:6px;border-radius:999px;background:#e6ebf3;overflow:hidden}
+.wiz-progress-bar>span{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .25s ease}
+.wiz-stage{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+.wiz-stage-inner{max-width:760px;margin:0 auto;padding:18px 16px 28px}
+.wiz-head h2{font-size:22px;margin:4px 0 6px}
+.wiz-head p{margin:0 0 16px;color:var(--muted);font-size:14px;line-height:1.5}
+.wiz-nav{flex:none;display:flex;gap:10px;align-items:center;padding:12px 16px;background:#fff;border-top:1px solid var(--line)}
+.wiz-nav .spacer{flex:1}
+.wiz-nav button{min-width:120px}
+.wiz-choices{display:grid;gap:10px}
+.wiz-choice{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;color:var(--ink);box-shadow:var(--shadow);cursor:pointer}
+.wiz-choice:hover{border-color:var(--accent)}
+.wiz-choice.sel{border-color:var(--accent);background:var(--accent2);box-shadow:inset 0 0 0 1px var(--accent)}
+.wiz-choice b{display:block;font-size:15px;margin-bottom:3px;font-weight:900}
+.wiz-choice span{font-size:12.5px;color:var(--muted);font-weight:600}
+.wiz-params{margin-top:14px}
+.wiz-check-item{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);font-size:13px}
+.wiz-check-item:last-child{border-bottom:0}
+.wiz-check-item .ic{flex:none;font-weight:900;font-size:15px;line-height:1.3}
+.wiz-check-item .ic.ok{color:#15803d}.wiz-check-item .ic.warn{color:#b42318}
+.wiz-check-item .body{flex:1;line-height:1.4}
+.wiz-check-item .body b{display:block;font-weight:900}
+.wiz-check-item .edit{flex:none;background:none;border:0;color:var(--accent);font-weight:800;font-size:12px;padding:2px 4px;cursor:pointer;text-decoration:underline}
+.wiz-leadin{color:var(--muted);font-size:14px;line-height:1.55;margin:0 0 18px}
+.wiz-reveal{margin-top:18px}
+.wiz-stat-instr{margin:0 0 16px;padding-left:20px;line-height:1.55;font-size:14px;color:var(--ink)}
+.wiz-stat-instr li{margin-bottom:9px}
+.wiz-linkbtn{background:none;border:0;color:var(--accent);font-weight:800;text-decoration:underline;cursor:pointer;padding:0;font:inherit}
+.wiz-confirm{display:flex;align-items:flex-start;gap:9px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-weight:700;color:var(--ink);margin-bottom:16px;font-size:14px;cursor:pointer}
+.wiz-confirm input{margin-top:1px;flex:none}
+.wiz-upload{text-align:center;margin:4px 0 10px}
+.wiz-statusline{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:8px;font-size:14px;color:var(--ink);font-weight:700;text-align:center;line-height:1.4}
+.wiz-statusline.ok{color:#15803d}
+.wiz-statusline.err{color:#b42318;font-weight:600}
+.wiz-statusline .wiz-tick{font-size:17px;flex:none}
+.wiz-spin{width:18px;height:18px;border:3px solid #cbd5e1;border-top-color:var(--accent);border-radius:50%;animation:wizspin .8s linear infinite;flex:none}
+@keyframes wizspin{to{transform:rotate(360deg)}}
+.wiz-run-box{text-align:center;padding:18px 0}
+.wiz-run-box .runbtn{font-size:16px;padding:14px 22px}
+.wiz-run-status{margin-top:14px;color:var(--muted);font-size:13px;min-height:18px}
+.wiz-result-hero{background:var(--green);border:1px solid #bbf7d0;border-radius:14px;padding:16px;text-align:center;margin-bottom:12px}
+.wiz-result-hero .lbl{font-size:12px;color:#15803d;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+.wiz-result-hero .val{font-size:26px;font-weight:900;margin-top:4px;word-break:break-word}
+.wiz-result-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.wiz-result-actions{display:grid;gap:8px}
+@media (max-width:640px){
+  .wiz-nav button{min-width:92px}
+  .wiz-result-metrics{grid-template-columns:1fr}
+}
+
 </style>
 </head>
 <body data-workflow="results" data-target-used="false" data-simulation-ready="false" data-ascension="0">
 <header>
   <h1>Obelisk Miner Archaeology Optimizer</h1>
-  <a class="help-link" href="about.html" target="_blank" rel="noopener" title="How this app works" aria-label="How this app works">?</a>
+  <div style="display:flex;align-items:center;gap:10px;flex:none">
+    <button type="button" id="guidedReenter" class="guided-reenter">&#10024; Guided setup</button>
+    <a class="help-link" href="about.html" target="_blank" rel="noopener" title="How this app works" aria-label="How this app works">?</a>
+  </div>
 </header>
 
 <main>
+  <section id="landing">
+    <div class="landing-card" id="landingIntro">
+      <h2>The optimizer finds your best archaeology build for the goal you choose.</h2>
+      <button type="button" id="landingStart">Start guided setup</button>
+      <button type="button" id="landingSkip">No thanks, show me the full app</button>
+    </div>
+  </section>
   <input id="mode" class="hidden-control" value="reward">
   <input id="objective" class="hidden-control" value="total">
   <input id="speedModel" class="hidden-control" value="none">
 
-  <section class="workflow-card goal-card">
+  <section class="workflow-card goal-card" id="goalCard">
     <div class="workflow-label">Optimization priority</div>
     <div class="goal-grid">
       <div>
@@ -426,11 +543,11 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <option value="target">Target floor</option>
         </select>
       </div>
-      <div class="goal-target-field">
+      <div class="goal-target-field" id="goalTargetField">
         <label>Target floor</label>
         <input id="targetFloor" type="number" min="1" max="1000" step="1" inputmode="numeric" value="13">
       </div>
-      <div class="goal-block-field">
+      <div class="goal-block-field" id="goalBlockField">
         <label>Target block (most destroyed per hour)</label>
         <div style="display:flex;gap:8px">
           <select id="blockTargetTier" aria-label="Block tier"><option value="1">Tier 1</option><option value="2">Tier 2</option><option value="3" selected>Tier 3</option><option value="4">Tier 4</option></select>
@@ -531,14 +648,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         <summary>Detailed simulation table (click a column to sort)</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="monteRerankTable">
-            <thead><tr>
-              <th data-sort="rank">Sim Rank</th><th data-sort="detRank">Est. rank</th>
-              <th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th>
-              <th data-sort="rewardsPerHour">Rewards / hr</th><th data-sort="rewardsPerTick">Rewards / stamina</th>
-              <th data-sort="blocksPerHour">Blocks / hr</th><th data-sort="xpPerHour">XP / hr</th><th data-sort="allLootPerHour">Loot / hr</th>
-              <th data-sort="mcAvgFloor">Avg floor</th><th data-sort="targetPct">Target %</th>
-              <th>P10</th><th>P50</th><th>P90</th>
-            </tr></thead>
+            <thead><tr></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -584,6 +694,50 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
 <div id="status" class="status-toast"></div>
 
+<!-- Guided wizard: a large modal over the dimmed (still-visible) site. Steps
+     that need data entry adopt the real settings <section> nodes; native
+     steps drive the same hidden controls. -->
+<div id="wizard" hidden aria-label="Guided setup">
+  <div class="wiz-panel">
+    <div class="wiz-top">
+      <div class="wiz-brand"><span class="wiz-app">Obelisk Miner Optimizer</span><span class="wiz-sub">Guided setup</span></div>
+      <a class="help-link" href="about.html" target="_blank" rel="noopener" style="width:30px;height:30px;font-size:17px" title="How this works" aria-label="How this works">?</a>
+      <button type="button" id="wizExit" class="wiz-exit">Exit guided mode</button>
+    </div>
+    <div class="wiz-progress">
+      <div class="wiz-progress-label" id="wizStepLabel">Step 1</div>
+      <div class="wiz-progress-bar"><span id="wizProgressFill" style="width:0%"></span></div>
+    </div>
+    <div class="wiz-stage">
+      <div class="wiz-stage-inner">
+        <div class="wiz-head"><h2 id="wizTitle"></h2><p id="wizIntro"></p></div>
+        <div id="wizAscWarn" class="asc-warning" hidden></div>
+        <div id="wizNative"></div>
+        <div id="wizSlot"></div>
+      </div>
+    </div>
+    <div class="wiz-nav">
+      <button type="button" id="wizBack" class="ghost">&larr; Back</button>
+      <span class="spacer"></span>
+      <button type="button" id="wizNext">Next &rarr;</button>
+    </div>
+  </div>
+</div>
+
+<!-- Warning shown when Start is pressed with leftover inputs from a prior visit. -->
+<div id="wizResetBackdrop" class="wiz-confirm-backdrop" hidden></div>
+<div id="wizResetModal" class="wiz-confirm-modal" role="dialog" aria-modal="true" aria-label="Start fresh" hidden>
+  <div class="wiz-confirm-panel">
+    <h3>You have saved stats</h3>
+    <p>You have stats and settings saved from before. Use them, or clear everything and start over.</p>
+    <div class="wiz-confirm-actions">
+      <button type="button" id="wizResetKeep">Use previous stats</button>
+      <button type="button" id="wizResetGo" class="ghost">Start fresh</button>
+    </div>
+    <button type="button" id="wizResetCancel" class="wiz-confirm-cancel">Cancel</button>
+  </div>
+</div>
+
 <div id="settingsModal" class="settings-modal" aria-hidden="true">
   <div class="settings-panel">
     <nav class="settings-nav" id="settingsNav"></nav>
@@ -617,15 +771,15 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         </div>
         <div id="spentAttrs" style="display:none">
           <h3>Current spent attribute points</h3>
-          <label class="check-row" style="margin-bottom:8px"><input id="statCapBonusStats" type="checkbox"> +5 Stat Pt. Caps (upgrade)</label>
+          <label class="check-row req-a1" style="margin-bottom:8px"><input id="statCapBonusStats" type="checkbox"> +5 Stat Pt. Caps (upgrade)</label>
           <div class="form-grid">
             <div><label>Spent STR</label><input id="spentStr" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent AGI</label><input id="spentAgi" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent PER</label><input id="spentPer" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent INT</label><input id="spentInt" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent Luck</label><input id="spentLuck" type="number" min="0" step="1" value="0"></div>
-            <div><label>Spent Divinity</label><input id="spentDivinity" type="number" min="0" step="1" value="0"></div>
-            <div><label>Spent Corruption</label><input id="spentCorruption" type="number" min="0" step="1" value="0"></div>
+            <div class="req-a1"><label>Spent Divinity</label><input id="spentDivinity" type="number" min="0" step="1" value="0"></div>
+            <div class="req-a2"><label>Spent Corruption</label><input id="spentCorruption" type="number" min="0" step="1" value="0"></div>
           </div>
         </div>
         <div class="import-box">
@@ -650,6 +804,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
         </div>
         <div class="form-grid">
           <div><label>Archaeology level</label><input id="selectedLevel" type="number" min="0" max="200" value=""></div>
+          <div><label>Highest Stage</label><input id="highestFloor" type="number" inputmode="numeric" min="0" step="1" value="" title="From the stats panel. Drives the Block Bonker bonus (+1% dmg & max stamina per stage, up to 100) when Block Bonker is enabled in Upgrades."></div>
           <div><label>damage</label><input id="baseDamage" type="number" step="0.001" value=""></div>
           <div><label>stamina</label><input id="baseStamina" type="number" step="0.001" value=""></div>
           <div><label>crit chance %</label><input id="baseCritChance" type="number" step="0.001" value=""></div>
@@ -716,11 +871,8 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
           <button type="button" id="clearAllUpgrades" class="ghost">Clear all</button>
         </div>
         <div class="check-grid" style="margin-bottom:10px">
-          <label class="check-row"><input id="statCapBonus" type="checkbox"> +5 Stat Pt. Caps</label>
-          <label class="check-row"><input id="blockBonker" type="checkbox"> Block Bonker (Obelisk Lv 30)</label>
-        </div>
-        <div class="form-grid" style="margin-bottom:10px">
-          <div><label>Block Bonker — highest stage reached (capped at 100): +1% dmg &amp; +1% max stamina per stage</label><input id="blockBonkerStage" type="number" inputmode="numeric" min="0" max="100" step="1" value="100"></div>
+          <label class="check-row req-a1"><input id="statCapBonus" type="checkbox"> +5 Stat Pt. Caps</label>
+          <label class="check-row"><input id="blockBonker" type="checkbox"> Block Bonker (Obelisk Lv 30) — uses your Highest Stage</label>
         </div>
         <h3>Attribute modifiers</h3>
         <div class="form-grid">
@@ -748,10 +900,6 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
 
 
       <section id="settings-cards" class="settings-section">
-        <div class="form-grid">
-          <div><label>Archaeology infernal multiplier x</label><input id="archInfernalMult" type="number" step="0.0001" min="0" value="1"></div>
-          <label class="check-row"><input id="polyUpgrade" type="checkbox"> Polychrome Archaeology Card Bonus +15%</label>
-        </div>
         <div class="card-bulk">
           <div class="bulk-field">
             <label for="cardBulkRarity">Bulk set rarity</label>
@@ -759,7 +907,7 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
               <option value="owned">Normal</option>
               <option value="gilded">Gilded</option>
               <option value="polychrome">Polychrome</option>
-              <option value="infernal" class="req-a2">Infernal</option>
+              <option value="infernal">Infernal</option>
             </select>
           </div>
           <div class="bulk-field">
@@ -774,7 +922,11 @@ html, body, main, #results, #simulationCard, #deterministicCard, #simulationDeta
             </div>
           </div>
         </div>
-        <div class="form-grid" id="cardSettingsGrid"></div>
+        <div id="cardSettingsGrid"></div>
+        <div class="card-globals">
+          <label class="check-row"><input id="polyUpgrade" type="checkbox"> Polychrome Archaeology Card Bonus +15%</label>
+          <div id="infMultField" class="card-inf-field bulk-field" hidden><label>Archaeology infernal multiplier x</label><input id="archInfernalMult" type="number" step="0.0001" min="0" value="1"></div>
+        </div>
       </section>
 
 <section id="settings-scaling" class="settings-section">
@@ -973,7 +1125,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.15.3";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.17";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1109,11 +1261,17 @@ function updateGoalUI(){
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
   const label = document.getElementById("bestValueLabel");
-  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(getInputs()))} / hr`;
+  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(getInputs()))} / hr`;
   const modeLabel = document.getElementById("bestModeLabel");
   if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(getInputs()));
 }
+// Target-floor goal = chance of REACHING the target floor. When a simulated
+// hit-rate is available (sc.targetPct, 0..100) rank by that, with a faint
+// average-floor term so builds that all reach it ~100% are ordered by margin.
+// The EV estimate has no distribution, so it falls back to an expected-floor
+// proxy (only used to seed the simulation-driven search).
 function targetMetric(sc, inp){
+  if(sc && sc.targetPct != null) return sc.targetPct + Math.min(2, (sc.floorReached || 0) / Math.max(1, inp.targetFloor || 1)) * 1e-3;
   const target = Math.max(1, inp.targetFloor || 1);
   const floor = sc.floorReached || 0;
   if(floor >= target) return 1 + Math.min(1, floor - target) * 0.001;
@@ -1258,7 +1416,6 @@ function computeInfernalMods(cardStates, mult, asc){
     armorPenFlat:0,armorPenMultPct:0,staminaPct:0,staminaFlat:0,staminaModChance:0,
     staminaModGain:0,instacharge:0,gleamingChance:0,gleamingMultiPct:0,
     xpGainPct:0,fragGainPct:0,lootModGainPct:0,xpModChance:0,lootModChance:0,speedModChance:0};
-  if((asc || 0) < 2) return acc;
   for(const c of ARCHAEOLOGY_CARD_KEYS){
     if(cardStates?.[c.key] !== "infernal") continue;
     if(!cardAvailableAtAscension(c.key, asc)) continue;
@@ -1307,11 +1464,24 @@ function syncCardField(key){
   if(!hidden || !owned || !radios) return;
   if(!owned.checked){
     hidden.value = "none";
-    radios.classList.remove("open");
+    radios.classList.add("disabled");
   }else{
     hidden.value = checked ? checked.value : "owned";
-    radios.classList.add("open");
+    radios.classList.remove("disabled");
   }
+  updateInfernalMultVisibility();
+}
+// The infernal multiplier only matters once a card is set to Infernal, so it
+// stays hidden until then; and if an infernal card is set while the multiplier
+// is still 1x (i.e. unset), flag the field so the player notices.
+function updateInfernalMultVisibility(){
+  let anyInf = false;
+  ARCHAEOLOGY_CARD_KEYS.forEach(c=>{ const h=document.getElementById(cardSettingId(c.key)); if(h && h.value==="infernal") anyInf=true; });
+  const field = document.getElementById("infMultField");
+  if(field) field.hidden = !anyInf;
+  const mult = document.getElementById("archInfernalMult");
+  if(mult) mult.classList.toggle("input-error", anyInf && (Number(mult.value)||0) <= 1);
+  return anyInf;
 }
 
 function populateCardSettings(){
@@ -1325,17 +1495,14 @@ function populateCardSettings(){
     let head = "";
     if(tier !== _lastTier){ _lastTier = tier; head = `<div class="card-tier-header${tier==='4'?' req-a2':''}">Tier ${tier} cards</div>`; }
     return head + `
-    <div class="card-field ${cardGateClass(c.key)}">
-      <label class="card-toggle-head">
-        <input type="checkbox" id="card_enabled_${c.key}">
-        <span>${rarity}</span>
-      </label>
+    <div class="card-row ${cardGateClass(c.key)}">
+      <label class="card-row-name"><input type="checkbox" id="card_enabled_${c.key}"> <span>${rarity}</span></label>
       <input type="hidden" id="${cardSettingId(c.key)}" value="none">
-      <div class="card-tier-options" id="card_options_${c.key}">
-        <label><input type="radio" name="card_state_${c.key}" value="owned" checked>Normal</label>
-        <label><input type="radio" name="card_state_${c.key}" value="gilded">Gilded</label>
-        <label><input type="radio" name="card_state_${c.key}" value="polychrome">Polychrome</label>
-        <label class="req-a2"><input type="radio" name="card_state_${c.key}" value="infernal">Infernal <span class="inf-eff" id="inf_eff_${c.key}"></span></label>
+      <div class="card-row-opts disabled" id="card_options_${c.key}">
+        <label><input type="radio" name="card_state_${c.key}" value="owned" checked>Norm</label>
+        <label><input type="radio" name="card_state_${c.key}" value="gilded">Gild</label>
+        <label><input type="radio" name="card_state_${c.key}" value="polychrome">Poly</label>
+        <label><input type="radio" name="card_state_${c.key}" value="infernal">Inf</label>
       </div>
     </div>`;
   }).join("");
@@ -1347,6 +1514,7 @@ function populateCardSettings(){
       markOptimizerStale(); updateSettingsSummary();
     });
     radios.forEach(r=>r.addEventListener("change", ()=>{
+      if(cb && !cb.checked) cb.checked = true;   // picking a rarity means you own it
       syncCardField(c.key);
       markOptimizerStale(); updateSettingsSummary();
     }));
@@ -1428,18 +1596,10 @@ function applyAscensionGating(){
   });
 
   // Divine "worthless" toggle is meaningless without divine blocks.
-  if(asc < 1){
-    const d = document.getElementById("worthlessDivine");
-    if(d) d.checked = false;
-  }
-
-  // Infernal rarity needs A2: downgrade any visible infernal pick to gilded.
-  if(asc < 2){
-    ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
-      const hidden = document.getElementById(cardSettingId(c.key));
-      if(hidden && hidden.value === "infernal") setCardState(c.key, "gilded");
-    });
-  }
+  // Ascension-gated toggles/fields (the +5 Stat Caps upgrade, divine "worthless"
+  // toggle, A1/A2 upgrade levels, spent Divinity/Corruption) are hidden above, and
+  // getInputs ignores them below their ascension, so their values stop affecting
+  // the simulation without being erased — switching back up restores them.
 
   syncSecondaryGoalOptions();
 }
@@ -1562,7 +1722,7 @@ function getInputs(){
       divine:checked("worthlessDivine")
     },
     lootWeight:Math.max(0, numOr("lootWeight", 1)),
-    statCapBonus: checked("statCapBonus") ? 5 : 0,
+    statCapBonus: (checked("statCapBonus") && currentAscension()>=1) ? 5 : 0,  // +5 Stat Caps is an A1 upgrade
     base:{
       damage:n("baseDamage"),
       stamina:n("baseStamina"),
@@ -1632,8 +1792,12 @@ function getInputs(){
   // percentages and apply once to the true base (matching the game's additive
   // stacking), instead of multiplying on top of an already-inflated number.
   const lvl = (id, max) => Math.max(0, Math.min(max, Math.floor(numOr(id, 0))));
-  const mStrA0 = lvl("modStrA0", 5), mStrA1 = lvl("modStrA1", 1);
-  const mCorrA2 = lvl("modCorrA2", 10), mDivA2 = lvl("modDivA2", 5);
+  // Ascension-gated upgrades only apply at/above their ascension, so values left
+  // in those (now-hidden) fields after switching to a lower ascension don't leak
+  // into the model. The field values are preserved for switching back up.
+  const _asc = out.ascension;
+  const mStrA0 = lvl("modStrA0", 5), mStrA1 = _asc>=1 ? lvl("modStrA1", 1) : 0;
+  const mCorrA2 = _asc>=2 ? lvl("modCorrA2", 10) : 0, mDivA2 = _asc>=2 ? lvl("modDivA2", 5) : 0;
   out.inc.strFlatDamage   += 0.20  * mStrA0;                 // +0.2 flat / lvl
   out.inc.strDamagePct    += 0.001 * mStrA0 + 0.01 * mStrA1; // +0.1% , +1% / lvl
   out.inc.strCritDamage   += 0.01  * mStrA1;                 // +1% / lvl
@@ -1651,15 +1815,17 @@ function getInputs(){
   out.inc.perArmorPen   += 1      * mPer;                    // +1 flat armor pen / lvl
   out.inc.intXpGain     += 0.01   * mInt;                    // +1% exp gain / lvl
   out.inc.intXpModPct   += 0.0001 * mInt;                    // +0.01% exp-mod chance / lvl
-  out.inc.nonAttrDmgPct = 0.02 * lvl("bonusDmgArpenA0", 20) + 0.10 * lvl("bonusDmgExpA1", 5);
+  out.inc.nonAttrDmgPct = 0.02 * lvl("bonusDmgArpenA0", 20) + 0.10 * (_asc>=1 ? lvl("bonusDmgExpA1", 5) : 0);
   out.inc.nonAttrPenPct = 0.02 * lvl("bonusArpenCdA0", 10);
-  // Block Bonker (Obelisk Lv 30 skill): +1% damage and +1% max stamina per highest
-  // stage, capped at stage 100 (so up to +100% each). Both are in the imported
-  // stats, so the damage% joins the additive pool (nonAttrDmgPct, which getDerived
-  // and reverseBaseStats already use to walk damage out/in), and the stamina% is
-  // applied/backed-out as a multiplier. (+15 speed-mod gain is a flat stat already
-  // captured by the imported Speed Mod Gain, so it needs no separate handling.)
-  const bbPct = chkOr("blockBonker") ? Math.max(0, Math.min(100, Math.floor(numOr("blockBonkerStage", 100)))) / 100 : 0;
+  // Block Bonker (Obelisk Lv 30 skill): +1% damage and +1% max stamina per stage,
+  // where the stage is your Highest Stage, capped at 100 (so up to +100% each).
+  // Only applies when the player checks that they own the skill; the magnitude is
+  // read from the captured "Highest Stage" (never typed for the bonus itself). Both
+  // percents are already in the shown stats, so the damage% joins the additive pool
+  // (nonAttrDmgPct, which getDerived and reverseBaseStats walk damage out/in) and
+  // the stamina% is applied/backed-out as a multiplier. (+15 speed-mod gain is a
+  // flat stat already captured by the imported Speed Mod Gain.)
+  const bbPct = chkOr("blockBonker") ? Math.max(0, Math.min(100, Math.floor(numOr("highestFloor", 0)))) / 100 : 0;
   out.inc.nonAttrDmgPct += bbPct;
   out.inc.blockBonkerStamPct = bbPct;
   // Block-target goal: which tier+type the player wants the most of, per hour.
@@ -1684,8 +1850,8 @@ function getInputs(){
     P:Math.max(0, Math.floor(n("spentPer"))),
     I:Math.max(0, Math.floor(n("spentInt"))),
     L:Math.max(0, Math.floor(n("spentLuck"))),
-    D:Math.max(0, Math.floor(n("spentDivinity"))),
-    C:Math.max(0, Math.floor(n("spentCorruption")))
+    D:out.ascension>=1 ? Math.max(0, Math.floor(n("spentDivinity"))) : 0,   // Divinity needs A1
+    C:out.ascension>=2 ? Math.max(0, Math.floor(n("spentCorruption"))) : 0  // Corruption needs A2
   } : {S:0,A:0,P:0,I:0,L:0,D:0,C:0};
   out.base = reverseBaseStats(out.base, pts, out.inc, inf);
   return out;
@@ -1693,6 +1859,12 @@ function getInputs(){
 
 // Recover unspent base stats from displayed totals by removing the contribution
 // of the currently-spent attribute points (and the infernal layer where it
+// Crit damage in game is BASE_CRIT_DAMAGE x (1 + sum of crit-damage %): every
+// "+X% crit damage" (the crit upgrade, Strength's +3%/point, etc.) is a percent of
+// this 1.5x base, added together. So a Strength point is worth 0.03 x 1.5 = +0.045
+// to the shown multiplier. We never separate the upgrade out (it's captured in the
+// shown value); we only need Strength's per-point value, applied to this base.
+const BASE_CRIT_DAMAGE = 1.5;
 // interacts with attributes), inverting the getDerived formulas.
 function reverseBaseStats(b, pts, inc, inf={}){
   const {S,A,P,I,L,D=0,C=0} = pts;
@@ -1709,7 +1881,7 @@ function reverseBaseStats(b, pts, inc, inf={}){
     damage: cl("Damage", b.damage / ((1 + infv("dmgPct")) * (1 + (inc.nonAttrDmgPct||0) + S*inc.strDamagePct + C*(inc.corrDamagePct||0))) - S*inc.strFlatDamage - D*(inc.divFlatDamage||0) - infv("flatDamage"), 0),
     stamina: cl("Max stamina", b.stamina / (corrStam*(1+infv("staminaPct"))*(1+(inc.blockBonkerStamPct||0))) - A*inc.agiStamina - infv("staminaFlat"), 0),
     critChance: cl("Crit chance", b.critChance - A*inc.agiCritPct - L*inc.luckCritPct, 0),
-    critDamage: cl("Crit damage", b.critDamage/(1+infv("critDmgPct")) - S*inc.strCritDamage, 1),
+    critDamage: cl("Crit damage", b.critDamage/(1+infv("critDmgPct")) - S*inc.strCritDamage*BASE_CRIT_DAMAGE, 1),
     superChance: cl("Super crit chance", (b.superChance||0) - D*(inc.divSuperCritPct||0), 0),
     xpGain: cl("XP gain", b.xpGain/(1+infv("xpGainPct")) - I*inc.intXpGain, 0),
     fragGain: cl("Fragment gain", b.fragGain/(1+infv("fragGainPct")) - P*inc.perFragGain, 0),
@@ -1764,7 +1936,7 @@ function getDerived(stats, inp){
   // re-applied here; the additive crit-chance buffs and the super/ultra crit
   // damage buffs have no attribute interaction and ride along in the base.
   const critChance = clamp(b.critChance + A*inc.agiCritPct + L*inc.luckCritPct,0,0.995);
-  const critDamage = (b.critDamage + S*inc.strCritDamage) * (1 + (inf.critDmgPct||0));
+  const critDamage = (b.critDamage + S*inc.strCritDamage*BASE_CRIT_DAMAGE) * (1 + (inf.critDmgPct||0));
   // Crits are nested & conditional: super crit can only land on a crit, ultra
   // crit only on a super crit. Defaults make missing layers no-ops.
   const superChance = clamp((b.superChance || 0) + D*(inc.divSuperCritPct||0), 0, 0.995); // Divinity +2%/pt
@@ -2614,7 +2786,8 @@ function fastSearch(inp, blocks, level){
 // Finalists are re-ranked precisely by the full simulation in runMonteRerank.
 function simFocusValue(row, inp){
   const k = primaryFocusKey(inp);
-  if(k==="target") return row.targetPct;
+  // Maximize the chance of reaching the target floor; faint avg-floor tiebreak.
+  if(k==="target") return (row.targetPct||0) + Math.min(2, (row.mcAvgFloor||0) / Math.max(1, inp.targetFloor||1)) * 1e-3;
   if(k==="allRewards") return row.rewardsPerHour;
   if(k==="xp") return row.xpPerHour;
   if(k==="allLoot") return row.allLootPerHour;
@@ -2742,7 +2915,8 @@ function renderBest(best, top, count){
   if(!best) return;
   const s=best.stats, d=best.der;
   document.getElementById("bestBuild").textContent = buildLabel(s);
-  document.getElementById("bestRph").textContent = fmt(best.rewardHr,1);
+  const _pkBest = primaryFocusKey(getInputs());
+  document.getElementById("bestRph").textContent = (_pkBest==="target") ? fmt(best.targetPct||0,1)+"%" : fmt(best.rewardHr,1);
   const ptEl = document.getElementById("bestPerTick");
   if(ptEl) ptEl.textContent = fmt(best.rewardsPerTick != null ? best.rewardsPerTick : 0, 3);
   document.getElementById("bestFloor").textContent = fmt(best.floorReached,2);
@@ -2752,7 +2926,7 @@ function renderBest(best, top, count){
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
   const valueLabel = document.getElementById("bestValueLabel");
-  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target score" : `${rewardFocusLabel(primaryFocusKey(inp))} / hr`;
+  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(inp))} / hr`;
   const ccEl = document.getElementById("candidateCount");
   if(ccEl) ccEl.textContent = count.toLocaleString();
   const bandEl = document.getElementById("primaryBandFloor");
@@ -3095,7 +3269,7 @@ async function runMonteRerank(){
   window.__simResults = results;
   window.__simSeed = simRng.seed;
   wireSimSort();
-  renderSimResults("rewardsPerHour", -1);   // default: rank by rewards per real-time hour
+  renderSimResults("rank", 1);   // default: ordered by Sim Rank (the chosen goal), best first
 
   document.body.dataset.simulationReady = "true";
   showStatus(`Simulation complete in ${((performance.now()-start)/1000).toFixed(2)}s.`, 5000);
@@ -3109,42 +3283,86 @@ async function runMonteRerank(){
 
 // Render the simulation results table sorted by `sortKey` (descending unless dir=1),
 // and refresh the headline tiles + throughput detail for the current top build.
-let _simSortKey="rewardsPerHour", _simSortDir=-1, _simSortWired=false;
+let _simSortKey="rank", _simSortDir=1, _simSortWired=false;
 // Rank columns sort ascending (1 first); metric columns sort descending (best first).
 function simSortNaturalDir(key){ return (key==="rank" || key==="detRank") ? 1 : -1; }
+// Columns for the simulation table. Identity + stats are always present, then the
+// PRIMARY goal column(s) and SECONDARY goal column(s) (highlighted), then the
+// always-useful metrics (rewards, reward/stamina, blocks, XP, loot, floor). A goal
+// that already is one of those metrics is pulled to the front and not duplicated.
+function buildSimColumns(inp){
+  const rar = {common:"Common", rare:"Rare", epic:"Epic", legendary:"Legendary", mythic:"Mythic", divine:"Divine"};
+  const BASE = {rewardsPerHour:["Rewards / hr",1], rewardsPerTick:["Reward / stamina",3], blocksPerHour:["Blocks / hr",1],
+                xpPerHour:["XP / hr",1], allLootPerHour:["Loot / hr",1], mcAvgFloor:["Avg floor",2]};
+  const baseOrder = ["rewardsPerHour","rewardsPerTick","blocksPerHour","xpPerHour","allLootPerHour","mcAvgFloor"];
+  const mkBase = (id,cls)=>({id, label:BASE[id][0], sortable:true, cls, get:r=>r[id]||0, text:r=>fmt(r[id]||0,BASE[id][1])});
+  const used = new Set();
+  const cols = [];
+  cols.push({id:"rank", label:"Sim Rank", sortable:true, get:r=>r.simRank, text:r=>String(r.simRank)});
+  cols.push({id:"detRank", label:"Est. rank", sortable:true, get:r=>r.detRank||0, text:r=>(r.detRank==null?"—":String(r.detRank))});
+  [["S","STR"],["A","AGI"],["P","PER"],["I","INT"],["L","Luck"]].forEach(([k,l])=>cols.push({label:l, get:r=>r.stats[k]||0, text:r=>String(r.stats[k]||0)}));
+  cols.push({label:"Div", req:1, get:r=>r.stats.D||0, text:r=>String(r.stats.D||0)});
+  cols.push({label:"Cor", req:2, get:r=>r.stats.C||0, text:r=>String(r.stats.C||0)});
+  // One highlighted column for a goal: a base metric (pulled forward) or synthetic.
+  const goalCol = (fk, cls, synthId)=>{
+    if(!fk || fk==="none") return null;
+    if(fk==="allRewards"){ used.add("rewardsPerHour"); return mkBase("rewardsPerHour", cls); }
+    if(fk==="xp"){ used.add("xpPerHour"); return mkBase("xpPerHour", cls); }
+    if(fk==="allLoot"){ used.add("allLootPerHour"); return mkBase("allLootPerHour", cls); }
+    if(rar[fk]) return {id:synthId, label:rar[fk]+" loot / hr", sortable:true, cls, get:r=>(r.lootPerHour||{})[fk]||0, text:r=>fmt((r.lootPerHour||{})[fk]||0,1)};
+    if(fk==="block") return {id:synthId, label:(_blockTargetLabel||"Target block")+" / hr", sortable:true, cls, get:r=>(r.countsPerHour||{})[inp.blockTargetKey]||0, text:r=>fmt((r.countsPerHour||{})[inp.blockTargetKey]||0,1)};
+    if(fk==="target") return {id:synthId, label:"Reach target %", sortable:true, cls, get:r=>r.targetPct||0, text:r=>fmt(r.targetPct||0,1)+"%"};
+    return null;
+  };
+  const pc = goalCol(primaryFocusKey(inp), "goal-col", "goal");      if(pc) cols.push(pc);
+  const sc = goalCol(secondaryFocusKey(inp), "goal-col-2", "goal2"); if(sc) cols.push(sc);
+  baseOrder.forEach(id=>{ if(!used.has(id)) cols.push(mkBase(id, null)); });
+  return cols;
+}
 function renderSimResults(sortKey, dir){
   const results = window.__simResults;
-  const tbody=document.querySelector("#monteRerankTable tbody");
-  if(!results || !results.length || !tbody) return;
+  const table = document.getElementById("monteRerankTable");
+  const tbody = table && table.querySelector("tbody");
+  const thead = table && table.querySelector("thead");
+  if(!results || !results.length || !tbody || !thead) return;
   if(sortKey){ _simSortKey=sortKey; _simSortDir = dir || simSortNaturalDir(sortKey); }
-  // Fixed rank: by the chosen goal's metric (rewards/hr, a loot type, target %, or
-  // the targeted block's count/hr), stored on each record so sorting the table by
-  // another column doesn't change a build's rank.
+  // Fixed rank: by the chosen goal's metric, stored on each record so sorting the
+  // table by another column doesn't change a build's rank.
   const _focusInp = getInputs();
   results.slice().sort((a,b)=>simFocusValue(b,_focusInp)-simFocusValue(a,_focusInp)).forEach((r,i)=>{ r.simRank=i+1; });
-  // Display order for the chosen column (rank tiebreak keeps it stable).
-  const key=_simSortKey, d=_simSortDir;
-  const val=r=> key==="rank" ? r.simRank : (key==="detRank" ? (r.detRank||0) : (r[key]==null?-Infinity:r[key]));
-  const sorted = results.slice().sort((a,b)=>{ const av=val(a), bv=val(b); return av===bv ? a.simRank-b.simRank : (av-bv)*d; });
+  const asc = currentAscension();
+  const cols = buildSimColumns(_focusInp);
+  // A column from a previous goal may no longer exist; fall back to Sim Rank.
+  if(!cols.some(c=>c.sortable && c.id===_simSortKey)){ _simSortKey="rank"; _simSortDir=1; }
+  const sortCol = cols.find(c=>c.sortable && c.id===_simSortKey) || cols[0];
+  const d=_simSortDir;
+  const sorted = results.slice().sort((a,b)=>{ const av=sortCol.get(a), bv=sortCol.get(b); return av===bv ? a.simRank-b.simRank : (av-bv)*d; });
+
+  // Header
+  const htr=document.createElement("tr");
+  cols.forEach(c=>{
+    const th=document.createElement("th"); th.textContent=c.label;
+    if(c.sortable){ th.dataset.sort=c.id; th.style.cursor="pointer"; }
+    if(c.req){ th.className=c.req===2?"req-a2":"req-a1"; if(asc<c.req) th.style.display="none"; }
+    if(c.cls) th.classList.add(c.cls);
+    if(c.sortable && c.id===_simSortKey) th.classList.add("sorted", _simSortDir===1?"sort-asc":"sort-desc");
+    htr.appendChild(th);
+  });
+  thead.innerHTML=""; thead.appendChild(htr);
+
+  // Body
   tbody.innerHTML="";
-  const asc=currentAscension();
-  sorted.forEach((r)=>{
-    const s=r.stats, tr=document.createElement("tr");
-    if(r.simRank===1) tr.className="best";
-    const mk=(val,req)=>{ const td=document.createElement("td"); td.textContent=val;
-      if(req){ td.className=req===2?"req-a2":"req-a1"; if(asc<req) td.style.display="none"; }
-      tr.appendChild(td); };
-    mk(r.simRank); mk(r.detRank);
-    mk(s.S); mk(s.A); mk(s.P); mk(s.I); mk(s.L); mk(s.D||0,1); mk(s.C||0,2);
-    mk(fmt(r.rewardsPerHour,1)); mk(fmt(r.rewardsPerTick,3)); mk(fmt(r.blocksPerHour,1));
-    mk(fmt(r.xpPerHour,1)); mk(fmt(r.allLootPerHour,1));
-    mk(fmt(r.mcAvgFloor,2)); mk(fmt(r.targetPct,1)+"%"); mk(fmt(r.p10,1)); mk(fmt(r.p50,1)); mk(fmt(r.p90,1));
-    tbody.appendChild(tr);
+  sorted.forEach(r=>{
+    const row=document.createElement("tr"); if(r.simRank===1) row.className="best";
+    cols.forEach(c=>{
+      const td=document.createElement("td"); td.textContent=c.text(r);
+      if(c.req){ td.className=c.req===2?"req-a2":"req-a1"; if(asc<c.req) td.style.display="none"; }
+      if(c.cls) td.classList.add(c.cls);
+      row.appendChild(td);
+    });
+    tbody.appendChild(row);
   });
-  document.querySelectorAll("#monteRerankTable th[data-sort]").forEach(th=>{
-    th.classList.remove("sorted","sort-asc","sort-desc");
-    if(th.dataset.sort===_simSortKey) th.classList.add("sorted", _simSortDir===1?"sort-asc":"sort-desc");
-  });
+
   // Hero card always shows the fixed rank-1 build, regardless of table sort.
   const best = results.find(r=>r.simRank===1) || sorted[0];
   document.getElementById("simBestBuild").textContent=buildLabel(best.stats);
@@ -3152,6 +3370,9 @@ function renderSimResults(sortKey, dir){
   document.getElementById("simPerTick").textContent=fmt(best.rewardsPerTick,3);
   document.getElementById("simAvgFloor").textContent=fmt(best.mcAvgFloor,2);
   document.getElementById("simTargetChance").textContent=fmt(best.targetPct,1)+"%";
+  // The "Target hit chance" tile only means something for the target-floor goal.
+  const tEl=document.getElementById("simTargetChance"); const tMetric=tEl&&tEl.closest(".metric");
+  if(tMetric) tMetric.style.display = (primaryFocusKey(_focusInp)==="target") ? "" : "none";
   document.getElementById("simDetRank").textContent=String(best.detRank);
   const seedEl=document.getElementById("simSeedUsed"); if(seedEl) seedEl.textContent=window.__simSeed;
   renderThroughputDetail(best);
@@ -3190,13 +3411,15 @@ function renderThroughputDetail(row, bodyEl){
 
 function wireSimSort(){
   if(_simSortWired) return; _simSortWired=true;
-  document.querySelectorAll("#monteRerankTable th[data-sort]").forEach(th=>{
-    th.style.cursor="pointer";
-    th.addEventListener("click",()=>{
-      const key=th.dataset.sort;
-      const dir = (_simSortKey===key) ? -_simSortDir : simSortNaturalDir(key);
-      renderSimResults(key, dir);
-    });
+  // The header is rebuilt on every render (columns depend on the goal), so use
+  // delegation rather than per-<th> listeners.
+  const thead=document.querySelector("#monteRerankTable thead");
+  if(!thead) return;
+  thead.addEventListener("click",(e)=>{
+    const th=e.target.closest("th[data-sort]"); if(!th) return;
+    const key=th.dataset.sort;
+    const dir = (_simSortKey===key) ? -_simSortDir : simSortNaturalDir(key);
+    renderSimResults(key, dir);
   });
 }
 
@@ -3336,13 +3559,37 @@ function buildDebugData(){
 function buildDebugForAI(){
   const d=buildDebugData();
   let simTop=[];
+  let inp=null; try{ inp=getInputs(); }catch(_e){}
+  const pk = inp ? primaryFocusKey(inp) : "allRewards";
+  const sk = inp ? secondaryFocusKey(inp) : "none";
+  const r1=v=>(typeof v==="number"&&isFinite(v))?Math.round(v*10)/10:v;
+  // Per-build value of an arbitrary goal metric (mirrors simFocusValue for any key),
+  // so we can hand the AI each build's PRIMARY and SECONDARY goal numbers.
+  const focusVal=(row,key)=>{
+    if(!key||key==="none") return undefined;
+    if(key==="target") return row.targetPct;
+    if(key==="allRewards") return row.rewardsPerHour;
+    if(key==="xp") return row.xpPerHour;
+    if(key==="allLoot") return row.allLootPerHour;
+    if(key==="block") return (inp && row.countsPerHour && row.countsPerHour[inp.blockTargetKey]) || 0;
+    if(row.lootPerHour && row.lootPerHour[key]!=null) return row.lootPerHour[key];
+    return undefined;
+  };
   try{
     const r=window.__simResults;
     if(Array.isArray(r) && r.length){
-      const pick=x=>({ stats:x.stats, simRank:x.simRank,
-        rewardsPerHour:x.rewardsPerHour, rewardsPerStam:x.rewardsPerTick,  // reward per stamina spent (one swing = 1 stamina)
-        blocksPerHour:x.blocksPerHour, xpPerHour:x.xpPerHour, allLootPerHour:x.allLootPerHour,
-        floorReached:(x.floorReached!=null?x.floorReached:x.mcAvgFloor) });
+      const pick=x=>{
+        let der=null; try{ if(inp) der=getDerived(x.stats, inp); }catch(_e){}
+        const o={ stats:x.stats, simRank:x.simRank,
+          rewardsPerHour:r1(x.rewardsPerHour), rewardsPerStam:x.rewardsPerTick,  // reward per stamina spent (one swing = 1 stamina)
+          blocksPerHour:r1(x.blocksPerHour), xpPerHour:r1(x.xpPerHour), allLootPerHour:r1(x.allLootPerHour),
+          floorReached:r1(x.floorReached!=null?x.floorReached:x.mcAvgFloor) };
+        const pv=focusVal(x,pk); if(pv!==undefined) o.primaryGoalValue=r1(pv);
+        const sv=focusVal(x,sk); if(sv!==undefined) o.secondaryGoalValue=r1(sv);
+        // Mechanistic levers so the model can argue from cause, not just score.
+        if(der){ o.damage=r1(der.damage); o.critChancePct=r1((der.critChance||0)*100); o.maxStamina=Math.round(der.stamina||0); }
+        return o;
+      };
       const ATTRS=["S","A","P","I","L","D","C"];
       const dist=(a,b)=>ATTRS.reduce((s,k)=>s+Math.abs(((a&&a[k])||0)-((b&&b[k])||0)),0);
       const byRank=r.slice().sort((a,b)=>((a.simRank||1e9)-(b.simRank||1e9)) || ((b.rewardsPerHour||0)-(a.rewardsPerHour||0)));
@@ -3362,13 +3609,16 @@ function buildDebugForAI(){
       simTop=chosen.map(pick);
     }
   }catch(_e){}
+  const ip=d.inputs||{};
   return {
     app:{version:d.app && d.app.version},
-    goals:{ primaryGoal:d.inputs&&d.inputs.primaryGoal, secondaryGoal:d.inputs&&d.inputs.secondaryGoal,
-            primaryProtectionStrict:d.inputs&&d.inputs.primaryProtectionStrict,
-            primaryToleranceValue:d.inputs&&d.inputs.primaryToleranceValue,
-            objective:d.inputs&&d.inputs.objective, targetFloor:d.inputs&&d.inputs.targetFloor },
-    ascension:d.inputs && d.inputs.ascension,
+    goals:{ primaryGoal:ip.primaryGoal, primaryGoalLabel:(inp?rewardFocusLabel(pk):ip.primaryGoal),
+            secondaryGoal:ip.secondaryGoal, secondaryGoalLabel:((sk&&sk!=="none")?rewardFocusLabel(sk):"none"),
+            protection:(ip.primaryProtectionStrict
+              ? "primary is strictly protected; the secondary goal only breaks ties between otherwise-equal builds"
+              : ("the secondary goal may reduce the primary by up to "+(ip.primaryToleranceValue||0)+"% if doing so improves the secondary")),
+            objective:ip.objective, targetFloor:ip.targetFloor },
+    ascension:ip.ascension,
     parsedInputs:d.parsedInputs,
     estimate:d.estimate,
     simulation:{ heroCard:d.simulation && d.simulation.heroCard, sort:d.simulation && d.simulation.sort, topResults:simTop }
@@ -3569,10 +3819,11 @@ function closeSettings(){
 function countWorthless(){
   return ["Common","Rare","Epic","Legendary","Mythic","Divine"].filter(t=>document.getElementById("worthless"+t)?.checked).length;
 }
-const BASE_STAT_FIELD_IDS = ["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain","baseArmorPenFlat","baseUltraChance","baseUltraDamage","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti","baseGleamingChance","baseGleamingMulti"];
+const BASE_STAT_FIELD_IDS = ["selectedLevel","highestFloor","baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage","baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain","baseArmorPenFlat","baseUltraChance","baseUltraDamage","baseInstacharge","baseAutoTap","baseGoldCrosshairChance","baseGoldCrosshairMulti","baseGleamingChance","baseGleamingMulti"];
 function updateSettingsSummary(){
   const setText=(id,text)=>{ const el=document.getElementById(id); if(el) el.textContent=text; };
   updateInfernalEffectLabels();
+  updateInfernalMultVisibility();
   const asc = currentAscension();
   // Run Scope value: verbose ascension descriptor.
   setText("summaryAscension", asc === 0 ? "Ascension 0: Base blocks only"
@@ -3715,7 +3966,7 @@ async function recognizeWithTesseract(image, statusPrefix, whitelist, psm){
   // when something actually changes (it forces a re-init).
   const wl = whitelist === undefined ? STAT_CHAR_WHITELIST : whitelist;
   const ps = psm === undefined ? "6" : String(psm); // 6 = single uniform block
-  const key = ps + " " + wl;
+  const key = ps + " " + wl;
   if(key !== _ocrParamKey){
     await worker.setParameters({ tessedit_char_whitelist: wl, tessedit_pageseg_mode: ps });
     _ocrParamKey = key;
@@ -4371,7 +4622,7 @@ async function fileToImageDataUrl(file, maxDim=1600, quality=0.85){
 
 // Field IDs the worker can return, with friendly labels for the parsed preview.
 const AI_FIELD_LABELS = {
-  selectedLevel:"Level", baseDamage:"Damage", baseStamina:"Stamina", baseCritChance:"Crit %",
+  selectedLevel:"Level", highestFloor:"Highest Stage", baseDamage:"Damage", baseStamina:"Stamina", baseCritChance:"Crit %",
   baseCritDamage:"Crit dmg", baseSuperChance:"Super crit %", baseSuperDamage:"Super crit dmg",
   baseUltraChance:"Ultra crit %", baseUltraDamage:"Ultra crit dmg", baseAtkSpeed:"Atk speed",
   baseArmorPenFlat:"Armor pen", baseInstacharge:"Instacharge %", baseAutoTap:"Auto-tap %",
@@ -4485,7 +4736,7 @@ async function importStatsFromScreenshot(file){
 function resetAllSettings(){
   statsImported = false;
   const blankIds = [
-    "selectedLevel","targetFloor",
+    "selectedLevel","targetFloor","highestFloor",
     "baseDamage","baseStamina","baseCritChance","baseCritDamage","baseSuperChance","baseSuperDamage",
     "baseXpGain","baseFragGain","baseXpMod","baseXpModGain","baseLootMod","baseLootModGain","baseSpeedMod","baseSpeedModGain","baseSpeedModAtkRate","baseStaminaMod","staminaModGain",
     "baseArmorPenFlat",
@@ -4516,7 +4767,6 @@ function resetAllSettings(){
     mcRunsPerBuild:"1000",
     simSeedMode:"random",
     simSeedValue:"12345",
-    blockBonkerStage:"100",
     blockTargetTier:"3", blockTargetType:"epic"
   };
   for(const [id,val] of Object.entries(defaults)){
@@ -4527,11 +4777,19 @@ function resetAllSettings(){
   document.getElementById("primaryProtectionStrict")?.click();
   const baseModeZero=document.getElementById("baseStatModeZero"); if(baseModeZero) baseModeZero.checked=true;
 
-  ["worthlessCommon","worthlessRare","worthlessEpic","worthlessLegendary","worthlessMythic","worthlessDivine","polyUpgrade","enrageOn","flurryOn","quakeOn"].forEach(id=>{
+  ["worthlessCommon","worthlessRare","worthlessEpic","worthlessLegendary","worthlessMythic","worthlessDivine","polyUpgrade","blockBonker","enrageOn","flurryOn","quakeOn"].forEach(id=>{
     const el=document.getElementById(id); if(el) el.checked=false;
   });
   const capBonus=document.getElementById("statCapBonus"); if(capBonus) capBonus.checked=false;
-  const bbonk=document.getElementById("blockBonker"); if(bbonk) bbonk.checked=false;
+
+  // Zero every upgrade level field too (modStrA0, bonusDmgExpA1, ...) — these are
+  // .lvl-step inputs and were previously left untouched by a reset.
+  document.querySelectorAll("#settings-upgrades .lvl-step").forEach(el=>{ el.value="0"; });
+  // Manual "Simulate a specific build" fields are independent of the optimizer but
+  // should also clear on a full reset.
+  ["customStr","customAgi","customPer","customInt","customLuck","customDiv","customCor"].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value="0";
+  });
 
   if(typeof ARCHAEOLOGY_CARD_KEYS !== "undefined"){
     ARCHAEOLOGY_CARD_KEYS.forEach(c=>{
@@ -4730,8 +4988,13 @@ function setAllUpgrades(toMax){
     inp.value = String(toMax && asc>=req ? max : 0);
     inp.dispatchEvent(new Event("change",{bubbles:true}));
   });
+  // +5 Stat Pt. Caps is an Ascension-1 upgrade; only max it when unlocked.
   const cap=document.getElementById("statCapBonus");
-  if(cap){ cap.checked=!!toMax; cap.dispatchEvent(new Event("change",{bubbles:true})); }
+  if(cap){ cap.checked = !!toMax && asc>=1; cap.dispatchEvent(new Event("change",{bubbles:true})); }
+  // Block Bonker (Obelisk Lv 30): owning it is a yes/no; its magnitude comes from
+  // your Highest Stage, so Max-all just enables it (Clear disables it).
+  const bbonk=document.getElementById("blockBonker");
+  if(bbonk){ bbonk.checked=!!toMax; bbonk.dispatchEvent(new Event("change",{bubbles:true})); }
 }
 document.getElementById("maxAllUpgrades")?.addEventListener("click",()=>{ setAllUpgrades(true); showStatus("Upgrades maxed for your ascension.",3000); });
 document.getElementById("clearAllUpgrades")?.addEventListener("click",()=>{ setAllUpgrades(false); showStatus("Upgrades cleared.",3000); });
@@ -4831,6 +5094,7 @@ if ("serviceWorker" in navigator) {
     <p class="sanity-ai-note">Up to 5 AI analyses per day. Sends your build's numbers (not your account) to Google Gemini for a plain-language reason why this build performed better than others.</p>
     <div class="sanity-ai-out" id="sanityDiagnoseOut" hidden></div>
   </div>
+  <p class="sanity-fallback">Still not looking right? Try <a href="https://iom-arch-optimizer-web.vercel.app/" target="_blank" rel="noopener">this calculator</a> for a more robust calculator.</p>
 </div>
 <div id="diagBackdrop" class="diag-backdrop" hidden></div>
 <div id="diagModal" class="diag-modal" role="dialog" aria-modal="true" aria-label="Build analysis" hidden>
@@ -4950,7 +5214,15 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   }
   function reveal(el, smooth){ if(!el) return; if(el.scrollIntoView) el.scrollIntoView({block:"center", behavior:smooth?"smooth":"auto"}); flash(el); }
   function jump(check){
-    var m=MAP[check]; close(); if(!m) return;
+    close();
+    // In guided mode the advanced settings sit behind the full-screen wizard, so
+    // route to the matching guided step instead of opening the modal out of view.
+    var wiz=gid("wizard");
+    if(wiz && !wiz.hidden && window.__wizard){
+      var STEP={ascension:"ascension", basestats:"stats", statcap:"upgrades", upgrades:"upgrades", cards:"cards", infernal:"cards", polychrome:"cards"};
+      if(STEP[check]){ window.__wizard.go(window.__wizard.stepIndex(STEP[check])); return; }
+    }
+    var m=MAP[check]; if(!m) return;
     if(m.el){ reveal(gid(m.el), true); return; }
     if(typeof window.openSettings==="function") window.openSettings(m.section);
     // openSettings shows a group's first tab; force the exact section (e.g. Upgrades).
@@ -4960,6 +5232,9 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   document.querySelectorAll("[data-sanity]").forEach(function(btn){
     btn.addEventListener("click", function(e){ e.preventDefault(); if(!bubble.hidden){ close(); return; } openAt(btn); });
   });
+  // Let the guided flow open this same checklist (its AI button is the only way
+  // into the analyzer, so users troubleshoot common issues first).
+  window.__sanityOpen=function(trigger){ if(trigger) openAt(trigger); };
   bubble.querySelectorAll(".sanity-item").forEach(function(it){
     it.addEventListener("click", function(){ jump(it.dataset.check); });
   });
@@ -4974,6 +5249,10 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   var modal=gid("diagModal"), modalBack=gid("diagBackdrop"), diagBody=gid("diagBody"), diagFoot=gid("diagFoot");
   var LS_KEY="obeliskDiagResetsAt", resetsAt=0, busy=false;
   try{ resetsAt=Number(localStorage.getItem(LS_KEY))||0; }catch(_e){}
+  // Cache the analysis against the exact data we send the AI, so re-clicking for
+  // the same build/simulation shows the saved answer instead of querying again
+  // (no wasted quota, no different wording). Changing inputs/build/sim -> new key.
+  var aiCache={key:null, html:null};
 
   function note(msg, isErr){ if(!diagOut) return; diagOut.hidden=false; diagOut.textContent=msg; diagOut.classList.toggle("err", !!isErr); }
   function hasBuild(){
@@ -5029,6 +5308,14 @@ window.refreshAscensionWarning=refreshAscensionWarning;
       var snapshot;
       try{ snapshot=(typeof buildDebugForAI==="function")?buildDebugForAI():null; }catch(e){ snapshot=null; }
       if(!snapshot){ note("Could not read the current build.", true); return; }
+      var key=null; try{ key=JSON.stringify(snapshot); }catch(_e){ key=null; }
+      // Same build/simulation as a previous analysis? Show the saved one.
+      if(key && aiCache.key===key && aiCache.html){
+        if(diagOut) diagOut.hidden=true;
+        close(); openModal(); modalHTML(aiCache.html, false);
+        if(diagFoot){ diagFoot.hidden=false; diagFoot.textContent="✨ Saved analysis for this result — run a new simulation for a fresh one."; }
+        return;
+      }
       if(diagOut) diagOut.hidden=true;
       busy=true; updateBtn();
       close();                       // hand off from the checklist bubble to the modal
@@ -5043,13 +5330,447 @@ window.refreshAscensionWarning=refreshAscensionWarning;
         var p=r.p||{}; applyUsage(p);
         if(r.res.status===429){ modalHTML("<p>"+esc(p.error||"You've used today's AI analysis.")+"</p>", true); modalFoot(p); return; }
         if(!r.res.ok || !p.explanation){ modalHTML("<p>Analysis failed: "+esc(p.error||("HTTP "+r.res.status))+"</p>", true); return; }
-        modalHTML(fmt(p.explanation), false); modalFoot(p);
+        var html=fmt(p.explanation);
+        modalHTML(html, false); modalFoot(p);
+        if(key) aiCache={key:key, html:html};   // save for this build/simulation
       }).catch(function(){
         modalHTML("<p>Network error reaching the AI worker. Check your connection and try again.</p>", true);
       }).finally(function(){ busy=false; updateBtn(); });
     });
   }
   updateBtn();
+})();
+</script>
+<script>
+/* =========================================================================
+   Guided wizard. An on-rails flow over the existing engine — it never
+   duplicates an input. Data-entry steps physically adopt the real settings
+   <section> nodes (IDs, listeners and persistence all stay intact, since
+   save/load and getInputs work document-wide by id); native steps drive the
+   same hidden controls (#primaryGoal, #ascension). Exiting returns every
+   adopted node to its home and reveals the full (advanced) view.
+   Placed last so every global it calls is already defined.
+   ========================================================================= */
+(function(){
+  var PREF_KEY="obeliskGuidedPref";
+  var wiz=document.getElementById("wizard");
+  if(!wiz) return;
+  function gid(id){ return document.getElementById(id); }
+  function valOf(id){ var e=gid(id); return e?e.value:""; }
+  function chkOf(id){ var e=gid(id); return !!(e&&e.checked); }
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function setSelect(id,v){ var e=gid(id); if(!e) return; e.value=v; e.dispatchEvent(new Event("change",{bubbles:true})); }
+  function metric(k,v){ return '<div class="metric"><div class="k">'+esc(k)+'</div><div class="v">'+esc(v)+'</div></div>'; }
+
+  var titleEl=gid("wizTitle"), introEl=gid("wizIntro"), nativeEl=gid("wizNative"),
+      slotEl=gid("wizSlot"), backBtn=gid("wizBack"), nextBtn=gid("wizNext"),
+      fill=gid("wizProgressFill"), stepLabel=gid("wizStepLabel"), ascWarn=gid("wizAscWarn");
+
+  // --- adopt / return arbitrary elements (single source of truth) ----------
+  var HOMES={};
+  function adopt(id, into){
+    var el=gid(id); if(!el) return;
+    if(!HOMES[id]) HOMES[id]={parent:el.parentNode, next:el.nextSibling};
+    (into||slotEl).appendChild(el);
+    if(el.classList.contains("settings-section")) el.classList.add("active");
+  }
+  function homeAll(){
+    // Reverse insertion order so contiguous siblings (e.g. the two goal fields
+    // adopted together on the Intent step) land back in their original order.
+    Object.keys(HOMES).reverse().forEach(function(id){
+      var el=gid(id), h=HOMES[id]; if(!el||!h) return;
+      if(el.classList.contains("settings-section")) el.classList.remove("active");
+      if(h.next && h.next.parentNode===h.parent) h.parent.insertBefore(el, h.next);
+      else h.parent.appendChild(el);
+    });
+    HOMES={};
+  }
+
+  // --- step definitions -----------------------------------------------------
+  var STEPS=[
+    {key:"intent", title:"What are you optimizing for?",
+     intro:"Pick your main goal: all rewards, XP, a specific loot rarity, a specific block, or a target floor. Add a secondary goal if you want. You can change this later.", render:renderIntent},
+    {key:"ascension", title:"What's your Ascension?",
+     intro:"This decides which blocks and stats exist. Match it to your account.", render:renderAscension},
+    {key:"stats", title:"Your stats", render:renderStats,
+     intro:"Reset your attributes to 0, then upload one screenshot. That's all we need."},
+    {key:"upgrades", title:"Your upgrades", render:renderUpgrades,
+     intro:"Tell the optimizer which upgrades you own."},
+    {key:"cards", title:"Your cards", render:renderCards,
+     intro:"Check the cards you own and set each one's rarity. No cards? Just hit Next."},
+    {key:"check", title:"Quick check", render:renderCheck,
+     intro:"A glance at what you entered before we crunch the numbers. Tap Edit to fix anything."},
+    {key:"run", title:"Find your best build", render:renderRun,
+     intro:"We'll estimate the best build, then simulate the top candidates to confirm it."},
+    {key:"result", title:"Your best build", render:renderResult, intro:""}
+  ];
+  function stepIndex(key){ for(var i=0;i<STEPS.length;i++){ if(STEPS[i].key===key) return i; } return 0; }
+  var step=0, running=false;
+
+  // ---------- native step renderers ----------
+  // Intent adopts the real "Optimization priority" card so the guided flow keeps
+  // every goal the full view has — all loot rarities, a secondary goal with a
+  // tolerance, the target-floor and target-block pickers — with no duplication.
+  function renderIntent(){
+    nativeEl.innerHTML='<div id="wizGoalHost"></div>';
+    adopt("goalCard", gid("wizGoalHost"));
+  }
+  function renderAscension(){
+    var cur=valOf("ascension")||"0";
+    var A=[["0","Ascension 0","Pre-ascension — base blocks only."],
+           ["1","Ascension 1","Divine blocks unlocked."],
+           ["2","Ascension 2","Divine + Tier 4 blocks unlocked."]];
+    var html='<div class="wiz-choices">';
+    A.forEach(function(a){ html+='<button type="button" class="wiz-choice'+(a[0]===cur?' sel':'')+'" data-asc="'+a[0]+'"><b>'+a[1]+'</b><span>'+a[2]+'</span></button>'; });
+    html+='</div>';
+    nativeEl.innerHTML=html;
+    nativeEl.querySelectorAll(".wiz-choice").forEach(function(b){
+      b.addEventListener("click", function(){
+        setSelect("ascension", b.dataset.asc);
+        nativeEl.querySelectorAll(".wiz-choice").forEach(function(x){ x.classList.toggle("sel", x===b); });
+      });
+    });
+  }
+  // Low-touch stats step: instruct + confirm attributes are at 0, then a single
+  // upload. We don't surface the manual grid, the spent-points mode, or the
+  // AI-response panel here — the real (hidden) fields are still filled by the
+  // import, so the engine is unchanged. Guided import is always the zero-base path.
+  var _attrZeroConfirmed=false;
+  function showStatsOk(status, up){
+    status.className="wiz-statusline ok";
+    status.innerHTML='<span class="wiz-tick">&#10003;</span> Stats are loaded in and look good! Hit Next to continue.';
+    if(up){ up.disabled=false; up.textContent="Upload a different screenshot"; }
+    nextBtn.disabled=false;   // a good parse unlocks Next
+  }
+  function renderStats(){
+    var zero=gid("baseStatModeZero");
+    if(zero && !zero.checked){ zero.checked=true; zero.dispatchEvent(new Event("change",{bubbles:true})); }
+    nativeEl.innerHTML=
+      '<ol class="wiz-stat-instr">'
+      + '<li>In game, open your <b>Stats</b> page and <b>reset all attribute points to 0</b> (respec). We need your stats with points unspent so we can work out the best way to spend them.</li>'
+      + '<li>Screenshot the stat panel together with your Enrage / Flurry / Quake ability cards. <button type="button" class="wiz-linkbtn" id="wizExample">See an example</button></li>'
+      + '</ol>'
+      + '<div id="wizExampleImg" hidden style="margin:0 0 14px"><img src="stat-skill-example.jpg" alt="Example screenshot" style="max-width:100%;border:1px solid var(--line);border-radius:10px"></div>'
+      + '<label class="wiz-confirm"><input type="checkbox" id="wizAttrZero"> <span>I\'ve set all my attribute points to <b>0</b> in game.</span></label>'
+      + '<div class="wiz-upload"><button type="button" id="wizUpload" class="runbtn" disabled>Upload stat screenshot</button></div>'
+      + '<input type="file" id="wizStatFile" accept="image/*" style="display:none">'
+      + '<div class="wiz-statusline" id="wizStatStatus"></div>';
+    gid("wizExample").addEventListener("click", function(){ var im=gid("wizExampleImg"); im.hidden=!im.hidden; });
+    var conf=gid("wizAttrZero"), up=gid("wizUpload"), file=gid("wizStatFile"), status=gid("wizStatStatus");
+    conf.checked=!!_attrZeroConfirmed; up.disabled=!conf.checked;
+    conf.addEventListener("change", function(){ _attrZeroConfirmed=conf.checked; up.disabled=!conf.checked; });
+    up.addEventListener("click", function(){ file.click(); });
+    // returning to the step after a successful import: show the success line.
+    if(typeof statsImported!=="undefined" && statsImported) showStatsOk(status, up);
+    // We own the status here: spinner while the worker reads it, then a single
+    // success line (no parsed dump). The real import still fills the hidden fields.
+    file.addEventListener("change", async function(){
+      var f=file.files && file.files[0];
+      if(!f) return;
+      status.className="wiz-statusline";
+      status.innerHTML='<span class="wiz-spin"></span> Reading your screenshot&hellip;';
+      up.disabled=true;
+      try{ statsImported=false; }catch(_e){}
+      try{ await importStatsFromScreenshot(f); }catch(_e){}
+      if(typeof statsImported!=="undefined" && statsImported){
+        showStatsOk(status, up);
+      }else{
+        status.className="wiz-statusline err";
+        status.textContent="Couldn't read that screenshot. Make sure the stat panel and ability cards are both visible, then try again.";
+        up.disabled=!conf.checked;
+        nextBtn.disabled=true;
+      }
+      file.value="";   // let the same file be re-selected
+    });
+  }
+  // Low-touch upgrades: one-tap Max all (the common case), with the full panel
+  // revealed only if the user wants to set levels by hand.
+  function renderUpgrades(){
+    nativeEl.innerHTML=
+      '<p class="wiz-leadin">Have every upgrade for your Ascension? Max them in one tap. If not, set them yourself.</p>'
+      + '<div class="wiz-upload"><button type="button" id="wizMaxUpg" class="runbtn">Max all my upgrades</button></div>'
+      + '<div class="wiz-statusline" id="wizUpgStatus"></div>'
+      + '<div style="text-align:center;margin-top:14px"><button type="button" class="wiz-linkbtn" id="wizUpgManual">Set upgrades manually</button></div>'
+      + '<div id="wizUpgPanel" class="wiz-reveal"></div>';
+    gid("wizMaxUpg").addEventListener("click", function(){
+      if(typeof setAllUpgrades==="function") setAllUpgrades(true);
+      var st=gid("wizUpgStatus"); st.className="wiz-statusline ok";
+      st.innerHTML='<span class="wiz-tick">&#10003;</span> All upgrades set to max for your Ascension.';
+    });
+    gid("wizUpgManual").addEventListener("click", function(){
+      adopt("settings-upgrades", gid("wizUpgPanel"));
+      this.style.display="none";
+    });
+  }
+  // Almost everyone has cards, so show the card UI directly (no gate screen).
+  var _cardsWarnAck=false;
+  function renderCards(){
+    nativeEl.innerHTML='<div id="wizCardsWarn" class="wiz-cards-warn" hidden></div><div id="wizCardsHost"></div>';
+    adopt("settings-cards", gid("wizCardsHost"));
+    _cardsWarnAck=false;
+  }
+  // Soft, non-blocking checks for the cards step (combined into one notice).
+  function cardsStepWarnings(){
+    var w=[], anyInf=false, anyPoly=false;
+    var keys=(typeof ARCHAEOLOGY_CARD_KEYS!=="undefined") ? ARCHAEOLOGY_CARD_KEYS : [];
+    keys.forEach(function(c){
+      var h=gid(cardSettingId(c.key)); if(!h) return;
+      if(h.value==="infernal") anyInf=true;
+      if(h.value==="polychrome") anyPoly=true;
+    });
+    var mult=Number((gid("archInfernalMult")||{}).value)||0;
+    if(anyInf && mult<=1) w.push("You set an infernal card but the infernal multiplier is still 1x. Enter your real multiplier so its bonus is counted.");
+    if(anyPoly && !((gid("polyUpgrade")||{}).checked)) w.push("You have polychrome cards but the Polychrome Bonus is off. Turn it on if you own that upgrade.");
+    return w;
+  }
+  function renderCheck(){
+    var inp=null; try{ inp=getInputs(); }catch(_e){}
+    var asc=valOf("ascension")||"0";
+    var conflicts=(typeof ascensionConflicts==="function")?ascensionConflicts():[];
+    var goalLabel="—"; try{ goalLabel=rewardFocusLabel(primaryFocusKey(inp)); }catch(_e){}
+    var sec=valOf("secondaryGoal")||"none";
+    if(sec!=="none"){ try{ goalLabel+=" + "+rewardFocusLabel(sec); }catch(_e){} }
+    var level=valOf("selectedLevel");
+    var spent=chkOf("baseStatModeSpent");
+    var cardsActive=0;
+    document.querySelectorAll('input[type=hidden][id^="card_t"]').forEach(function(i){ if(i.value && i.value!=="none") cardsActive++; });
+    var rows=[
+      {ok:true, b:"Goal", t:goalLabel, go:"intent"},
+      {ok:conflicts.length===0, b:"Ascension", t:"A"+asc+(conflicts.length?" — conflicts with your stats":""), go:"ascension"},
+      {ok:!!level, b:"Archaeology level", t:level?("Level "+level):"Not set", go:"stats"},
+      {ok:true, b:"Attribute points", t:spent?"Using your spent points":"Attributes at 0", go:"stats"},
+      {ok:true, b:"Cards", t:cardsActive?(cardsActive+" set"):"None set", go:"cards"}
+    ];
+    var html="";
+    rows.forEach(function(r){
+      html+='<div class="wiz-check-item"><span class="ic '+(r.ok?'ok':'warn')+'">'+(r.ok?'✓':'!')+'</span>'
+        +'<span class="body"><b>'+esc(r.b)+'</b>'+esc(r.t)+'</span>'
+        +'<button type="button" class="edit" data-go="'+r.go+'">Edit</button></div>';
+    });
+    nativeEl.innerHTML=html;
+    nativeEl.querySelectorAll(".edit").forEach(function(b){ b.addEventListener("click", function(){ goStep(stepIndex(b.dataset.go)); }); });
+  }
+  function renderRun(){
+    var simLoaded = window.__simResults && window.__simResults.length;
+    if(simLoaded){
+      // A result already exists (e.g. the user pressed Back). Don't make them
+      // re-run to see it; offer to view it (via Next) or re-run.
+      nativeEl.innerHTML='<div class="wiz-run-box">'
+        +'<p class="wiz-leadin" style="text-align:center;margin-bottom:14px">Your best build is ready. Press Next to view it, or re-run the optimizer.</p>'
+        +'<button type="button" id="wizGo" class="runbtn ghost">Re-run optimizer</button>'
+        +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
+        +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
+    }else{
+      nativeEl.innerHTML='<div class="wiz-run-box">'
+        +'<button type="button" id="wizGo" class="runbtn">Find my best build</button>'
+        +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
+        +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
+    }
+    var t=gid("thoroughSearch"); if(t) gid("wizThorough").checked=!!t.checked;
+    gid("wizThorough").addEventListener("change", function(){ var th=gid("thoroughSearch"); if(th) th.checked=this.checked; });
+    gid("wizGo").addEventListener("click", doRun);
+  }
+  async function doRun(){
+    if(running) return; running=true;
+    var go=gid("wizGo"), st=gid("wizRunStatus");
+    if(go){ go.disabled=true; go.classList.add("btn-spin"); }
+    nextBtn.disabled=true; backBtn.disabled=true;
+    try{
+      if(st) st.textContent="Searching builds…";
+      await runExact();
+      var have = (typeof lastExactTopBuilds!=="undefined" && lastExactTopBuilds && lastExactTopBuilds.length);
+      if(have){
+        if(st) st.textContent="Simulating top candidates…";
+        await runMonteRerank();
+      }
+      if(st) st.textContent="Done.";
+      goStep(stepIndex("result"));
+    }catch(e){
+      if(st) st.textContent="Something went wrong: "+((e&&e.message)||e);
+    }finally{
+      running=false;
+      if(go){ go.disabled=false; go.classList.remove("btn-spin"); }
+      nextBtn.disabled=false; backBtn.disabled=false;
+    }
+  }
+  function renderResult(){
+    var results=window.__simResults;
+    var best=(results&&results.length)?(results.find(function(r){ return r.simRank===1; })||results[0]):null;
+    if(!best){ nativeEl.innerHTML='<p class="small">No result yet — go back and run the optimizer.</p>'; return; }
+    var inp=null; try{ inp=getInputs(); }catch(_e){}
+    var focusKey="allRewards"; try{ focusKey=primaryFocusKey(inp); }catch(_e){}
+    var focusLabel="Rewards"; try{ focusLabel=rewardFocusLabel(focusKey); }catch(_e){}
+    var hero;
+    if(focusKey==="block"){ var fv=0; try{ fv=simFocusValue(best,inp); }catch(_e){} hero={lbl:focusLabel+" / hr", val:fmt(fv,1)}; }
+    else if(focusKey==="target"){ hero={lbl:"Target reached", val:fmt(best.targetPct,1)+"%"}; }
+    else { hero={lbl:focusLabel+" / hr", val:fmt(best.rewardsPerHour,1)}; }
+    var html='<div class="wiz-result-hero"><div class="lbl">'+esc(hero.lbl)+'</div><div class="val">'+esc(hero.val)+'</div></div>';
+    html+='<div class="wiz-result-hero" style="background:var(--accent2);border-color:#c7d2fe"><div class="lbl" style="color:var(--accent)">Recommended build</div><div class="val" style="font-size:22px">'+esc(buildLabel(best.stats))+'</div></div>';
+    html+='<div class="wiz-result-metrics">'
+      +metric("Rewards / hour", fmt(best.rewardsPerHour,1))
+      +metric("Expected floor", fmt(best.mcAvgFloor,2))
+      +metric("Reward / stamina", fmt(best.rewardsPerTick,3))
+      +metric("Blocks / hour", fmt(best.blocksPerHour,1))
+      +'</div>';
+    html+='<div style="text-align:center;margin:2px 0 14px"><button type="button" class="wiz-linkbtn" id="wizSanity" style="font-size:13px">Something not look right?</button></div>';
+    html+='<div class="wiz-result-actions">'
+      +'<button type="button" id="wizTables" class="ghost">View result tables</button>'
+      +'</div>'
+      +'<div id="wizTablesPanel" class="wiz-reveal" hidden></div>'
+      +'<div style="text-align:center;margin-top:16px"><button type="button" class="wiz-linkbtn" id="wizDetails">Open the full app</button></div>';
+    nativeEl.innerHTML=html;
+    // Troubleshoot common issues first; the AI analyzer lives at the bottom of
+    // this checklist, so that's how guided users reach it.
+    gid("wizSanity").addEventListener("click", function(){ if(window.__sanityOpen) window.__sanityOpen(this); });
+    gid("wizDetails").addEventListener("click", function(){ exitWizard(true); });
+    // View the result tables inline, without leaving guided mode. We borrow the
+    // real simulation + throughput tables (and the estimate's candidates) and
+    // return them home when the step changes.
+    gid("wizTables").addEventListener("click", function(){
+      var panel=gid("wizTablesPanel");
+      if(panel.hidden){
+        if(!panel.dataset.filled){
+          adopt("simulationDetails", panel);
+          adopt("throughputDetails", panel);
+          panel.dataset.filled="1";
+        }
+        panel.hidden=false; this.textContent="Hide result tables";
+        setTimeout(function(){ try{ panel.scrollIntoView({behavior:"smooth", block:"start"}); }catch(_e){} }, 30);
+      } else { panel.hidden=true; this.textContent="View result tables"; }
+    });
+  }
+
+  // ---------- navigation ----------
+  function renderStep(){
+    homeAll();
+    nativeEl.innerHTML="";
+    var s=STEPS[step];
+    titleEl.textContent=s.title;
+    introEl.textContent=s.intro||"";
+    introEl.style.display=s.intro?"":"none";
+    ascWarn.hidden=true;
+    if(s.adopt) adopt(s.adopt, slotEl);
+    if(s.render) s.render();
+    if(s.key==="check" && typeof ascensionConflicts==="function"){
+      var c=ascensionConflicts();
+      if(c.length){
+        ascWarn.innerHTML="<b>Check your Ascension.</b> Your stats include "
+          +c.map(function(x){ return esc(x.label)+" (needs A"+x.need+")"; }).join(", ")
+          +", which can't exist at A"+(valOf("ascension")||"0")+". Fix it or these results will be off.";
+        ascWarn.hidden=false;
+      }
+    }
+    var pct=Math.round((step/(STEPS.length-1))*100);
+    fill.style.width=pct+"%";
+    stepLabel.textContent="Step "+(step+1)+" of "+STEPS.length+" · "+s.title;
+    backBtn.style.visibility = step===0 ? "hidden" : "visible";
+    if(s.key==="run"){
+      // Show Next only when a result already exists, so Back from the result can
+      // return to it without re-running.
+      var simLoaded = window.__simResults && window.__simResults.length;
+      nextBtn.style.display = simLoaded ? "" : "none";
+      if(simLoaded) nextBtn.innerHTML="Next &rarr;";
+    }
+    else if(s.key==="result"){ nextBtn.style.display=""; nextBtn.textContent="Start over"; }
+    else { nextBtn.style.display=""; nextBtn.innerHTML="Next &rarr;"; }
+    // Can't continue past the stats step until a screenshot has parsed.
+    nextBtn.disabled = (s.key==="stats" && !(typeof statsImported!=="undefined" && statsImported));
+    var stage=wiz.querySelector(".wiz-stage"); if(stage) stage.scrollTop=0;
+  }
+  function goStep(i){ step=Math.max(0, Math.min(STEPS.length-1, i)); renderStep(); }
+
+  backBtn.addEventListener("click", function(){ if(step>0) goStep(step-1); });
+  nextBtn.addEventListener("click", function(){
+    var key=STEPS[step].key;
+    if(key==="result"){ showResetModal(true); return; }   // "Start over" -> saved-stats modal
+    if(key==="cards"){
+      var w=cardsStepWarnings();
+      if(w.length && !_cardsWarnAck){
+        var box=gid("wizCardsWarn");
+        if(box){ box.innerHTML=w.map(function(m){ return "<div>! "+esc(m)+"</div>"; }).join(""); box.hidden=false;
+          try{ box.scrollIntoView({behavior:"smooth", block:"start"}); }catch(_e){} }
+        _cardsWarnAck=true;       // soft: surface once, then let them proceed
+        return;
+      }
+    }
+    goStep(step+1);
+  });
+
+  // ---------- enter / exit ----------
+  function setLanding(show){ document.body.dataset.landing = show ? "true" : "false"; }
+  function showResetModal(open){
+    var m=gid("wizResetModal"), bd=gid("wizResetBackdrop");
+    if(m) m.hidden=!open; if(bd) bd.hidden=!open;
+  }
+  // Saved-from-before signal: any meaningful stat/result the user (or a prior
+  // visit's localStorage) left set. Defaults like Ascension 0 / All rewards
+  // don't count, so a truly fresh visit won't see the reset notice.
+  function hasExistingInputs(){
+    try{
+      if(typeof statsImported!=="undefined" && statsImported) return true;
+      if(window.__simResults && window.__simResults.length) return true;
+      var fields=["selectedLevel","baseDamage","baseStamina","baseCritChance","baseCritDamage"];
+      for(var i=0;i<fields.length;i++){ var e=gid(fields[i]); if(e && String(e.value).trim()!=="") return true; }
+      var sp=["spentStr","spentAgi","spentPer","spentInt","spentLuck","spentDivinity","spentCorruption"];
+      for(var j=0;j<sp.length;j++){ var s=gid(sp[j]); if(s && (parseFloat(s.value)||0)>0) return true; }
+      var anyCard=false;
+      document.querySelectorAll('input[type=hidden][id^="card_t"]').forEach(function(c){ if(c.value && c.value!=="none") anyCard=true; });
+      if(anyCard) return true;
+    }catch(_e){}
+    return false;
+  }
+  function enterWizard(){
+    try{ localStorage.setItem(PREF_KEY,"guided"); }catch(_e){}
+    setLanding(false);
+    document.body.style.overflow="hidden";   // full-screen flow; lock the page behind
+    wiz.hidden=false;
+    goStep(0);   // starting the guide always begins at the start
+  }
+  function exitWizard(toAdvanced){
+    homeAll();
+    wiz.hidden=true;
+    setLanding(false);
+    document.body.style.overflow="";
+    try{ localStorage.setItem(PREF_KEY,"advanced"); }catch(_e){}
+    if(typeof updateGoalUI==="function") updateGoalUI();
+    if(typeof updateSettingsSummary==="function") updateSettingsSummary();
+    if(typeof refreshAscensionWarning==="function") refreshAscensionWarning();
+    if(toAdvanced){
+      var hasSim=window.__simResults && window.__simResults.length;
+      var card=document.getElementById(hasSim?"simulationCard":"deterministicCard");
+      if(card) setTimeout(function(){ try{ card.scrollIntoView({behavior:"smooth", block:"start"}); }catch(_e){} }, 60);
+    }
+  }
+
+  gid("wizExit").addEventListener("click", function(){ exitWizard(true); });
+  var reenter=gid("guidedReenter");
+  if(reenter) reenter.addEventListener("click", function(){ setLanding(true); });
+  var lStart=gid("landingStart"), lSkip=gid("landingSkip");
+  if(lStart) lStart.addEventListener("click", function(){
+    // Leftover inputs from a prior visit? Warn before clearing; otherwise just go.
+    if(hasExistingInputs()) showResetModal(true);
+    else enterWizard();
+  });
+  if(lSkip) lSkip.addEventListener("click", function(){ setLanding(false); try{ localStorage.setItem(PREF_KEY,"advanced"); }catch(_e){} });
+  // Keep stats/settings but drop any loaded simulation, so guided always re-runs.
+  function dumpSimulation(){
+    try{ if(typeof clearMonteRerank==="function") clearMonteRerank(true); }catch(_e){}
+    try{ lastExactTopBuilds = []; }catch(_e){}
+  }
+  var rGo=gid("wizResetGo"), rKeep=gid("wizResetKeep"), rCancel=gid("wizResetCancel"), rModal=gid("wizResetModal");
+  if(rKeep) rKeep.addEventListener("click", function(){ showResetModal(false); dumpSimulation(); enterWizard(); });   // keep stats, drop the simulation
+  if(rGo) rGo.addEventListener("click", function(){ showResetModal(false); if(typeof resetAllSettings==="function") resetAllSettings(); enterWizard(); });
+  if(rCancel) rCancel.addEventListener("click", function(){ showResetModal(false); });
+  if(rModal) rModal.addEventListener("click", function(e){ if(e.target===rModal) showResetModal(false); });  // click outside the panel
+  window.addEventListener("keydown", function(e){ if(e.key==="Escape" && rModal && !rModal.hidden) showResetModal(false); });
+
+  // expose for tests / programmatic control
+  window.__wizard={ enter:enterWizard, exit:exitWizard, go:goStep, stepIndex:stepIndex, landing:setLanding, get step(){ return step; } };
+
+  // ---------- landing ----------
+  // Every visit opens on the brief landing under the real header; the visitor
+  // chooses to start guided setup or go to the full app each time.
+  setLanding(true);
 })();
 </script>
 </body>
