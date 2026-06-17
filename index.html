@@ -3491,11 +3491,33 @@ function renderSimResults(sortKey, dir){
   };
   const _bestP = results.reduce((m,rw)=>Math.max(m, simFocusValue(rw,_focusInp)), -Infinity);
   const _thr = _bestP - Math.abs(_bestP) * _tol;
+  // A rare secondary (e.g. a loot rarity) is noisy even at the Simulate run count,
+  // so the top in-band builds are often within a percent or two of each other and
+  // the simulation can't reliably order them. When two are within that noise band
+  // we break the tie by the noise-free EV secondary, which reliably points to the
+  // true best (the simulation already confirmed they are essentially tied). The
+  // band scales with run count: more runs -> tighter band -> less deferral to EV.
+  const _blocks = visibleBlocks(_focusInp);
+  const _runs = Math.max(1, _focusInp.mcRunsPerBuild || 1000);
+  const _tieTol = Math.min(0.02, 0.6/Math.sqrt(_runs));
+  const _evCache = new Map();
+  const _evSec = (rw)=>{ if(_sk==="none") return 0; const k=rw.stats?[rw.stats.S,rw.stats.A,rw.stats.P,rw.stats.I,rw.stats.L,rw.stats.D,rw.stats.C].join(","):""; let v=_evCache.get(k); if(v===undefined){ try{ v=metricValue(scoreBuild(rw.stats,_focusInp,_blocks),_sk,_focusInp)||0; }catch(_e){ v=0; } _evCache.set(k,v); } return v; };
+  // Best in-band simulated secondary defines the plateau; builds within the noise
+  // band of it are ranked by EV secondary, the rest strictly by simulated secondary.
+  let _bestSec=-Infinity;
+  if(_sk!=="none"){ for(const rw of results){ if(simFocusValue(rw,_focusInp)>=_thr-1e-9){ const s=_rowVal(rw,_sk)||0; if(s>_bestSec) _bestSec=s; } } }
+  const _tieAbs = _tieTol*Math.max(Math.abs(_bestSec),1e-9);
+  const _onPlateau = (rw)=> (_rowVal(rw,_sk)||0) >= _bestSec - _tieAbs;
   results.slice().sort((a,b)=>{
     const pa=simFocusValue(a,_focusInp), pb=simFocusValue(b,_focusInp);
     const ai=pa>=_thr-1e-9, bi=pb>=_thr-1e-9;
     if(ai!==bi) return ai?-1:1;
-    if(ai && bi && _sk!=="none"){ const sa=_rowVal(a,_sk)||0, sb=_rowVal(b,_sk)||0; if(Math.abs(sb-sa)>1e-9) return sb-sa; }
+    if(ai && bi && _sk!=="none"){
+      const ga=_onPlateau(a), gb=_onPlateau(b);
+      if(ga!==gb) return ga?-1:1;                                   // plateau builds rank first
+      if(ga){ const ea=_evSec(a), eb=_evSec(b); if(Math.abs(eb-ea)>1e-9) return eb-ea; }  // plateau: EV secondary
+      else { const sa=_rowVal(a,_sk)||0, sb=_rowVal(b,_sk)||0; if(Math.abs(sb-sa)>1e-9) return sb-sa; }  // below: simulated secondary
+    }
     return pb-pa;
   }).forEach((r,i)=>{ r.simRank=i+1; });
   const asc = currentAscension();
