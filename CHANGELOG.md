@@ -7,6 +7,7 @@
 - **Guided result keeps your simulation when you navigate back, and "Start over" now resets cleanly.** Pressing Back from the result no longer forces a re-run: the Run step recognizes a finished result and lets you return to it with Next (or re-run on purpose). The large "Start over" button on the result is gone; the footer button is now "Start over", which opens the "You have saved stats" prompt. Choosing "Use previous stats" there drops the loaded simulation but keeps your stats and settings (so guided runs fresh), while "Start fresh" clears everything as before.
 
 ### Fixed
+- **Crit damage from Strength is now valued correctly.** Crit damage is a 1.5x base times one plus the sum of all crit-damage percents, so every "+X% crit damage" (your crit upgrade, Strength's +3% per point) is a percent of that 1.5 base. Strength was being counted as a flat +0.03 per point instead of +0.045 (3% of 1.5), which left the backed-out base crit damage too high (e.g. 1.92 instead of 1.84) and under-valued Strength's crit contribution in the optimizer. You don't enter the crit upgrade anywhere; it stays captured in your shown crit damage.
 - **Infernal cards are no longer treated as Ascension-2 only.** The Infernal rarity is now selectable at any ascension (per-card and in bulk set), the model applies an infernal card's global buff regardless of ascension, and ascension changes no longer downgrade infernal picks. Cards whose block does not exist yet (divine below A1, tier 4 below A2) are still gated as before.
 
 ### Changed

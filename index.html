@@ -1124,7 +1124,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.14";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.15";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1859,6 +1859,12 @@ function getInputs(){
 
 // Recover unspent base stats from displayed totals by removing the contribution
 // of the currently-spent attribute points (and the infernal layer where it
+// Crit damage in game is BASE_CRIT_DAMAGE x (1 + sum of crit-damage %): every
+// "+X% crit damage" (the crit upgrade, Strength's +3%/point, etc.) is a percent of
+// this 1.5x base, added together. So a Strength point is worth 0.03 x 1.5 = +0.045
+// to the shown multiplier. We never separate the upgrade out (it's captured in the
+// shown value); we only need Strength's per-point value, applied to this base.
+const BASE_CRIT_DAMAGE = 1.5;
 // interacts with attributes), inverting the getDerived formulas.
 function reverseBaseStats(b, pts, inc, inf={}){
   const {S,A,P,I,L,D=0,C=0} = pts;
@@ -1875,7 +1881,7 @@ function reverseBaseStats(b, pts, inc, inf={}){
     damage: cl("Damage", b.damage / ((1 + infv("dmgPct")) * (1 + (inc.nonAttrDmgPct||0) + S*inc.strDamagePct + C*(inc.corrDamagePct||0))) - S*inc.strFlatDamage - D*(inc.divFlatDamage||0) - infv("flatDamage"), 0),
     stamina: cl("Max stamina", b.stamina / (corrStam*(1+infv("staminaPct"))*(1+(inc.blockBonkerStamPct||0))) - A*inc.agiStamina - infv("staminaFlat"), 0),
     critChance: cl("Crit chance", b.critChance - A*inc.agiCritPct - L*inc.luckCritPct, 0),
-    critDamage: cl("Crit damage", b.critDamage/(1+infv("critDmgPct")) - S*inc.strCritDamage, 1),
+    critDamage: cl("Crit damage", b.critDamage/(1+infv("critDmgPct")) - S*inc.strCritDamage*BASE_CRIT_DAMAGE, 1),
     superChance: cl("Super crit chance", (b.superChance||0) - D*(inc.divSuperCritPct||0), 0),
     xpGain: cl("XP gain", b.xpGain/(1+infv("xpGainPct")) - I*inc.intXpGain, 0),
     fragGain: cl("Fragment gain", b.fragGain/(1+infv("fragGainPct")) - P*inc.perFragGain, 0),
@@ -1930,7 +1936,7 @@ function getDerived(stats, inp){
   // re-applied here; the additive crit-chance buffs and the super/ultra crit
   // damage buffs have no attribute interaction and ride along in the base.
   const critChance = clamp(b.critChance + A*inc.agiCritPct + L*inc.luckCritPct,0,0.995);
-  const critDamage = (b.critDamage + S*inc.strCritDamage) * (1 + (inf.critDmgPct||0));
+  const critDamage = (b.critDamage + S*inc.strCritDamage*BASE_CRIT_DAMAGE) * (1 + (inf.critDmgPct||0));
   // Crits are nested & conditional: super crit can only land on a crit, ultra
   // crit only on a super crit. Defaults make missing layers no-ops.
   const superChance = clamp((b.superChance || 0) + D*(inc.divSuperCritPct||0), 0, 0.995); // Divinity +2%/pt
