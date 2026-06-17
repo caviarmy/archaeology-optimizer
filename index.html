@@ -1129,7 +1129,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.17.2";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.17.3";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -2913,12 +2913,21 @@ async function simGuidedSearch(inp, blocks, level, status){
   // its goal-strength keep it in the set. The secondary/tolerance ranking is then
   // applied for real on the HIGH-fidelity Simulate pass.
   const _pk = primaryFocusKey(inp);
-  const byGoal = rankCandidates(finalists.slice(), inp);
   const byPrimary = finalists.slice().sort((a,b)=> metricValue(b,_pk,inp) - metricValue(a,_pk,inp));
+  // Secondary-favoring candidates come from the ANALYTIC EV model, not the
+  // simulation: a rare secondary (e.g. a specific loot rarity) is far too noisy to
+  // rank by at the search's run count (1-point neighbours flip ~half the time),
+  // whereas the EV computes it with zero noise. So we rank the finalists by the EV
+  // goal and keep those too; the high-fidelity Simulate pass then confirms the band
+  // and secondary with accurate numbers.
+  const evCands=[];
+  for(const f of finalists){ try{ const m=scoreBuild(f.stats, inp, blocks); if(m){ m.__fin=f; evCands.push(m); } }catch(_e){} }
+  rankCandidates(evCands, inp);
+  const byGoalEV = evCands.map(e=>e.__fin);
   const kk = x=> keys.map(k=>(x.stats[k]||0)).join(",");
   const kept=[], kseen=new Set();
   const keep=x=>{ if(!x) return; const k=kk(x); if(!kseen.has(k)){ kseen.add(k); kept.push(x); } };
-  for(let i=0; i<Math.max(byGoal.length, byPrimary.length); i++){ keep(byGoal[i]); keep(byPrimary[i]); }
+  for(let i=0; i<Math.max(byGoalEV.length, byPrimary.length); i++){ keep(byPrimary[i]); keep(byGoalEV[i]); }
   // Stash the distinct builds the search actually simulated (EV/corner seeds + the
   // climb), so the AI analysis can contrast genuinely different REAL builds.
   try{ window.__simSearchBuilds = [...cache.values()].map(c=>({stats:c.st})); }catch(_e){}
