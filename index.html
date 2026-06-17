@@ -1129,7 +1129,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.17.4";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.17.5";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1641,7 +1641,10 @@ function createSimulationRng(inp){
     ? String(inp?.simSeedValue || "12345")
     : `${Date.now()}-${Math.floor(performance.now()*1000)}-${Math.floor(Math.random()*1e9)}`;
   const hashed = hashSeedString(seed)();
-  return {seed, random:mulberry32(hashed)};
+  // makeRng() yields a fresh stream from the SAME seed each call, so several
+  // builds can be simulated on common random numbers (identical rolls) for a
+  // low-variance comparison; random() is the single shared stream (single-build use).
+  return {seed, random:mulberry32(hashed), makeRng:()=>mulberry32(hashed)};
 }
 
 
@@ -3390,12 +3393,15 @@ async function runMonteRerank(){
   const runs=inp.mcRunsPerBuild;
   const results=[];
   const simRng=createSimulationRng(inp);
-  const rng=simRng.random;
   const start=performance.now();
 
   for(let b=0; b<builds.length; b++){
     const det=builds[b];
-    const row=aggregateBuildSim(det.stats, inp, blocks, runs, rng);
+    // Common random numbers: every build faces the SAME rolls, so the ranking
+    // between near-tied builds is low-variance (a fresh stream from one seed per
+    // build, instead of one continuous stream where each build sees different
+    // rolls). Across separate Simulate runs the seed still varies in random mode.
+    const row=aggregateBuildSim(det.stats, inp, blocks, runs, simRng.makeRng());
     row.detRank = det.detRank || (b+1);
     row.detRewardHr = det.rewardHr;
     row.detFloor = det.floorReached;
