@@ -1126,7 +1126,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.9";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.10";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -5494,10 +5494,21 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     nativeEl.querySelectorAll(".edit").forEach(function(b){ b.addEventListener("click", function(){ goStep(stepIndex(b.dataset.go)); }); });
   }
   function renderRun(){
-    nativeEl.innerHTML='<div class="wiz-run-box">'
-      +'<button type="button" id="wizGo" class="runbtn">Find my best build</button>'
-      +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
-      +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
+    var simLoaded = window.__simResults && window.__simResults.length;
+    if(simLoaded){
+      // A result already exists (e.g. the user pressed Back). Don't make them
+      // re-run to see it; offer to view it (via Next) or re-run.
+      nativeEl.innerHTML='<div class="wiz-run-box">'
+        +'<p class="wiz-leadin" style="text-align:center;margin-bottom:14px">Your best build is ready. Press Next to view it, or re-run the optimizer.</p>'
+        +'<button type="button" id="wizGo" class="runbtn ghost">Re-run optimizer</button>'
+        +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
+        +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
+    }else{
+      nativeEl.innerHTML='<div class="wiz-run-box">'
+        +'<button type="button" id="wizGo" class="runbtn">Find my best build</button>'
+        +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
+        +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
+    }
     var t=gid("thoroughSearch"); if(t) gid("wizThorough").checked=!!t.checked;
     gid("wizThorough").addEventListener("change", function(){ var th=gid("thoroughSearch"); if(th) th.checked=this.checked; });
     gid("wizGo").addEventListener("click", doRun);
@@ -5547,7 +5558,6 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     html+='<div style="text-align:center;margin:2px 0 14px"><button type="button" class="wiz-linkbtn" id="wizSanity" style="font-size:13px">Something not look right?</button></div>';
     html+='<div class="wiz-result-actions">'
       +'<button type="button" id="wizTables" class="ghost">View result tables</button>'
-      +'<button type="button" id="wizRestart">Start over</button>'
       +'</div>'
       +'<div id="wizTablesPanel" class="wiz-reveal" hidden></div>'
       +'<div style="text-align:center;margin-top:16px"><button type="button" class="wiz-linkbtn" id="wizDetails">Open the full app</button></div>';
@@ -5556,7 +5566,6 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     // this checklist, so that's how guided users reach it.
     gid("wizSanity").addEventListener("click", function(){ if(window.__sanityOpen) window.__sanityOpen(this); });
     gid("wizDetails").addEventListener("click", function(){ exitWizard(true); });
-    gid("wizRestart").addEventListener("click", function(){ goStep(0); });
     // View the result tables inline, without leaving guided mode. We borrow the
     // real simulation + throughput tables (and the estimate's candidates) and
     // return them home when the step changes.
@@ -5598,8 +5607,14 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     fill.style.width=pct+"%";
     stepLabel.textContent="Step "+(step+1)+" of "+STEPS.length+" · "+s.title;
     backBtn.style.visibility = step===0 ? "hidden" : "visible";
-    if(s.key==="run"){ nextBtn.style.display="none"; }
-    else if(s.key==="result"){ nextBtn.style.display=""; nextBtn.textContent="Finish"; }
+    if(s.key==="run"){
+      // Show Next only when a result already exists, so Back from the result can
+      // return to it without re-running.
+      var simLoaded = window.__simResults && window.__simResults.length;
+      nextBtn.style.display = simLoaded ? "" : "none";
+      if(simLoaded) nextBtn.innerHTML="Next &rarr;";
+    }
+    else if(s.key==="result"){ nextBtn.style.display=""; nextBtn.textContent="Start over"; }
     else { nextBtn.style.display=""; nextBtn.innerHTML="Next &rarr;"; }
     // Can't continue past the stats step until a screenshot has parsed.
     nextBtn.disabled = (s.key==="stats" && !(typeof statsImported!=="undefined" && statsImported));
@@ -5610,7 +5625,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   backBtn.addEventListener("click", function(){ if(step>0) goStep(step-1); });
   nextBtn.addEventListener("click", function(){
     var key=STEPS[step].key;
-    if(key==="result"){ exitWizard(true); return; }
+    if(key==="result"){ showResetModal(true); return; }   // "Start over" -> saved-stats modal
     if(key==="cards"){
       var w=cardsStepWarnings();
       if(w.length && !_cardsWarnAck){
@@ -5680,8 +5695,13 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     else enterWizard();
   });
   if(lSkip) lSkip.addEventListener("click", function(){ setLanding(false); try{ localStorage.setItem(PREF_KEY,"advanced"); }catch(_e){} });
+  // Keep stats/settings but drop any loaded simulation, so guided always re-runs.
+  function dumpSimulation(){
+    try{ if(typeof clearMonteRerank==="function") clearMonteRerank(true); }catch(_e){}
+    try{ lastExactTopBuilds = []; }catch(_e){}
+  }
   var rGo=gid("wizResetGo"), rKeep=gid("wizResetKeep"), rCancel=gid("wizResetCancel"), rModal=gid("wizResetModal");
-  if(rKeep) rKeep.addEventListener("click", function(){ showResetModal(false); enterWizard(); });               // keep saved stats
+  if(rKeep) rKeep.addEventListener("click", function(){ showResetModal(false); dumpSimulation(); enterWizard(); });   // keep stats, drop the simulation
   if(rGo) rGo.addEventListener("click", function(){ showResetModal(false); if(typeof resetAllSettings==="function") resetAllSettings(); enterWizard(); });
   if(rCancel) rCancel.addEventListener("click", function(){ showResetModal(false); });
   if(rModal) rModal.addEventListener("click", function(e){ if(e.target===rModal) showResetModal(false); });  // click outside the panel

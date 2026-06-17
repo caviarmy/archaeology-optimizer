@@ -2,6 +2,9 @@
 
 ## 2026-06-16
 
+### Changed
+- **Guided result keeps your simulation when you navigate back, and "Start over" now resets cleanly.** Pressing Back from the result no longer forces a re-run: the Run step recognizes a finished result and lets you return to it with Next (or re-run on purpose). The large "Start over" button on the result is gone; the footer button is now "Start over", which opens the "You have saved stats" prompt. Choosing "Use previous stats" there drops the loaded simulation but keeps your stats and settings (so guided runs fresh), while "Start fresh" clears everything as before.
+
 ### Fixed
 - **Infernal cards are no longer treated as Ascension-2 only.** The Infernal rarity is now selectable at any ascension (per-card and in bulk set), the model applies an infernal card's global buff regardless of ascension, and ascension changes no longer downgrade infernal picks. Cards whose block does not exist yet (divine below A1, tier 4 below A2) are still gated as before.
 
