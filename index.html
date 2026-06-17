@@ -778,8 +778,8 @@ body[data-landing="true"] #guidedReenter{display:none}
             <div><label>Spent PER</label><input id="spentPer" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent INT</label><input id="spentInt" type="number" min="0" step="1" value="0"></div>
             <div><label>Spent Luck</label><input id="spentLuck" type="number" min="0" step="1" value="0"></div>
-            <div><label>Spent Divinity</label><input id="spentDivinity" type="number" min="0" step="1" value="0"></div>
-            <div><label>Spent Corruption</label><input id="spentCorruption" type="number" min="0" step="1" value="0"></div>
+            <div class="req-a1"><label>Spent Divinity</label><input id="spentDivinity" type="number" min="0" step="1" value="0"></div>
+            <div class="req-a2"><label>Spent Corruption</label><input id="spentCorruption" type="number" min="0" step="1" value="0"></div>
           </div>
         </div>
         <div class="import-box">
@@ -1125,7 +1125,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.16";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.17";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1596,15 +1596,10 @@ function applyAscensionGating(){
   });
 
   // Divine "worthless" toggle is meaningless without divine blocks.
-  if(asc < 1){
-    const d = document.getElementById("worthlessDivine");
-    if(d) d.checked = false;
-  }
-
-  // +5 Stat Pt. Caps is an Ascension-1 upgrade; can't be owned below A1.
-  if(asc < 1){
-    ["statCapBonus","statCapBonusStats"].forEach(id=>{ const e=document.getElementById(id); if(e) e.checked=false; });
-  }
+  // Ascension-gated toggles/fields (the +5 Stat Caps upgrade, divine "worthless"
+  // toggle, A1/A2 upgrade levels, spent Divinity/Corruption) are hidden above, and
+  // getInputs ignores them below their ascension, so their values stop affecting
+  // the simulation without being erased — switching back up restores them.
 
   syncSecondaryGoalOptions();
 }
@@ -1727,7 +1722,7 @@ function getInputs(){
       divine:checked("worthlessDivine")
     },
     lootWeight:Math.max(0, numOr("lootWeight", 1)),
-    statCapBonus: checked("statCapBonus") ? 5 : 0,
+    statCapBonus: (checked("statCapBonus") && currentAscension()>=1) ? 5 : 0,  // +5 Stat Caps is an A1 upgrade
     base:{
       damage:n("baseDamage"),
       stamina:n("baseStamina"),
@@ -1797,8 +1792,12 @@ function getInputs(){
   // percentages and apply once to the true base (matching the game's additive
   // stacking), instead of multiplying on top of an already-inflated number.
   const lvl = (id, max) => Math.max(0, Math.min(max, Math.floor(numOr(id, 0))));
-  const mStrA0 = lvl("modStrA0", 5), mStrA1 = lvl("modStrA1", 1);
-  const mCorrA2 = lvl("modCorrA2", 10), mDivA2 = lvl("modDivA2", 5);
+  // Ascension-gated upgrades only apply at/above their ascension, so values left
+  // in those (now-hidden) fields after switching to a lower ascension don't leak
+  // into the model. The field values are preserved for switching back up.
+  const _asc = out.ascension;
+  const mStrA0 = lvl("modStrA0", 5), mStrA1 = _asc>=1 ? lvl("modStrA1", 1) : 0;
+  const mCorrA2 = _asc>=2 ? lvl("modCorrA2", 10) : 0, mDivA2 = _asc>=2 ? lvl("modDivA2", 5) : 0;
   out.inc.strFlatDamage   += 0.20  * mStrA0;                 // +0.2 flat / lvl
   out.inc.strDamagePct    += 0.001 * mStrA0 + 0.01 * mStrA1; // +0.1% , +1% / lvl
   out.inc.strCritDamage   += 0.01  * mStrA1;                 // +1% / lvl
@@ -1816,7 +1815,7 @@ function getInputs(){
   out.inc.perArmorPen   += 1      * mPer;                    // +1 flat armor pen / lvl
   out.inc.intXpGain     += 0.01   * mInt;                    // +1% exp gain / lvl
   out.inc.intXpModPct   += 0.0001 * mInt;                    // +0.01% exp-mod chance / lvl
-  out.inc.nonAttrDmgPct = 0.02 * lvl("bonusDmgArpenA0", 20) + 0.10 * lvl("bonusDmgExpA1", 5);
+  out.inc.nonAttrDmgPct = 0.02 * lvl("bonusDmgArpenA0", 20) + 0.10 * (_asc>=1 ? lvl("bonusDmgExpA1", 5) : 0);
   out.inc.nonAttrPenPct = 0.02 * lvl("bonusArpenCdA0", 10);
   // Block Bonker (Obelisk Lv 30 skill): +1% damage and +1% max stamina per stage,
   // where the stage is your Highest Stage, capped at 100 (so up to +100% each).
@@ -1851,8 +1850,8 @@ function getInputs(){
     P:Math.max(0, Math.floor(n("spentPer"))),
     I:Math.max(0, Math.floor(n("spentInt"))),
     L:Math.max(0, Math.floor(n("spentLuck"))),
-    D:Math.max(0, Math.floor(n("spentDivinity"))),
-    C:Math.max(0, Math.floor(n("spentCorruption")))
+    D:out.ascension>=1 ? Math.max(0, Math.floor(n("spentDivinity"))) : 0,   // Divinity needs A1
+    C:out.ascension>=2 ? Math.max(0, Math.floor(n("spentCorruption"))) : 0  // Corruption needs A2
   } : {S:0,A:0,P:0,I:0,L:0,D:0,C:0};
   out.base = reverseBaseStats(out.base, pts, out.inc, inf);
   return out;
