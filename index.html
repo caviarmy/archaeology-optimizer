@@ -180,6 +180,9 @@ summary{font-weight:900;cursor:pointer;color:#344054}
 .inf-eff{color:var(--muted)}
 .card-tier-header{grid-column:1/-1;font-weight:800;color:var(--accent);font-size:12px;letter-spacing:.5px;text-transform:uppercase;margin:8px 0 0;padding-top:8px;border-top:1px solid var(--line)}
 .card-tier-header:first-child{margin-top:0;padding-top:0;border-top:0}
+/* highlight the simulation column that matches the chosen goal */
+#monteRerankTable th.goal-col,#monteRerankTable td.goal-col{background:var(--accent2)}
+#monteRerankTable th.goal-col{color:var(--accent)}
 #cardSettingsGrid{display:block}
 /* compact single-column card rows: [x] Name  (o)Norm ()Gild ()Poly ()Inf */
 .card-row{display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid #edf0f5;flex-wrap:wrap}
@@ -643,14 +646,7 @@ body[data-landing="true"] #guidedReenter{display:none}
         <summary>Detailed simulation table (click a column to sort)</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="monteRerankTable">
-            <thead><tr>
-              <th data-sort="rank">Sim Rank</th><th data-sort="detRank">Est. rank</th>
-              <th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th>
-              <th data-sort="rewardsPerHour">Rewards / hr</th><th data-sort="rewardsPerTick">Rewards / stamina</th>
-              <th data-sort="blocksPerHour">Blocks / hr</th><th data-sort="xpPerHour">XP / hr</th><th data-sort="allLootPerHour">Loot / hr</th>
-              <th data-sort="mcAvgFloor">Avg floor</th><th data-sort="targetPct">Target %</th>
-              <th>P10</th><th>P50</th><th>P90</th>
-            </tr></thead>
+            <thead><tr></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -1126,7 +1122,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.10";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.16.11";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -3282,39 +3278,78 @@ async function runMonteRerank(){
 let _simSortKey="rank", _simSortDir=1, _simSortWired=false;
 // Rank columns sort ascending (1 first); metric columns sort descending (best first).
 function simSortNaturalDir(key){ return (key==="rank" || key==="detRank") ? 1 : -1; }
+// Columns for the simulation table. Identity + stats are always present; the
+// metric columns are the always-useful ones (rewards, blocks, XP, loot, floor),
+// plus one highlighted column for the chosen goal (the targeted block's count/hr,
+// a specific loot rarity's loot/hr, or the target-floor reach %), so you can see
+// how competing builds fared on the thing you actually picked.
+function buildSimColumns(inp){
+  const fk = primaryFocusKey(inp);
+  const rar = {common:"Common", rare:"Rare", epic:"Epic", legendary:"Legendary", mythic:"Mythic", divine:"Divine"};
+  const cols = [];
+  cols.push({id:"rank", label:"Sim Rank", sortable:true, get:r=>r.simRank, text:r=>String(r.simRank)});
+  cols.push({id:"detRank", label:"Est. rank", sortable:true, get:r=>r.detRank||0, text:r=>(r.detRank==null?"—":String(r.detRank))});
+  [["S","STR"],["A","AGI"],["P","PER"],["I","INT"],["L","Luck"]].forEach(([k,l])=>cols.push({label:l, get:r=>r.stats[k]||0, text:r=>String(r.stats[k]||0)}));
+  cols.push({label:"Div", req:1, get:r=>r.stats.D||0, text:r=>String(r.stats.D||0)});
+  cols.push({label:"Cor", req:2, get:r=>r.stats.C||0, text:r=>String(r.stats.C||0)});
+  // Which (if any) of the always-on metric columns IS the goal, or a synthetic one.
+  let goalBaseId=null, goalSynth=null;
+  if(fk==="allRewards") goalBaseId="rewardsPerHour";
+  else if(fk==="xp") goalBaseId="xpPerHour";
+  else if(fk==="allLoot") goalBaseId="allLootPerHour";
+  else if(rar[fk]) goalSynth={id:"goal", label:rar[fk]+" loot / hr", sortable:true, goal:true, get:r=>(r.lootPerHour||{})[fk]||0, text:r=>fmt((r.lootPerHour||{})[fk]||0,1)};
+  else if(fk==="block") goalSynth={id:"goal", label:(_blockTargetLabel||"Target block")+" / hr", sortable:true, goal:true, get:r=>(r.countsPerHour||{})[inp.blockTargetKey]||0, text:r=>fmt((r.countsPerHour||{})[inp.blockTargetKey]||0,1)};
+  else if(fk==="target") goalSynth={id:"goal", label:"Reach target %", sortable:true, goal:true, get:r=>r.targetPct||0, text:r=>fmt(r.targetPct||0,1)+"%"};
+  if(goalSynth) cols.push(goalSynth);   // highlighted goal column, right after the build
+  [["rewardsPerHour","Rewards / hr",1],["rewardsPerTick","Reward / stamina",3],["blocksPerHour","Blocks / hr",1],
+   ["xpPerHour","XP / hr",1],["allLootPerHour","Loot / hr",1],["mcAvgFloor","Avg floor",2]
+  ].forEach(([id,label,d])=>cols.push({id, label, sortable:true, goal:(id===goalBaseId), get:r=>r[id]||0, text:r=>fmt(r[id]||0,d)}));
+  return cols;
+}
 function renderSimResults(sortKey, dir){
   const results = window.__simResults;
-  const tbody=document.querySelector("#monteRerankTable tbody");
-  if(!results || !results.length || !tbody) return;
+  const table = document.getElementById("monteRerankTable");
+  const tbody = table && table.querySelector("tbody");
+  const thead = table && table.querySelector("thead");
+  if(!results || !results.length || !tbody || !thead) return;
   if(sortKey){ _simSortKey=sortKey; _simSortDir = dir || simSortNaturalDir(sortKey); }
-  // Fixed rank: by the chosen goal's metric (rewards/hr, a loot type, target %, or
-  // the targeted block's count/hr), stored on each record so sorting the table by
-  // another column doesn't change a build's rank.
+  // Fixed rank: by the chosen goal's metric, stored on each record so sorting the
+  // table by another column doesn't change a build's rank.
   const _focusInp = getInputs();
   results.slice().sort((a,b)=>simFocusValue(b,_focusInp)-simFocusValue(a,_focusInp)).forEach((r,i)=>{ r.simRank=i+1; });
-  // Display order for the chosen column (rank tiebreak keeps it stable).
-  const key=_simSortKey, d=_simSortDir;
-  const val=r=> key==="rank" ? r.simRank : (key==="detRank" ? (r.detRank||0) : (r[key]==null?-Infinity:r[key]));
-  const sorted = results.slice().sort((a,b)=>{ const av=val(a), bv=val(b); return av===bv ? a.simRank-b.simRank : (av-bv)*d; });
+  const asc = currentAscension();
+  const cols = buildSimColumns(_focusInp);
+  // A column from a previous goal may no longer exist; fall back to Sim Rank.
+  if(!cols.some(c=>c.sortable && c.id===_simSortKey)){ _simSortKey="rank"; _simSortDir=1; }
+  const sortCol = cols.find(c=>c.sortable && c.id===_simSortKey) || cols[0];
+  const d=_simSortDir;
+  const sorted = results.slice().sort((a,b)=>{ const av=sortCol.get(a), bv=sortCol.get(b); return av===bv ? a.simRank-b.simRank : (av-bv)*d; });
+
+  // Header
+  const htr=document.createElement("tr");
+  cols.forEach(c=>{
+    const th=document.createElement("th"); th.textContent=c.label;
+    if(c.sortable){ th.dataset.sort=c.id; th.style.cursor="pointer"; }
+    if(c.req){ th.className=c.req===2?"req-a2":"req-a1"; if(asc<c.req) th.style.display="none"; }
+    if(c.goal) th.classList.add("goal-col");
+    if(c.sortable && c.id===_simSortKey) th.classList.add("sorted", _simSortDir===1?"sort-asc":"sort-desc");
+    htr.appendChild(th);
+  });
+  thead.innerHTML=""; thead.appendChild(htr);
+
+  // Body
   tbody.innerHTML="";
-  const asc=currentAscension();
-  sorted.forEach((r)=>{
-    const s=r.stats, tr=document.createElement("tr");
-    if(r.simRank===1) tr.className="best";
-    const mk=(val,req)=>{ const td=document.createElement("td"); td.textContent=val;
-      if(req){ td.className=req===2?"req-a2":"req-a1"; if(asc<req) td.style.display="none"; }
-      tr.appendChild(td); };
-    mk(r.simRank); mk(r.detRank);
-    mk(s.S); mk(s.A); mk(s.P); mk(s.I); mk(s.L); mk(s.D||0,1); mk(s.C||0,2);
-    mk(fmt(r.rewardsPerHour,1)); mk(fmt(r.rewardsPerTick,3)); mk(fmt(r.blocksPerHour,1));
-    mk(fmt(r.xpPerHour,1)); mk(fmt(r.allLootPerHour,1));
-    mk(fmt(r.mcAvgFloor,2)); mk(fmt(r.targetPct,1)+"%"); mk(fmt(r.p10,1)); mk(fmt(r.p50,1)); mk(fmt(r.p90,1));
-    tbody.appendChild(tr);
+  sorted.forEach(r=>{
+    const row=document.createElement("tr"); if(r.simRank===1) row.className="best";
+    cols.forEach(c=>{
+      const td=document.createElement("td"); td.textContent=c.text(r);
+      if(c.req){ td.className=c.req===2?"req-a2":"req-a1"; if(asc<c.req) td.style.display="none"; }
+      if(c.goal) td.classList.add("goal-col");
+      row.appendChild(td);
+    });
+    tbody.appendChild(row);
   });
-  document.querySelectorAll("#monteRerankTable th[data-sort]").forEach(th=>{
-    th.classList.remove("sorted","sort-asc","sort-desc");
-    if(th.dataset.sort===_simSortKey) th.classList.add("sorted", _simSortDir===1?"sort-asc":"sort-desc");
-  });
+
   // Hero card always shows the fixed rank-1 build, regardless of table sort.
   const best = results.find(r=>r.simRank===1) || sorted[0];
   document.getElementById("simBestBuild").textContent=buildLabel(best.stats);
@@ -3322,6 +3357,9 @@ function renderSimResults(sortKey, dir){
   document.getElementById("simPerTick").textContent=fmt(best.rewardsPerTick,3);
   document.getElementById("simAvgFloor").textContent=fmt(best.mcAvgFloor,2);
   document.getElementById("simTargetChance").textContent=fmt(best.targetPct,1)+"%";
+  // The "Target hit chance" tile only means something for the target-floor goal.
+  const tEl=document.getElementById("simTargetChance"); const tMetric=tEl&&tEl.closest(".metric");
+  if(tMetric) tMetric.style.display = (primaryFocusKey(_focusInp)==="target") ? "" : "none";
   document.getElementById("simDetRank").textContent=String(best.detRank);
   const seedEl=document.getElementById("simSeedUsed"); if(seedEl) seedEl.textContent=window.__simSeed;
   renderThroughputDetail(best);
@@ -3360,13 +3398,15 @@ function renderThroughputDetail(row, bodyEl){
 
 function wireSimSort(){
   if(_simSortWired) return; _simSortWired=true;
-  document.querySelectorAll("#monteRerankTable th[data-sort]").forEach(th=>{
-    th.style.cursor="pointer";
-    th.addEventListener("click",()=>{
-      const key=th.dataset.sort;
-      const dir = (_simSortKey===key) ? -_simSortDir : simSortNaturalDir(key);
-      renderSimResults(key, dir);
-    });
+  // The header is rebuilt on every render (columns depend on the goal), so use
+  // delegation rather than per-<th> listeners.
+  const thead=document.querySelector("#monteRerankTable thead");
+  if(!thead) return;
+  thead.addEventListener("click",(e)=>{
+    const th=e.target.closest("th[data-sort]"); if(!th) return;
+    const key=th.dataset.sort;
+    const dir = (_simSortKey===key) ? -_simSortDir : simSortNaturalDir(key);
+    renderSimResults(key, dir);
   });
 }
 

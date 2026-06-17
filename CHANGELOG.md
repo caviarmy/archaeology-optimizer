@@ -3,6 +3,7 @@
 ## 2026-06-16
 
 ### Changed
+- **The simulation table now shows columns relevant to your goal.** It always shows rewards/hr, reward/stamina, blocks/hr, XP/hr, loot/hr and average floor, plus one highlighted column for the goal you picked: the targeted block's count per hour, a specific loot rarity's loot per hour, or (for the target-floor goal) the chance of reaching the floor. The "Target %" column now appears only for the target-floor goal, and the P10/P50/P90 columns were removed.
 - **Guided result keeps your simulation when you navigate back, and "Start over" now resets cleanly.** Pressing Back from the result no longer forces a re-run: the Run step recognizes a finished result and lets you return to it with Next (or re-run on purpose). The large "Start over" button on the result is gone; the footer button is now "Start over", which opens the "You have saved stats" prompt. Choosing "Use previous stats" there drops the loaded simulation but keeps your stats and settings (so guided runs fresh), while "Start fresh" clears everything as before.
 
 ### Fixed
