@@ -3265,7 +3265,7 @@ async function runMonteRerank(){
   window.__simResults = results;
   window.__simSeed = simRng.seed;
   wireSimSort();
-  renderSimResults("rewardsPerHour", -1);   // default: rank by rewards per real-time hour
+  renderSimResults("rank", 1);   // default: ordered by Sim Rank (the chosen goal), best first
 
   document.body.dataset.simulationReady = "true";
   showStatus(`Simulation complete in ${((performance.now()-start)/1000).toFixed(2)}s.`, 5000);
@@ -3279,7 +3279,7 @@ async function runMonteRerank(){
 
 // Render the simulation results table sorted by `sortKey` (descending unless dir=1),
 // and refresh the headline tiles + throughput detail for the current top build.
-let _simSortKey="rewardsPerHour", _simSortDir=-1, _simSortWired=false;
+let _simSortKey="rank", _simSortDir=1, _simSortWired=false;
 // Rank columns sort ascending (1 first); metric columns sort descending (best first).
 function simSortNaturalDir(key){ return (key==="rank" || key==="detRank") ? 1 : -1; }
 function renderSimResults(sortKey, dir){
