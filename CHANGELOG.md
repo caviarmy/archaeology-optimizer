@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-06-17
+
+### Changed
+- **The AI analysis now contrasts genuinely different builds, concisely.** It used to compare near-identical builds that differed by a point or two and wax on. It now picks the most distinct distributions the optimizer actually simulated (the recommended build plus the most stat-distant ones from its own exploration, labelled by their lean), re-runs them on shared random rolls so the numbers are comparable, and the prompt asks for a few sharp contrasts focused on what the recommended build trades off and gains on your goals. (Worker prompt change, deploys on merge.)
+- **The guided "find my best build" step shows a progress bar** with the live counts the optimizer is already reporting (builds tried, simulation progress) instead of a single static line.
+
+### Fixed
+- **The AI analysis retries once automatically** if the first request hits a transient network or server error, instead of failing outright (a real failure or the daily cap still reports normally).
+
 ## 2026-06-16
 
 ### Changed

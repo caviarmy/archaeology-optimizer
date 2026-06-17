@@ -475,6 +475,10 @@ body[data-landing="true"] #guidedReenter{display:none}
 .wiz-run-box{text-align:center;padding:18px 0}
 .wiz-run-box .runbtn{font-size:16px;padding:14px 22px}
 .wiz-run-status{margin-top:14px;color:var(--muted);font-size:13px;min-height:18px}
+.wiz-progbar{display:none;height:8px;max-width:320px;margin:18px auto 0;border-radius:999px;background:#e6ebf3;overflow:hidden}
+.wiz-progbar.on{display:block}
+.wiz-progbar>span{display:block;height:100%;width:38%;border-radius:999px;background:linear-gradient(90deg,#3b82f6,var(--accent));animation:wizbar 1.1s ease-in-out infinite}
+@keyframes wizbar{0%{margin-left:-38%}100%{margin-left:100%}}
 .wiz-result-hero{background:var(--green);border:1px solid #bbf7d0;border-radius:14px;padding:16px;text-align:center;margin-bottom:12px}
 .wiz-result-hero .lbl{font-size:12px;color:#15803d;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
 .wiz-result-hero .val{font-size:26px;font-weight:900;margin-top:4px;word-break:break-word}
@@ -1125,7 +1129,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.17";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.17.1";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -2901,6 +2905,10 @@ async function simGuidedSearch(inp, blocks, level, status){
   refined.forEach(e=>add(e.st, e.row));                                  // local optima first (high-fidelity scored)
   [...cache.values()].sort((a,b)=>b.v-a.v).forEach(c=>add(c.st, c.row)); // then fill from the climb cache
   rankCandidates(finalists, inp);   // apply secondary/tolerance ordering over the finalists
+  // Stash the distinct builds the search actually simulated (EV/corner seeds + the
+  // climb), so the AI analysis can contrast genuinely different REAL builds the
+  // optimizer evaluated, not invented ones.
+  try{ window.__simSearchBuilds = [...cache.values()].map(c=>({stats:c.st})); }catch(_e){}
   return {topBuilds: finalists, count: cache.size};
 }
 
@@ -3577,36 +3585,47 @@ function buildDebugForAI(){
   };
   try{
     const r=window.__simResults;
-    if(Array.isArray(r) && r.length){
+    if(Array.isArray(r) && r.length && inp){
+      const ATTRS=["S","A","P","I","L","D","C"];
       const pick=x=>{
-        let der=null; try{ if(inp) der=getDerived(x.stats, inp); }catch(_e){}
-        const o={ stats:x.stats, simRank:x.simRank,
-          rewardsPerHour:r1(x.rewardsPerHour), rewardsPerStam:x.rewardsPerTick,  // reward per stamina spent (one swing = 1 stamina)
+        let der=null; try{ der=getDerived(x.stats, inp); }catch(_e){}
+        const o={ build:x.__label, stats:x.stats,
+          rewardsPerHour:r1(x.rewardsPerHour), rewardsPerStam:r1(x.rewardsPerTick),
           blocksPerHour:r1(x.blocksPerHour), xpPerHour:r1(x.xpPerHour), allLootPerHour:r1(x.allLootPerHour),
-          floorReached:r1(x.floorReached!=null?x.floorReached:x.mcAvgFloor) };
+          floorReached:r1(x.mcAvgFloor!=null?x.mcAvgFloor:x.floorReached) };
         const pv=focusVal(x,pk); if(pv!==undefined) o.primaryGoalValue=r1(pv);
         const sv=focusVal(x,sk); if(sv!==undefined) o.secondaryGoalValue=r1(sv);
-        // Mechanistic levers so the model can argue from cause, not just score.
         if(der){ o.damage=r1(der.damage); o.critChancePct=r1((der.critChance||0)*100); o.maxStamina=Math.round(der.stamina||0); }
         return o;
       };
-      const ATTRS=["S","A","P","I","L","D","C"];
-      const dist=(a,b)=>ATTRS.reduce((s,k)=>s+Math.abs(((a&&a[k])||0)-((b&&b[k])||0)),0);
-      const byRank=r.slice().sort((a,b)=>((a.simRank||1e9)-(b.simRank||1e9)) || ((b.rewardsPerHour||0)-(a.rewardsPerHour||0)));
-      // The top builds by reward are near-duplicates of the winner, giving the AI
-      // nothing to contrast. Send instead: the overall winner; the HEAVIEST build
-      // the search actually tried for each stat (a cap-respecting "what this lever
-      // buys at its limit" anchor — these are real simulated builds, so they never
-      // exceed the caps); and a few of the most different remaining builds.
-      const chosen=[];
-      const add=x=>{ if(x && chosen.indexOf(x)===-1) chosen.push(x); };
-      const champ=k=>{ let best=null,bv=0; for(const x of byRank){ const val=(x.stats&&x.stats[k])||0; if(val>bv){ bv=val; best=x; } } return best; };
-      add(byRank[0]);
-      ATTRS.forEach(k=>add(champ(k)));            // strongest real build leaning into each stat
-      for(const x of byRank){ if(chosen.length>=10) break;
-        if(chosen.indexOf(x)===-1 && chosen.every(c=>dist(c.stats,x.stats)>=8)) add(x); }
-      chosen.sort((a,b)=>(a.simRank||1e9)-(b.simRank||1e9));
-      simTop=chosen.map(pick);
+      // The kept finalists all converge to one archetype, so they give the AI
+      // nothing to contrast. Build the contrast set from REAL builds the optimizer
+      // simulated — the returned table plus the search's wider exploration (its
+      // EV/corner seeds and climb) — and pick the most DIFFERENT of those, so the
+      // comparisons are dramatic but rooted in builds the simulation actually ran.
+      const blocks=visibleBlocks(inp);
+      const z=()=>({S:0,A:0,P:0,I:0,L:0,D:0,C:0});
+      const STAT_NAME={S:"Strength",A:"Agility",P:"Perception",I:"Intellect",L:"Luck",D:"Divinity",C:"Corruption"};
+      const sig=s=>ATTRS.map(k=>s[k]||0).join(",");
+      const dist=(a,b)=>ATTRS.reduce((su,k)=>su+Math.abs((a[k]||0)-(b[k]||0)),0);
+      const winner={...z(), ...((r.find(x=>x.simRank===1)||r[0]).stats)};
+      const uniq=new Map(); uniq.set(sig(winner), winner);
+      r.forEach(x=>{ const s={...z(),...x.stats}; const k=sig(s); if(!uniq.has(k)) uniq.set(k,s); });               // builds returned in the table
+      (window.__simSearchBuilds||[]).forEach(b=>{ const s={...z(),...(b.stats||{})}; const k=sig(s); if(!uniq.has(k)) uniq.set(k,s); }); // wider search exploration
+      const all=[...uniq.values()];
+      // Greedy farthest-point: winner first, then repeatedly the build most distant
+      // from everything already chosen.
+      const chosenStats=[winner];
+      while(chosenStats.length<6 && chosenStats.length<all.length){
+        let best=null,bd=-1;
+        for(const s of all){ if(chosenStats.indexOf(s)>=0) continue; let dmin=Infinity; for(const c of chosenStats){ const dd=dist(c,s); if(dd<dmin) dmin=dd; } if(dmin>bd){ bd=dmin; best=s; } }
+        if(!best || bd<6) break; chosenStats.push(best);
+      }
+      const leanLabel=(s)=>{ const tot=ATTRS.reduce((a,k)=>a+(s[k]||0),0)||1; let mk="S",mv=-1; ATTRS.forEach(k=>{ if((s[k]||0)>mv){ mv=s[k]||0; mk=k; } }); const frac=mv/tot; return frac>=0.6?("heavy "+STAT_NAME[mk]):(frac>=0.4?(STAT_NAME[mk]+"-leaning"):"balanced"); };
+      // Re-simulate the handful on common random numbers so the metrics are directly comparable.
+      const RUNS=Math.max(60, Math.min(160, inp.mcRunsPerBuild||160));
+      const mkrng=()=>{ let s=987654321>>>0; return ()=>{ s=(Math.imul(s,1103515245)+12345)>>>0; return s/4294967296; }; };
+      simTop=chosenStats.map((st,i)=>{ const row=aggregateBuildSim(st, inp, blocks, RUNS, mkrng()); row.stats=st; row.__label=(i===0?"recommended":leanLabel(st)); return pick(row); });
     }
   }catch(_e){}
   const ip=d.inputs||{};
@@ -5321,12 +5340,26 @@ window.refreshAscensionWarning=refreshAscensionWarning;
       close();                       // hand off from the checklist bubble to the modal
       if(diagFoot) diagFoot.hidden=true;
       openModal(); modalHTML('<p class="diag-spin">Analyzing your build with AI…</p>', false);
-      fetch(WORKER_URL, {
+      // One automatic retry on a transient failure (network error or 5xx); 429 and
+      // other 4xx are terminal so we don't hammer the worker or waste the cap.
+      var doFetch=function(){ return fetch(WORKER_URL, {
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({action:"explain", debug:snapshot})
-      }).then(function(res){
-        return res.text().then(function(t){ var p=null; try{p=JSON.parse(t);}catch(_e){} return {res:res,p:p}; });
-      }).then(function(r){
+      }).then(function(res){ return res.text().then(function(t){ var p=null; try{p=JSON.parse(t);}catch(_e){} return {res:res,p:p}; }); }); };
+      var retryOnce=function(again){
+        modalHTML('<p class="diag-spin">Retrying…</p>', false);
+        return new Promise(function(rs){ setTimeout(rs, 900); }).then(again);
+      };
+      var attempt=function(n){
+        return doFetch().then(function(r){
+          if(n===0 && r.res.status>=500) return retryOnce(function(){ return attempt(1); });
+          return r;
+        }).catch(function(err){
+          if(n===0) return retryOnce(function(){ return attempt(1); });
+          throw err;
+        });
+      };
+      attempt(0).then(function(r){
         var p=r.p||{}; applyUsage(p);
         if(r.res.status===429){ modalHTML("<p>"+esc(p.error||"You've used today's AI analysis.")+"</p>", true); modalFoot(p); return; }
         if(!r.res.ok || !p.explanation){ modalHTML("<p>Analysis failed: "+esc(p.error||("HTTP "+r.res.status))+"</p>", true); return; }
@@ -5559,11 +5592,13 @@ window.refreshAscensionWarning=refreshAscensionWarning;
         +'<p class="wiz-leadin" style="text-align:center;margin-bottom:14px">Your best build is ready. Press Next to view it, or re-run the optimizer.</p>'
         +'<button type="button" id="wizGo" class="runbtn ghost">Re-run optimizer</button>'
         +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
+        +'<div class="wiz-progbar" id="wizProgBar"><span></span></div>'
         +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
     }else{
       nativeEl.innerHTML='<div class="wiz-run-box">'
         +'<button type="button" id="wizGo" class="runbtn">Find my best build</button>'
         +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
+        +'<div class="wiz-progbar" id="wizProgBar"><span></span></div>'
         +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
     }
     var t=gid("thoroughSearch"); if(t) gid("wizThorough").checked=!!t.checked;
@@ -5572,24 +5607,38 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   }
   async function doRun(){
     if(running) return; running=true;
-    var go=gid("wizGo"), st=gid("wizRunStatus");
-    if(go){ go.disabled=true; go.classList.add("btn-spin"); }
+    var go=gid("wizGo"), st=gid("wizRunStatus"), bar=gid("wizProgBar"), th=gid("wizThorough");
+    if(go) go.style.display="none";
+    if(th && th.closest("label")) th.closest("label").style.display="none";
+    if(bar) bar.classList.add("on");
     nextBtn.disabled=true; backBtn.disabled=true;
+    // Mirror the live engine status (the "N builds tried", "Simulation b/total"
+    // counts it already emits to the toast) into the wizard's progress line.
+    var phase="Searching for your best build…";
+    var mirror=setInterval(function(){
+      var t=(gid("status")||{}).textContent||"";
+      if(st) st.textContent = t && t.trim() ? t : phase;
+    }, 150);
     try{
-      if(st) st.textContent="Searching builds…";
+      if(st) st.textContent=phase;
       await runExact();
       var have = (typeof lastExactTopBuilds!=="undefined" && lastExactTopBuilds && lastExactTopBuilds.length);
       if(have){
-        if(st) st.textContent="Simulating top candidates…";
+        phase="Simulating the top builds…";
         await runMonteRerank();
       }
+      clearInterval(mirror);
       if(st) st.textContent="Done.";
       goStep(stepIndex("result"));
     }catch(e){
+      clearInterval(mirror);
+      if(bar) bar.classList.remove("on");
+      if(go){ go.style.display=""; }
+      if(th && th.closest("label")) th.closest("label").style.display="";
       if(st) st.textContent="Something went wrong: "+((e&&e.message)||e);
     }finally{
+      clearInterval(mirror);
       running=false;
-      if(go){ go.disabled=false; go.classList.remove("btn-spin"); }
       nextBtn.disabled=false; backBtn.disabled=false;
     }
   }
