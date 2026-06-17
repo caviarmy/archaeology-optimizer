@@ -615,7 +615,6 @@ body[data-landing="true"] #guidedReenter{display:none}
         <button id="runExact">Estimate best build</button>
         <button id="runMonteRerank" class="ghost" disabled title="Run Estimate best build first">Simulate best build</button>
         <label class="check-row" style="margin:0 0 0 6px"><input id="thoroughSearch" type="checkbox"> Thorough (exact, slow)</label>
-        <label class="check-row" id="deepScanRow" hidden style="margin:0 0 0 6px"><input id="deepSecondaryScan" type="checkbox"> Deep secondary scan <span id="deepScanHint" class="small" style="opacity:.7"></span></label>
       </div>
       <div id="ascWarning" class="asc-warning" hidden></div>
       <div class="metrics">
@@ -1269,28 +1268,6 @@ function updateGoalUI(){
   if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(getInputs()))} / hr`;
   const modeLabel = document.getElementById("bestModeLabel");
   if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(getInputs()));
-  updateDeepScanHint();
-}
-// The deep secondary scan only makes sense when a secondary goal is set (it hunts
-// the build family that maximizes the secondary inside the primary's tolerance
-// band). Show the toggle only then, and estimate its runtime before the user
-// commits so the extra wait is never a surprise.
-function updateDeepScanHint(){
-  const row = document.getElementById("deepScanRow");
-  if(!row) return;
-  const secondary = v("secondaryGoal") || "none";
-  if(secondary === "none"){ row.hidden = true; return; }
-  row.hidden = false;
-  const hint = document.getElementById("deepScanHint");
-  if(!hint) return;
-  let est=null; try{ est = estimateDeepScan(getInputs()); }catch(_e){}
-  if(!est){ hint.textContent = ""; return; }
-  const secs = est.ms/1000;
-  const time = secs < 1 ? "under 1s" : (secs < 60 ? `~${Math.round(secs)}s` : `~${Math.round(secs/60)} min`);
-  hint.textContent = `(checks ~${est.builds.toLocaleString()} builds, adds ${time})`;
-  // mirror to the guided wizard's copy of the toggle, if present
-  const wizHint = document.getElementById("wizDeepScanHint");
-  if(wizHint) wizHint.textContent = hint.textContent;
 }
 // Target-floor goal = chance of REACHING the target floor. When a simulated
 // hit-rate is available (sc.targetPct, 0..100) rank by that, with a faint
@@ -1737,7 +1714,6 @@ function getInputs(){
     nodeSpawnModel:v("nodeSpawnModel") || "activeCount",
     speedModel:"none", // speed/ticks-per-second intentionally excluded from tick-efficiency optimization
     mcTopCount:Math.max(1, Math.min(1000, Math.floor(n("mcTopCount") || 25))),
-    deepSecondaryScan:checked("deepSecondaryScan"),
     mcRunsPerBuild:Math.max(100, Math.min(20000, Math.floor(n("mcRunsPerBuild") || 1000))),
     simSeedMode:v("simSeedMode") || "random",
     simSeedValue:String(v("simSeedValue") || "12345"),
@@ -2811,11 +2787,11 @@ function fastSearch(inp, blocks, level){
 // reach the build family that maximizes a secondary goal (e.g. a Luck-heavy
 // build for epic loot when the primary favors Strength). The basins are far
 // apart in point-space, so a one-point-at-a-time climb cannot cross between
-// them. When the user opts in, this sweeps the whole build space on a coarse
-// lattice using the band-aware objective (stay within tolerance of the best
-// primary, then maximize the secondary), then refines the most promising cells
-// at full resolution. The global in-band-secondary optimum then ends up among
-// the candidates and the simulation confirms it. Returns stat objects.
+// them. Whenever a secondary goal is set, this sweeps the whole build space on a
+// coarse lattice using the band-aware objective (stay within tolerance of the
+// best primary, then maximize the secondary), then refines the most promising
+// cells at full resolution. The global in-band-secondary optimum then ends up
+// among the candidates and the simulation confirms it. Returns stat objects.
 function deepScanPlan(inp, level){
   const spec = activeSkillSpec(inp);
   const keys = spec.map(s=>s[0]);
@@ -2829,24 +2805,6 @@ function deepScanPlan(inp, level){
   const TOPCELLS = 24;
   const refine = TOPCELLS * Math.pow(2*G+1, head.length);  // upper bound (cache dedups in practice)
   return {keys, caps, target, head, tail, G, coarse, refine, topCells:TOPCELLS, total: coarse + refine};
-}
-// Quick, calibrated runtime estimate shown before the user commits.
-function estimateDeepScan(inp){
-  try{
-    const sk = secondaryFocusKey(inp);
-    if(sk === "none") return null;
-    const level = inp.selectedLevel;
-    const blocks = visibleBlocks(inp);
-    const plan = deepScanPlan(inp, level);
-    const st={S:0,A:0,P:0,I:0,L:0,D:0,C:0}; let rem=plan.target,i=0;
-    while(rem>0 && i<1e5){ const k=plan.keys[i%plan.keys.length]; if((st[k]||0)<plan.caps[k]){st[k]++;rem--;} i++; }
-    const N=60, t0=performance.now();
-    for(let j=0;j<N;j++){ const kk=plan.keys[j%plan.keys.length]; st[kk]=(st[kk]||0)+1; scoreBuild(st, inp, blocks); st[kk]-=1; }
-    const per=(performance.now()-t0)/N;
-    // Cache removes a large share of the refine overlap; discount for realism.
-    const evals = plan.coarse + Math.round(plan.refine*0.55);
-    return {builds: evals, ms: Math.round(evals*per), G:plan.G};
-  }catch(e){ return null; }
 }
 async function deepSecondaryScan(inp, blocks, level, onProgress){
   const sk = secondaryFocusKey(inp), pk = primaryFocusKey(inp);
@@ -2985,12 +2943,13 @@ async function simGuidedSearch(inp, blocks, level, status){
   // Seeds: EV's polished top builds (fast) + pure-stat corners + an even split + randoms.
   let evSeeds = [];
   try { evSeeds = rankCandidates(fastSearch(inp, blocks, level), inp).slice(0, 30).map(c=>c.stats); } catch(e){}
-  // Opt-in deep secondary scan: a near-exhaustive EV sweep that surfaces the
-  // build family maximizing the secondary goal, which the local climb can miss.
-  // Its picks are guaranteed seeds so the simulation always gets to confirm them.
+  // Deep secondary scan (automatic whenever a secondary goal is set): a
+  // near-exhaustive EV sweep that surfaces the build family maximizing the
+  // secondary goal, which the one-point-at-a-time climb can get trapped away
+  // from. Its picks are guaranteed seeds so the simulation always confirms them.
   let deepSeeds = [];
   const sk = secondaryFocusKey(inp);
-  if(inp.deepSecondaryScan && sk !== "none"){
+  if(sk !== "none"){
     try {
       deepSeeds = await deepSecondaryScan(inp, blocks, level, (done,tot,tried)=>{
         if(status) showStatus(`Scanning the build space for the best ${rewardFocusLabel(sk)} build… ${Math.min(done,tot).toLocaleString()}/${tot.toLocaleString()} builds checked.`, 30000);
@@ -2998,7 +2957,7 @@ async function simGuidedSearch(inp, blocks, level, status){
     } catch(e){}
   }
   const seeds = [];
-  deepSeeds.forEach(s=>seeds.push(s));                      // deep-scan picks (when opted in)
+  deepSeeds.forEach(s=>seeds.push(s));                      // deep-scan picks (secondary-optimal family)
   evSeeds.slice(0, 12).forEach(s=>seeds.push(s));           // core EV seeds
   for(const k of keys) seeds.push(fill([k, ...keys.filter(x=>x!==k)]));   // pure-stat corners
   seeds.push(evenSplit);
@@ -5247,8 +5206,8 @@ populateCardSettings();
 populateCardSettings();
 document.querySelectorAll("input, select").forEach(el=>{
   if(typeof el.id==="string" && el.id.startsWith("custom")) return; // manual-sim fields are independent
-  el.addEventListener("input",()=>{ markOptimizerStale(); updateSettingsSummary(); updateDeepScanHint(); });
-  el.addEventListener("change",()=>{ markOptimizerStale(); updateSettingsSummary(); updateDeepScanHint(); });
+  el.addEventListener("input",()=>{ markOptimizerStale(); updateSettingsSummary(); });
+  el.addEventListener("change",()=>{ markOptimizerStale(); updateSettingsSummary(); });
 });
 // v58: persist any user edit (debounced). Document-level so it also catches
 // the dynamically-created card inputs.
@@ -5787,28 +5746,17 @@ window.refreshAscensionWarning=refreshAscensionWarning;
         +'<p class="wiz-leadin" style="text-align:center;margin-bottom:14px">Your best build is ready. Press Next to view it, or re-run the optimizer.</p>'
         +'<button type="button" id="wizGo" class="runbtn ghost">Re-run optimizer</button>'
         +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
-        +'<label class="check-row" id="wizDeepScanRow" hidden style="justify-content:center;margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><input id="wizDeepScan" type="checkbox"> Deep secondary scan <span id="wizDeepScanHint" class="small" style="opacity:.7"></span></label>'
         +'<div class="wiz-progbar" id="wizProgBar"><span></span></div>'
         +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
     }else{
       nativeEl.innerHTML='<div class="wiz-run-box">'
         +'<button type="button" id="wizGo" class="runbtn">Find my best build</button>'
         +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
-        +'<label class="check-row" id="wizDeepScanRow" hidden style="justify-content:center;margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><input id="wizDeepScan" type="checkbox"> Deep secondary scan <span id="wizDeepScanHint" class="small" style="opacity:.7"></span></label>'
         +'<div class="wiz-progbar" id="wizProgBar"><span></span></div>'
         +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
     }
     var t=gid("thoroughSearch"); if(t) gid("wizThorough").checked=!!t.checked;
     gid("wizThorough").addEventListener("change", function(){ var th=gid("thoroughSearch"); if(th) th.checked=this.checked; });
-    // Deep secondary scan: only relevant with a secondary goal; mirror the main
-    // toggle and show the same runtime estimate before the user commits.
-    var sec=valOf("secondaryGoal")||"none", dsRow=gid("wizDeepScanRow");
-    if(dsRow && sec!=="none"){
-      dsRow.hidden=false;
-      var ds=gid("deepSecondaryScan"); if(ds) gid("wizDeepScan").checked=!!ds.checked;
-      gid("wizDeepScan").addEventListener("change", function(){ var d=gid("deepSecondaryScan"); if(d) d.checked=this.checked; });
-      try{ updateDeepScanHint(); }catch(_e){}
-    }
     gid("wizGo").addEventListener("click", doRun);
   }
   async function doRun(){

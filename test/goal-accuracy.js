@@ -29,7 +29,7 @@ setTimeout(async ()=>{
   d.body.dataset.landing='false';
   const set=(id,v)=>{const e=d.getElementById(id);if(e){if(e.type==='checkbox')e.checked=!!v;else e.value=v;e.dispatchEvent(new W.Event('change',{bubbles:true}));}};
   const inp0={selectedLevel:String(LEVEL),ascension:"0",baseDamage:"111",baseStamina:"159",baseAtkSpeed:"1",baseCritChance:"6",baseCritDamage:"1.86",baseSuperDamage:"2",baseArmorPenFlat:"25",baseXpGain:"1.78",baseFragGain:"1.12",baseXpMod:"3",baseLootMod:"0",baseLootModGain:"5",baseSpeedMod:"0",baseSpeedModGain:"10",baseSpeedModAtkRate:"2",baseStaminaMod:"1",staminaModGain:"7",modStrA0:"5",modAgi:"5",primaryGoal:PRI,secondaryGoal:SEC,primaryToleranceValue:"3",mcTopCount:"25",mcRunsPerBuild:"1000"};
-  for(const k in inp0) set(k,inp0[k]); set('worthlessCommon',true); if(process.argv[6]==="deep") set('deepSecondaryScan',true); d.getElementById('primaryProtectionTolerance').click();
+  for(const k in inp0) set(k,inp0[k]); set('worthlessCommon',true); d.getElementById('primaryProtectionTolerance').click();
   const inp=W.getInputs(), blocks=W.visibleBlocks(inp);
   const spec=W.activeSkillSpec(inp), keys=spec.map(s=>s[0]), caps=Object.fromEntries(spec);
   const total=Math.min(LEVEL, keys.reduce((x,k)=>x+caps[k],0));
