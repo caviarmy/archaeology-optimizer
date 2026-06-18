@@ -216,7 +216,12 @@ export default {
     const mimeType = m[1], b64 = m[2];
     if (b64.length > 9_000_000) return json({ error: "Image too large (downscale before sending)" }, 413, cors);
 
-    const model = env.GEMINI_MODEL || "gemini-2.0-flash-lite";
+    // OCR uses the full Flash model (not flash-lite): it is markedly more reliable
+    // on dense, small-text screenshots and far less likely to return an empty read,
+    // which was causing intermittent "couldn't read the image" failures. Cost per
+    // call is ~1.3x lite (negligible at OCR's daily-capped volume). Override with
+    // the GEMINI_OCR_MODEL secret if needed.
+    const model = env.GEMINI_OCR_MODEL || "gemini-2.0-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
     const payload = {
       contents: [{ role: "user", parts: [{ text: PROMPT }, { inlineData: { mimeType, data: b64 } }] }],
@@ -235,7 +240,15 @@ export default {
     }
 
     const out = await gem.json();
-    const text = out?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const cand = out?.candidates?.[0];
+    const text = cand?.content?.parts?.[0]?.text || "";
+    // An empty candidate (no text) is a distinct, common flaky failure: the model
+    // returned nothing usable (finishReason MAX_TOKENS/SAFETY/RECITATION, or a
+    // prompt block). Report it precisely instead of mislabeling it "non-JSON".
+    if (!text) {
+      const why = cand?.finishReason || out?.promptFeedback?.blockReason || "empty response";
+      return json({ error: "Gemini returned no readable result", finishReason: why }, 502, cors);
+    }
     let stats;
     try { stats = JSON.parse(text); } catch { return json({ error: "Model returned non-JSON", raw: text.slice(0, 600) }, 502, cors); }
 
