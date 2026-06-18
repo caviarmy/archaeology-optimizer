@@ -475,6 +475,10 @@ body[data-landing="true"] #guidedReenter{display:none}
 .wiz-run-box{text-align:center;padding:18px 0}
 .wiz-run-box .runbtn{font-size:16px;padding:14px 22px}
 .wiz-run-status{margin-top:14px;color:var(--muted);font-size:13px;min-height:18px}
+.wiz-progbar{display:none;height:8px;max-width:320px;margin:18px auto 0;border-radius:999px;background:#e6ebf3;overflow:hidden}
+.wiz-progbar.on{display:block}
+.wiz-progbar>span{display:block;height:100%;width:38%;border-radius:999px;background:linear-gradient(90deg,#3b82f6,var(--accent));animation:wizbar 1.1s ease-in-out infinite}
+@keyframes wizbar{0%{margin-left:-38%}100%{margin-left:100%}}
 .wiz-result-hero{background:var(--green);border:1px solid #bbf7d0;border-radius:14px;padding:16px;text-align:center;margin-bottom:12px}
 .wiz-result-hero .lbl{font-size:12px;color:#15803d;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
 .wiz-result-hero .val{font-size:26px;font-weight:900;margin-top:4px;word-break:break-word}
@@ -1125,7 +1129,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.16.17";  // bump on notable releases; surfaced in the debug export
+const APP_VERSION = "2026.06.17.5";  // bump on notable releases; surfaced in the debug export
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1637,7 +1641,10 @@ function createSimulationRng(inp){
     ? String(inp?.simSeedValue || "12345")
     : `${Date.now()}-${Math.floor(performance.now()*1000)}-${Math.floor(Math.random()*1e9)}`;
   const hashed = hashSeedString(seed)();
-  return {seed, random:mulberry32(hashed)};
+  // makeRng() yields a fresh stream from the SAME seed each call, so several
+  // builds can be simulated on common random numbers (identical rolls) for a
+  // low-variance comparison; random() is the single shared stream (single-build use).
+  return {seed, random:mulberry32(hashed), makeRng:()=>mulberry32(hashed)};
 }
 
 
@@ -2778,6 +2785,93 @@ function fastSearch(inp, blocks, level){
   return all;
 }
 
+// ---- Deep secondary scan (opt-in) ----------------------------------------
+// Hill-climbing on the EV can get trapped in a primary-heavy basin and never
+// reach the build family that maximizes a secondary goal (e.g. a Luck-heavy
+// build for epic loot when the primary favors Strength). The basins are far
+// apart in point-space, so a one-point-at-a-time climb cannot cross between
+// them. Whenever a secondary goal is set, this sweeps the whole build space on a
+// coarse lattice using the band-aware objective (stay within tolerance of the
+// best primary, then maximize the secondary), then refines the most promising
+// cells at full resolution. The global in-band-secondary optimum then ends up
+// among the candidates and the simulation confirms it. Returns stat objects.
+function deepScanPlan(inp, level){
+  const spec = activeSkillSpec(inp);
+  const keys = spec.map(s=>s[0]);
+  const caps = Object.fromEntries(spec);
+  const target = Math.min(level, spec.reduce((a,[,c])=>a+c,0));
+  const head = keys.slice(0,-1), tail = keys[keys.length-1];
+  const countCoarse = (G)=>{ let nC=0; (function rec(i,rem){ if(i===head.length){ if(rem>=0&&rem<=caps[tail]) nC++; return; } const k=head[i]; for(let val=0; val<=Math.min(caps[k],rem); val+=G) rec(i+1,rem-val); })(0,target); return nC; };
+  // Densest affordable coarse grid: smallest step whose lattice stays bounded.
+  let G=6; for(const g of [1,2,3,4,5,6]){ if(countCoarse(g) <= 7000){ G=g; break; } }
+  const coarse = countCoarse(G);
+  const TOPCELLS = 24;
+  const refine = TOPCELLS * Math.pow(2*G+1, head.length);  // upper bound (cache dedups in practice)
+  return {keys, caps, target, head, tail, G, coarse, refine, topCells:TOPCELLS, total: coarse + refine};
+}
+async function deepSecondaryScan(inp, blocks, level, onProgress){
+  const sk = secondaryFocusKey(inp), pk = primaryFocusKey(inp);
+  if(sk === "none") return [];
+  const plan = deepScanPlan(inp, level);
+  const {keys, caps, target, head, tail, G, topCells} = plan;
+  const cache = new Map();
+  const evalA = (a)=>{
+    const st={S:0,A:0,P:0,I:0,L:0,D:0,C:0}; for(const k of keys) st[k]=a[k]||0;
+    const key = keys.map(k=>st[k]).join(",");
+    let sc = cache.get(key);
+    if(sc === undefined){ sc = scoreBuild(st, inp, blocks); cache.set(key, sc); }
+    return sc;
+  };
+  const lbl = sc => keys.map(k=>sc.stats[k]||0).join(",");
+  const totalEst = plan.coarse + Math.round(plan.refine*0.55);
+  let done = 0, lastYield = performance.now();
+  const tick = async ()=>{ done++; if(performance.now()-lastYield > 60){ if(onProgress) onProgress(done, totalEst, cache.size); await new Promise(r=>setTimeout(r,0)); lastYield=performance.now(); } };
+
+  // 1) coarse lattice over the head stats; the tail stat absorbs the remainder.
+  const coarse = []; const st2={S:0,A:0,P:0,I:0,L:0,D:0,C:0};
+  await (async function rec(i, rem){
+    if(i === head.length){ if(rem<0 || rem>caps[tail]) return; st2[tail]=rem; coarse.push(evalA(st2)); await tick(); return; }
+    const k = head[i];
+    for(let val=0; val<=Math.min(caps[k], rem); val+=G){ st2[k]=val; await rec(i+1, rem-val); }
+    st2[k]=0;
+  })(0, target);
+
+  // Band-aware objective: in-band builds rank by secondary, out-of-band by primary.
+  let maxP=-Infinity; for(const c of coarse){ const p=metricValue(c,pk,inp); if(p>maxP) maxP=p; }
+  const tol = Math.max(0, (inp.goal?.tolerancePct||0)/100);
+  const threshold = maxP - Math.abs(maxP)*tol;
+  const bandObj = c=>{ const p=metricValue(c,pk,inp); return p>=threshold-1e-9 ? 1e12 + metricValue(c,sk,inp) : p; };
+
+  // 2) refine: full-resolution local exhaustive around the best coarse cells.
+  const seedCells = coarse.slice().sort((a,b)=>bandObj(b)-bandObj(a)).slice(0, topCells);
+  const refineKeys = keys.filter(k=>k!==tail);
+  for(const cell of seedCells){
+    const c0={}; for(const k of keys) c0[k]=cell.stats[k]||0;
+    const cur={...c0};
+    await (async function grid(di){
+      if(di === refineKeys.length){
+        let s=0; for(const k of refineKeys) s+=cur[k]||0;
+        const r=target-s; if(r<0 || r>caps[tail]) return;
+        cur[tail]=r; const key=keys.map(k=>cur[k]||0).join(",");
+        if(!cache.has(key)){ evalA(cur); await tick(); }
+        return;
+      }
+      const k=refineKeys[di], base=c0[k]||0;
+      for(let val=Math.max(0,base-G); val<=Math.min(caps[k], base+G); val++){ cur[k]=val; await grid(di+1); }
+    })(0);
+  }
+  if(onProgress) onProgress(totalEst, totalEst, cache.size);
+
+  // Return the best in-band-secondary builds (plus a few high-primary anchors so
+  // the band threshold is well covered once these are re-evaluated by the sim).
+  const all = [...cache.values()];
+  const bySecondary = all.slice().sort((a,b)=>bandObj(b)-bandObj(a)).slice(0, 24).map(c=>c.stats);
+  const byPrimary = all.slice().sort((a,b)=>metricValue(b,pk,inp)-metricValue(a,pk,inp)).slice(0, 6).map(c=>c.stats);
+  const seen=new Set(), out=[];
+  for(const s of [...bySecondary, ...byPrimary]){ const k=keys.map(x=>s[x]||0).join(","); if(!seen.has(k)){ seen.add(k); out.push(s); } }
+  return out;
+}
+
 // ---- Simulation-driven guided search -------------------------------------
 // The EV is biased (it over-credits some build types), so using it to rank/filter
 // can hide the true best build. Here the EV only supplies starting seeds; the
@@ -2852,11 +2946,25 @@ async function simGuidedSearch(inp, blocks, level, status){
   // Seeds: EV's polished top builds (fast) + pure-stat corners + an even split + randoms.
   let evSeeds = [];
   try { evSeeds = rankCandidates(fastSearch(inp, blocks, level), inp).slice(0, 30).map(c=>c.stats); } catch(e){}
+  // Deep secondary scan (automatic whenever a secondary goal is set): a
+  // near-exhaustive EV sweep that surfaces the build family maximizing the
+  // secondary goal, which the one-point-at-a-time climb can get trapped away
+  // from. Its picks are guaranteed seeds so the simulation always confirms them.
+  let deepSeeds = [];
+  const sk = secondaryFocusKey(inp);
+  if(sk !== "none"){
+    try {
+      deepSeeds = await deepSecondaryScan(inp, blocks, level, (done,tot,tried)=>{
+        if(status) showStatus(`Scanning the build space for the best ${rewardFocusLabel(sk)} build… ${Math.min(done,tot).toLocaleString()}/${tot.toLocaleString()} builds checked.`, 30000);
+      });
+    } catch(e){}
+  }
   const seeds = [];
+  deepSeeds.forEach(s=>seeds.push(s));                      // deep-scan picks (secondary-optimal family)
   evSeeds.slice(0, 12).forEach(s=>seeds.push(s));           // core EV seeds
   for(const k of keys) seeds.push(fill([k, ...keys.filter(x=>x!==k)]));   // pure-stat corners
   seeds.push(evenSplit);
-  const guaranteedSeeds = seeds.length;   // core EV + corners + even split always run; the rest are budget-bound
+  const guaranteedSeeds = seeds.length;   // deep scan + core EV + corners + even split always run; the rest are budget-bound
   evSeeds.slice(12).forEach(s=>seeds.push(s));             // remaining EV seeds
   for(let r=0;r<16;r++) seeds.push(fill(keys.slice().sort(()=>Math.random()-0.5)));  // random restarts
   // Multi-start hill-climb on the simulated objective (shift one point between
@@ -2894,14 +3002,48 @@ async function simGuidedSearch(inp, blocks, level, status){
   // the finalists — that lets the best survive the keep-cut at any keep count.
   const K2 = Math.min(256, Math.max(K*3, 96));
   const stFromKey = kk=>{ const st={S:0,A:0,P:0,I:0,L:0,D:0,C:0}; kk.split(",").forEach((v,idx)=>{ st[keys[idx]]=+v||0; }); return st; };
-  const refined = [...endpointKeys].map(kk=>{ const st=stFromKey(kk); const row=aggregateBuildSim(st, inp, blocks, K2, newRng()); return {st, row, v:simFocusValue(row, inp)}; });
+  // Anchors that must reach Simulate: the climb's local optima, plus the deep
+  // scan's secondary picks (their primary may be mid-pack, so the primary-sorted
+  // fill below would otherwise drop them before the keep-cut sees them).
+  const anchorKeys = new Set(endpointKeys);
+  deepSeeds.slice(0, 16).forEach(s=>anchorKeys.add(keys.map(k=>s[k]||0).join(",")));
+  const refined = [...anchorKeys].map(kk=>{ const st=stFromKey(kk); const row=aggregateBuildSim(st, inp, blocks, K2, newRng()); return {st, row, v:simFocusValue(row, inp)}; });
   refined.sort((a,b)=>b.v-a.v);
   const finalists=[]; const seen=new Set();
-  const add=(st,row)=>{ const k=keys.map(x=>st[x]||0).join(","); if(seen.has(k)||finalists.length>=topLimit) return; seen.add(k); finalists.push(simCandidate(st,row,inp)); };
+  // When the deep scan ran, never drop an anchor (the secondary pick must survive);
+  // otherwise keep the original topLimit cap so the non-scan path is unchanged.
+  const keepCap = deepSeeds.length ? Math.max(topLimit, refined.length) : topLimit;
+  const add=(st,row)=>{ const k=keys.map(x=>st[x]||0).join(","); if(seen.has(k)||finalists.length>=keepCap) return; seen.add(k); finalists.push(simCandidate(st,row,inp)); };
   refined.forEach(e=>add(e.st, e.row));                                  // local optima first (high-fidelity scored)
   [...cache.values()].sort((a,b)=>b.v-a.v).forEach(c=>add(c.st, c.row)); // then fill from the climb cache
-  rankCandidates(finalists, inp);   // apply secondary/tolerance ordering over the finalists
-  return {topBuilds: finalists, count: cache.size};
+  // The keep-cut handed to Simulate must retain the genuine contenders. Ranking
+  // purely by the goal (primary tolerance + secondary) is unsafe here: the
+  // secondary metric (e.g. a specific loot rarity) is very noisy at the search's
+  // low run count, so a build with the best true secondary can get an unlucky low
+  // estimate and be dropped. So we keep the UNION of the goal order and the
+  // primary order (interleaved), guaranteeing both a build's primary-strength and
+  // its goal-strength keep it in the set. The secondary/tolerance ranking is then
+  // applied for real on the HIGH-fidelity Simulate pass.
+  const _pk = primaryFocusKey(inp);
+  const byPrimary = finalists.slice().sort((a,b)=> metricValue(b,_pk,inp) - metricValue(a,_pk,inp));
+  // Secondary-favoring candidates come from the ANALYTIC EV model, not the
+  // simulation: a rare secondary (e.g. a specific loot rarity) is far too noisy to
+  // rank by at the search's run count (1-point neighbours flip ~half the time),
+  // whereas the EV computes it with zero noise. So we rank the finalists by the EV
+  // goal and keep those too; the high-fidelity Simulate pass then confirms the band
+  // and secondary with accurate numbers.
+  const evCands=[];
+  for(const f of finalists){ try{ const m=scoreBuild(f.stats, inp, blocks); if(m){ m.__fin=f; evCands.push(m); } }catch(_e){} }
+  rankCandidates(evCands, inp);
+  const byGoalEV = evCands.map(e=>e.__fin);
+  const kk = x=> keys.map(k=>(x.stats[k]||0)).join(",");
+  const kept=[], kseen=new Set();
+  const keep=x=>{ if(!x) return; const k=kk(x); if(!kseen.has(k)){ kseen.add(k); kept.push(x); } };
+  for(let i=0; i<Math.max(byGoalEV.length, byPrimary.length); i++){ keep(byPrimary[i]); keep(byGoalEV[i]); }
+  // Stash the distinct builds the search actually simulated (EV/corner seeds + the
+  // climb), so the AI analysis can contrast genuinely different REAL builds.
+  try{ window.__simSearchBuilds = [...cache.values()].map(c=>({stats:c.st})); }catch(_e){}
+  return {topBuilds: kept, count: cache.size};
 }
 
 // Build label "S/A/P/I/L" (+"/D/C" once Divinity/Corruption are allocated).
@@ -3251,12 +3393,15 @@ async function runMonteRerank(){
   const runs=inp.mcRunsPerBuild;
   const results=[];
   const simRng=createSimulationRng(inp);
-  const rng=simRng.random;
   const start=performance.now();
 
   for(let b=0; b<builds.length; b++){
     const det=builds[b];
-    const row=aggregateBuildSim(det.stats, inp, blocks, runs, rng);
+    // Common random numbers: every build faces the SAME rolls, so the ranking
+    // between near-tied builds is low-variance (a fresh stream from one seed per
+    // build, instead of one continuous stream where each build sees different
+    // rolls). Across separate Simulate runs the seed still varies in random mode.
+    const row=aggregateBuildSim(det.stats, inp, blocks, runs, simRng.makeRng());
     row.detRank = det.detRank || (b+1);
     row.detRewardHr = det.rewardHr;
     row.detFloor = det.floorReached;
@@ -3326,10 +3471,55 @@ function renderSimResults(sortKey, dir){
   const thead = table && table.querySelector("thead");
   if(!results || !results.length || !tbody || !thead) return;
   if(sortKey){ _simSortKey=sortKey; _simSortDir = dir || simSortNaturalDir(sortKey); }
-  // Fixed rank: by the chosen goal's metric, stored on each record so sorting the
-  // table by another column doesn't change a build's rank.
+  // Fixed rank by the chosen goal, computed here on the HIGH-fidelity results so
+  // the secondary goal + tolerance is honored with accurate numbers (not the noisy
+  // search estimate). With a secondary goal: builds whose primary is within the
+  // tolerance band of the best are ordered by the secondary metric; otherwise by
+  // primary. Stored per-record so re-sorting the table by a column can't change it.
   const _focusInp = getInputs();
-  results.slice().sort((a,b)=>simFocusValue(b,_focusInp)-simFocusValue(a,_focusInp)).forEach((r,i)=>{ r.simRank=i+1; });
+  const _sk = secondaryFocusKey(_focusInp);
+  const _tol = Math.max(0, (_focusInp.goal && _focusInp.goal.tolerancePct || 0) / 100);
+  const _rowVal = (rw, key)=>{
+    if(!key || key==="none") return undefined;
+    if(key==="target") return rw.targetPct;
+    if(key==="allRewards") return rw.rewardsPerHour;
+    if(key==="xp") return rw.xpPerHour;
+    if(key==="allLoot") return rw.allLootPerHour;
+    if(key==="block") return (rw.countsPerHour && rw.countsPerHour[_focusInp.blockTargetKey]) || 0;
+    if(rw.lootPerHour && rw.lootPerHour[key]!=null) return rw.lootPerHour[key];
+    return undefined;
+  };
+  const _bestP = results.reduce((m,rw)=>Math.max(m, simFocusValue(rw,_focusInp)), -Infinity);
+  const _thr = _bestP - Math.abs(_bestP) * _tol;
+  // A rare secondary (e.g. a loot rarity) is noisy even at the Simulate run count,
+  // so the top in-band builds are often within a percent or two of each other and
+  // the simulation can't reliably order them. When two are within that noise band
+  // we break the tie by the noise-free EV secondary, which reliably points to the
+  // true best (the simulation already confirmed they are essentially tied). The
+  // band scales with run count: more runs -> tighter band -> less deferral to EV.
+  const _blocks = visibleBlocks(_focusInp);
+  const _runs = Math.max(1, _focusInp.mcRunsPerBuild || 1000);
+  const _tieTol = Math.min(0.02, 0.6/Math.sqrt(_runs));
+  const _evCache = new Map();
+  const _evSec = (rw)=>{ if(_sk==="none") return 0; const k=rw.stats?[rw.stats.S,rw.stats.A,rw.stats.P,rw.stats.I,rw.stats.L,rw.stats.D,rw.stats.C].join(","):""; let v=_evCache.get(k); if(v===undefined){ try{ v=metricValue(scoreBuild(rw.stats,_focusInp,_blocks),_sk,_focusInp)||0; }catch(_e){ v=0; } _evCache.set(k,v); } return v; };
+  // Best in-band simulated secondary defines the plateau; builds within the noise
+  // band of it are ranked by EV secondary, the rest strictly by simulated secondary.
+  let _bestSec=-Infinity;
+  if(_sk!=="none"){ for(const rw of results){ if(simFocusValue(rw,_focusInp)>=_thr-1e-9){ const s=_rowVal(rw,_sk)||0; if(s>_bestSec) _bestSec=s; } } }
+  const _tieAbs = _tieTol*Math.max(Math.abs(_bestSec),1e-9);
+  const _onPlateau = (rw)=> (_rowVal(rw,_sk)||0) >= _bestSec - _tieAbs;
+  results.slice().sort((a,b)=>{
+    const pa=simFocusValue(a,_focusInp), pb=simFocusValue(b,_focusInp);
+    const ai=pa>=_thr-1e-9, bi=pb>=_thr-1e-9;
+    if(ai!==bi) return ai?-1:1;
+    if(ai && bi && _sk!=="none"){
+      const ga=_onPlateau(a), gb=_onPlateau(b);
+      if(ga!==gb) return ga?-1:1;                                   // plateau builds rank first
+      if(ga){ const ea=_evSec(a), eb=_evSec(b); if(Math.abs(eb-ea)>1e-9) return eb-ea; }  // plateau: EV secondary
+      else { const sa=_rowVal(a,_sk)||0, sb=_rowVal(b,_sk)||0; if(Math.abs(sb-sa)>1e-9) return sb-sa; }  // below: simulated secondary
+    }
+    return pb-pa;
+  }).forEach((r,i)=>{ r.simRank=i+1; });
   const asc = currentAscension();
   const cols = buildSimColumns(_focusInp);
   // A column from a previous goal may no longer exist; fall back to Sim Rank.
@@ -3577,36 +3767,47 @@ function buildDebugForAI(){
   };
   try{
     const r=window.__simResults;
-    if(Array.isArray(r) && r.length){
+    if(Array.isArray(r) && r.length && inp){
+      const ATTRS=["S","A","P","I","L","D","C"];
       const pick=x=>{
-        let der=null; try{ if(inp) der=getDerived(x.stats, inp); }catch(_e){}
-        const o={ stats:x.stats, simRank:x.simRank,
-          rewardsPerHour:r1(x.rewardsPerHour), rewardsPerStam:x.rewardsPerTick,  // reward per stamina spent (one swing = 1 stamina)
+        let der=null; try{ der=getDerived(x.stats, inp); }catch(_e){}
+        const o={ build:x.__label, stats:x.stats,
+          rewardsPerHour:r1(x.rewardsPerHour), rewardsPerStam:r1(x.rewardsPerTick),
           blocksPerHour:r1(x.blocksPerHour), xpPerHour:r1(x.xpPerHour), allLootPerHour:r1(x.allLootPerHour),
-          floorReached:r1(x.floorReached!=null?x.floorReached:x.mcAvgFloor) };
+          floorReached:r1(x.mcAvgFloor!=null?x.mcAvgFloor:x.floorReached) };
         const pv=focusVal(x,pk); if(pv!==undefined) o.primaryGoalValue=r1(pv);
         const sv=focusVal(x,sk); if(sv!==undefined) o.secondaryGoalValue=r1(sv);
-        // Mechanistic levers so the model can argue from cause, not just score.
         if(der){ o.damage=r1(der.damage); o.critChancePct=r1((der.critChance||0)*100); o.maxStamina=Math.round(der.stamina||0); }
         return o;
       };
-      const ATTRS=["S","A","P","I","L","D","C"];
-      const dist=(a,b)=>ATTRS.reduce((s,k)=>s+Math.abs(((a&&a[k])||0)-((b&&b[k])||0)),0);
-      const byRank=r.slice().sort((a,b)=>((a.simRank||1e9)-(b.simRank||1e9)) || ((b.rewardsPerHour||0)-(a.rewardsPerHour||0)));
-      // The top builds by reward are near-duplicates of the winner, giving the AI
-      // nothing to contrast. Send instead: the overall winner; the HEAVIEST build
-      // the search actually tried for each stat (a cap-respecting "what this lever
-      // buys at its limit" anchor — these are real simulated builds, so they never
-      // exceed the caps); and a few of the most different remaining builds.
-      const chosen=[];
-      const add=x=>{ if(x && chosen.indexOf(x)===-1) chosen.push(x); };
-      const champ=k=>{ let best=null,bv=0; for(const x of byRank){ const val=(x.stats&&x.stats[k])||0; if(val>bv){ bv=val; best=x; } } return best; };
-      add(byRank[0]);
-      ATTRS.forEach(k=>add(champ(k)));            // strongest real build leaning into each stat
-      for(const x of byRank){ if(chosen.length>=10) break;
-        if(chosen.indexOf(x)===-1 && chosen.every(c=>dist(c.stats,x.stats)>=8)) add(x); }
-      chosen.sort((a,b)=>(a.simRank||1e9)-(b.simRank||1e9));
-      simTop=chosen.map(pick);
+      // The kept finalists all converge to one archetype, so they give the AI
+      // nothing to contrast. Build the contrast set from REAL builds the optimizer
+      // simulated — the returned table plus the search's wider exploration (its
+      // EV/corner seeds and climb) — and pick the most DIFFERENT of those, so the
+      // comparisons are dramatic but rooted in builds the simulation actually ran.
+      const blocks=visibleBlocks(inp);
+      const z=()=>({S:0,A:0,P:0,I:0,L:0,D:0,C:0});
+      const STAT_NAME={S:"Strength",A:"Agility",P:"Perception",I:"Intellect",L:"Luck",D:"Divinity",C:"Corruption"};
+      const sig=s=>ATTRS.map(k=>s[k]||0).join(",");
+      const dist=(a,b)=>ATTRS.reduce((su,k)=>su+Math.abs((a[k]||0)-(b[k]||0)),0);
+      const winner={...z(), ...((r.find(x=>x.simRank===1)||r[0]).stats)};
+      const uniq=new Map(); uniq.set(sig(winner), winner);
+      r.forEach(x=>{ const s={...z(),...x.stats}; const k=sig(s); if(!uniq.has(k)) uniq.set(k,s); });               // builds returned in the table
+      (window.__simSearchBuilds||[]).forEach(b=>{ const s={...z(),...(b.stats||{})}; const k=sig(s); if(!uniq.has(k)) uniq.set(k,s); }); // wider search exploration
+      const all=[...uniq.values()];
+      // Greedy farthest-point: winner first, then repeatedly the build most distant
+      // from everything already chosen.
+      const chosenStats=[winner];
+      while(chosenStats.length<6 && chosenStats.length<all.length){
+        let best=null,bd=-1;
+        for(const s of all){ if(chosenStats.indexOf(s)>=0) continue; let dmin=Infinity; for(const c of chosenStats){ const dd=dist(c,s); if(dd<dmin) dmin=dd; } if(dmin>bd){ bd=dmin; best=s; } }
+        if(!best || bd<6) break; chosenStats.push(best);
+      }
+      const leanLabel=(s)=>{ const tot=ATTRS.reduce((a,k)=>a+(s[k]||0),0)||1; let mk="S",mv=-1; ATTRS.forEach(k=>{ if((s[k]||0)>mv){ mv=s[k]||0; mk=k; } }); const frac=mv/tot; return frac>=0.6?("heavy "+STAT_NAME[mk]):(frac>=0.4?(STAT_NAME[mk]+"-leaning"):"balanced"); };
+      // Re-simulate the handful on common random numbers so the metrics are directly comparable.
+      const RUNS=Math.max(60, Math.min(160, inp.mcRunsPerBuild||160));
+      const mkrng=()=>{ let s=987654321>>>0; return ()=>{ s=(Math.imul(s,1103515245)+12345)>>>0; return s/4294967296; }; };
+      simTop=chosenStats.map((st,i)=>{ const row=aggregateBuildSim(st, inp, blocks, RUNS, mkrng()); row.stats=st; row.__label=(i===0?"recommended":leanLabel(st)); return pick(row); });
     }
   }catch(_e){}
   const ip=d.inputs||{};
@@ -5321,12 +5522,26 @@ window.refreshAscensionWarning=refreshAscensionWarning;
       close();                       // hand off from the checklist bubble to the modal
       if(diagFoot) diagFoot.hidden=true;
       openModal(); modalHTML('<p class="diag-spin">Analyzing your build with AI…</p>', false);
-      fetch(WORKER_URL, {
+      // One automatic retry on a transient failure (network error or 5xx); 429 and
+      // other 4xx are terminal so we don't hammer the worker or waste the cap.
+      var doFetch=function(){ return fetch(WORKER_URL, {
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({action:"explain", debug:snapshot})
-      }).then(function(res){
-        return res.text().then(function(t){ var p=null; try{p=JSON.parse(t);}catch(_e){} return {res:res,p:p}; });
-      }).then(function(r){
+      }).then(function(res){ return res.text().then(function(t){ var p=null; try{p=JSON.parse(t);}catch(_e){} return {res:res,p:p}; }); }); };
+      var retryOnce=function(again){
+        modalHTML('<p class="diag-spin">Retrying…</p>', false);
+        return new Promise(function(rs){ setTimeout(rs, 900); }).then(again);
+      };
+      var attempt=function(n){
+        return doFetch().then(function(r){
+          if(n===0 && r.res.status>=500) return retryOnce(function(){ return attempt(1); });
+          return r;
+        }).catch(function(err){
+          if(n===0) return retryOnce(function(){ return attempt(1); });
+          throw err;
+        });
+      };
+      attempt(0).then(function(r){
         var p=r.p||{}; applyUsage(p);
         if(r.res.status===429){ modalHTML("<p>"+esc(p.error||"You've used today's AI analysis.")+"</p>", true); modalFoot(p); return; }
         if(!r.res.ok || !p.explanation){ modalHTML("<p>Analysis failed: "+esc(p.error||("HTTP "+r.res.status))+"</p>", true); return; }
@@ -5559,11 +5774,13 @@ window.refreshAscensionWarning=refreshAscensionWarning;
         +'<p class="wiz-leadin" style="text-align:center;margin-bottom:14px">Your best build is ready. Press Next to view it, or re-run the optimizer.</p>'
         +'<button type="button" id="wizGo" class="runbtn ghost">Re-run optimizer</button>'
         +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
+        +'<div class="wiz-progbar" id="wizProgBar"><span></span></div>'
         +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
     }else{
       nativeEl.innerHTML='<div class="wiz-run-box">'
         +'<button type="button" id="wizGo" class="runbtn">Find my best build</button>'
         +'<label class="check-row" style="justify-content:center;margin-top:12px;display:flex;gap:6px"><input id="wizThorough" type="checkbox"> Thorough (exact, slower)</label>'
+        +'<div class="wiz-progbar" id="wizProgBar"><span></span></div>'
         +'<div class="wiz-run-status" id="wizRunStatus"></div></div>';
     }
     var t=gid("thoroughSearch"); if(t) gid("wizThorough").checked=!!t.checked;
@@ -5572,24 +5789,38 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   }
   async function doRun(){
     if(running) return; running=true;
-    var go=gid("wizGo"), st=gid("wizRunStatus");
-    if(go){ go.disabled=true; go.classList.add("btn-spin"); }
+    var go=gid("wizGo"), st=gid("wizRunStatus"), bar=gid("wizProgBar"), th=gid("wizThorough");
+    if(go) go.style.display="none";
+    if(th && th.closest("label")) th.closest("label").style.display="none";
+    if(bar) bar.classList.add("on");
     nextBtn.disabled=true; backBtn.disabled=true;
+    // Mirror the live engine status (the "N builds tried", "Simulation b/total"
+    // counts it already emits to the toast) into the wizard's progress line.
+    var phase="Searching for your best build…";
+    var mirror=setInterval(function(){
+      var t=(gid("status")||{}).textContent||"";
+      if(st) st.textContent = t && t.trim() ? t : phase;
+    }, 150);
     try{
-      if(st) st.textContent="Searching builds…";
+      if(st) st.textContent=phase;
       await runExact();
       var have = (typeof lastExactTopBuilds!=="undefined" && lastExactTopBuilds && lastExactTopBuilds.length);
       if(have){
-        if(st) st.textContent="Simulating top candidates…";
+        phase="Simulating the top builds…";
         await runMonteRerank();
       }
+      clearInterval(mirror);
       if(st) st.textContent="Done.";
       goStep(stepIndex("result"));
     }catch(e){
+      clearInterval(mirror);
+      if(bar) bar.classList.remove("on");
+      if(go){ go.style.display=""; }
+      if(th && th.closest("label")) th.closest("label").style.display="";
       if(st) st.textContent="Something went wrong: "+((e&&e.message)||e);
     }finally{
+      clearInterval(mirror);
       running=false;
-      if(go){ go.disabled=false; go.classList.remove("btn-spin"); }
       nextBtn.disabled=false; backBtn.disabled=false;
     }
   }

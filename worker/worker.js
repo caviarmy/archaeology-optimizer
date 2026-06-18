@@ -76,16 +76,16 @@ SIM CONSTRAINTS BUILDS COMPETE UNDER
 - Reward over a run is, in effect, how many blocks you clear times how much each is worth. The per-build metrics expose both sides — blocksPerHour and floorReached (how many blocks, how deep) versus rewardsPerStam, xpPerHour and allLootPerHour (how much each block and each point of stamina yields), with rewardsPerHour combining them. Work out from the numbers which side is carrying each build; do not assume one matters more.
 A high-scoring build is one whose qualities clear the hurdles that matter for the player's goal; a lower-scoring one falls short on at least one of them.
 
-YOU ARE GIVEN: the player's parsed inputs, upgrades, and goals. "goals" includes primaryGoalLabel, secondaryGoalLabel (or "none"), and "protection" — a plain-English statement of how a secondary goal is weighed against the primary (strict, or "may reduce the primary by up to N%"). "simulation.heroCard" is the winning build and its scores; "simulation.topResults" is the winner, the HEAVIEST build the search tried for each stat (what each lever buys at its limit and how it actually scored), and other strategically different builds. Each result carries: stats, simRank, rewardsPerHour, rewardsPerStam, blocksPerHour, xpPerHour, allLootPerHour, floorReached; primaryGoalValue and (when a secondary is set) secondaryGoalValue — the per-hour amount of exactly the metric each goal maximizes; and the mechanistic levers damage, critChancePct and maxStamina (the build's derived per-hit damage, crit chance, and max stamina). "estimate.topBuilds" is the EV pre-ranking. Compare using the SIMULATED results.
+YOU ARE GIVEN: the player's parsed inputs, upgrades, and goals. "goals" includes primaryGoalLabel, secondaryGoalLabel (or "none"), and "protection" — a plain-English statement of how a secondary goal is weighed against the primary (strict, or "may reduce the primary by up to N%"). "simulation.heroCard" is the winning build and its scores. "simulation.topResults" is a small set of genuinely different builds the optimizer actually simulated (the recommended winner plus the most distinct distributions it explored), each with a "build" label: "recommended" (the winner) and descriptive leans like "heavy Strength", "Luck-leaning", or "balanced". They were re-simulated on the same random rolls, so their numbers are directly comparable. Each carries: build, stats, rewardsPerHour, rewardsPerStam, blocksPerHour, xpPerHour, allLootPerHour, floorReached; primaryGoalValue and (when a secondary is set) secondaryGoalValue — the per-hour amount of exactly the metric each goal maximizes; and the mechanistic levers damage, critChancePct and maxStamina. "estimate.topBuilds" is the EV pre-ranking. Compare using the SIMULATED results.
 
-YOUR TASK — solve for the why, from the data, not from a template:
-- Never argue that a build is better merely because a number is higher. For every comparison, name the MECHANISM: which lever the build has more or less of (damage, crit, stamina, armor pen, a specific mod chance/gain — use the damage/critChancePct/maxStamina fields and the stat point effects above) and why that lever helps or hurts THIS goal given how rewards are produced (clearing more/deeper blocks before stamina runs out, versus extracting more reward per block).
-- Anchor on the goal's own metric: cite primaryGoalValue for the primary, and when a secondary is set, compare secondaryGoalValue across builds too. Say explicitly whether the winner also serves the secondary, or whether the "protection" tolerance let the primary give up a little to gain on the secondary — quote the protection rule and the numbers.
-- For each genuinely different candidate you discuss, reason from ITS stats, levers and goal values why it ranks where it does: which hurdle it clears better or worse, and how that nets out. Let the numbers decide whether a very different build is a near-equal alternative or clearly behind — do not pre-judge by which stat it favors.
-- If a player might over-generalize that a stat is always best or always useless, correct it only by showing, from THIS run, why the outcome is situational; never make blanket claims.
+YOUR TASK — explain, concisely, why the recommended build wins by contrasting it with the genuinely different alternatives:
+- Pick only the 2-3 MOST INSTRUCTIVE contrasts (e.g. the even split, or an all-in build that trades very differently). NEVER compare two builds that differ by only a point or two, and do not walk through every build — a few sharp comparisons beat an exhaustive list.
+- For each contrast, lead with the TRADE-OFF in the player's own goal terms: what the recommended build gives up and what it gains on the primary (and secondary) goal value versus that alternative, then name the MECHANISM (which lever — damage, crit, stamina, armor pen, a mod — and why it helps or hurts THIS goal, given that reward is roughly blocks cleared times reward per block). Cite the real primaryGoalValue / secondaryGoalValue / lever numbers.
+- If a secondary goal is set, say whether the recommended build also serves it or whether the "protection" tolerance let the primary give a little to gain on it; quote the rule and the numbers.
+- Correct an over-generalization (e.g. "always dump one stat" or "spread evenly") only by showing, from THIS run, why it is situational.
 - End with one concrete takeaway tied to the player's goal(s).
 
-WRITE plain text only (no markdown, asterisks, or "#"), about 7-10 sentences or "- " bullets, addressed to the player as "you". Cite real numbers from the data; never dump the JSON. If there is no completed build or run, say so and tell them to run Estimate then Simulate first.`;
+WRITE plain text only (no markdown, asterisks, or "#"), about 5-7 sentences, addressed to the player as "you". Cite real numbers from the data; never dump the JSON or list every build. If there is no completed build or run, say so and tell them to run Estimate then Simulate first.`;
 
 function corsHeaders(env, request) {
   const origin = request.headers.get("Origin") || "";
@@ -216,7 +216,12 @@ export default {
     const mimeType = m[1], b64 = m[2];
     if (b64.length > 9_000_000) return json({ error: "Image too large (downscale before sending)" }, 413, cors);
 
-    const model = env.GEMINI_MODEL || "gemini-2.0-flash-lite";
+    // OCR uses the full Flash model (not flash-lite): it is markedly more reliable
+    // on dense, small-text screenshots and far less likely to return an empty read,
+    // which was causing intermittent "couldn't read the image" failures. Cost per
+    // call is ~1.3x lite (negligible at OCR's daily-capped volume). Override with
+    // the GEMINI_OCR_MODEL secret if needed.
+    const model = env.GEMINI_OCR_MODEL || "gemini-2.0-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
     const payload = {
       contents: [{ role: "user", parts: [{ text: PROMPT }, { inlineData: { mimeType, data: b64 } }] }],
@@ -235,7 +240,15 @@ export default {
     }
 
     const out = await gem.json();
-    const text = out?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const cand = out?.candidates?.[0];
+    const text = cand?.content?.parts?.[0]?.text || "";
+    // An empty candidate (no text) is a distinct, common flaky failure: the model
+    // returned nothing usable (finishReason MAX_TOKENS/SAFETY/RECITATION, or a
+    // prompt block). Report it precisely instead of mislabeling it "non-JSON".
+    if (!text) {
+      const why = cand?.finishReason || out?.promptFeedback?.blockReason || "empty response";
+      return json({ error: "Gemini returned no readable result", finishReason: why }, 502, cors);
+    }
     let stats;
     try { stats = JSON.parse(text); } catch { return json({ error: "Model returned non-JSON", raw: text.slice(0, 600) }, 502, cors); }
 
