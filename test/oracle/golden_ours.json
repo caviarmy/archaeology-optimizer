@@ -760,5 +760,10 @@
         "armor": 10233.64125
       }
     }
+  },
+  "coeffs": {
+    "bonusDmgArpenA0": 0.02,
+    "bonusDmgExpA1": 0.1,
+    "bonusArpenCdA0": 0.02
   }
 }
