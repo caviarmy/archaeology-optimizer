@@ -5274,12 +5274,46 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
   });
 }
-// Stamp the loaded build version into the header so you can tell at a glance which
-// version is running (no need to export debug). The service worker is network-first,
-// so when you're online this is always the freshest deployed build.
+// Auto build stamp in the header — no manual version bumps, no CI. Reads the latest
+// commit on `main` (exactly what GitHub Pages deploys) from the public GitHub API and
+// shows its date + short SHA, so "version" and "last updated" are always current and
+// change on every push. Cached in localStorage (the API allows 60 req/hr per visitor
+// IP); falls back to the static APP_VERSION when offline or rate-limited.
 (function(){
   const el = document.getElementById("appVer");
-  if(el && typeof APP_VERSION !== "undefined") el.textContent = "v" + APP_VERSION;
+  if(!el) return;
+  if(typeof APP_VERSION !== "undefined") el.textContent = "v" + APP_VERSION;   // instant fallback
+  // Derive owner/repo from the Pages host when possible, else the known repo.
+  let REPO = "caviarmy/archaeology-optimizer";
+  try{
+    if(location.hostname.endsWith("github.io")){
+      const owner = location.hostname.split(".")[0];
+      const seg = location.pathname.split("/").filter(Boolean)[0];
+      if(owner && seg) REPO = owner + "/" + seg;
+    }
+  }catch(_e){}
+  const CACHE_KEY = "obeliskBuildStamp", TTL = 30*60*1000;
+  const fmtDate = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}); };
+  const paint = info => {
+    if(!info || !info.date) return;
+    const sha = (info.sha || "").slice(0,7);
+    el.textContent = "v" + fmtDate(info.date) + (sha ? (" · " + sha) : "");
+    el.title = "Latest pushed version" + (info.message ? (": " + String(info.message).split("\n")[0]) : "") + "\nUpdated " + new Date(info.date).toLocaleString();
+    try{ window.__buildStamp = info; }catch(_e){}
+  };
+  let cached = null; try{ cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); }catch(_e){}
+  if(cached && cached.date) paint(cached);
+  if(cached && cached.fetchedAt && (Date.now() - cached.fetchedAt) < TTL) return;   // still fresh
+  if(typeof fetch !== "function") return;
+  fetch("https://api.github.com/repos/" + REPO + "/commits/main", { headers:{ Accept:"application/vnd.github+json" } })
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then(j => {
+      const c = j.commit || {};
+      const info = { sha:j.sha, date:(c.committer && c.committer.date) || (c.author && c.author.date), message:c.message, fetchedAt:Date.now() };
+      paint(info);
+      try{ localStorage.setItem(CACHE_KEY, JSON.stringify(info)); }catch(_e){}
+    })
+    .catch(() => {});   // offline / rate-limited: keep the cached stamp or the APP_VERSION fallback
 })();
 
 </script>
