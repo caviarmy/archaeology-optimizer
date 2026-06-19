@@ -1,0 +1,27 @@
+{
+  "_comment": "Oracle scenarios for cross-checking our engine against lobogrande's source-faithful Python engine. Zero upgrades and zero cards, so the per-point base math is compared with no upgrade-index mapping needed. base_damage_const=10 and base stamina=100 match their hardcoded defaults; base crit-damage 1.5x and base super-crit mult 2.0x match their bases. build is S/A/P/I/L/D/C attribute points.",
+  "baseDamageConst": 10,
+  "baseStaminaConst": 100,
+  "baseCritDamage": 1.5,
+  "baseSuperDamage": 2,
+  "scenarios": [
+    {"name": "base_only",   "asc": 2, "build": {"S": 0,  "A": 0,  "P": 0,  "I": 0,  "L": 0,  "D": 0,  "C": 0}},
+    {"name": "pure_str",    "asc": 2, "build": {"S": 30, "A": 0,  "P": 0,  "I": 0,  "L": 0,  "D": 0,  "C": 0}},
+    {"name": "pure_agi",    "asc": 2, "build": {"S": 0,  "A": 40, "P": 0,  "I": 0,  "L": 0,  "D": 0,  "C": 0}},
+    {"name": "pure_per",    "asc": 2, "build": {"S": 0,  "A": 0,  "P": 25, "I": 0,  "L": 0,  "D": 0,  "C": 0}},
+    {"name": "pure_int",    "asc": 2, "build": {"S": 0,  "A": 0,  "P": 0,  "I": 25, "L": 0,  "D": 0,  "C": 0}},
+    {"name": "pure_luck",   "asc": 2, "build": {"S": 0,  "A": 0,  "P": 0,  "I": 0,  "L": 25, "D": 0,  "C": 0}},
+    {"name": "pure_div",    "asc": 2, "build": {"S": 0,  "A": 0,  "P": 0,  "I": 0,  "L": 0,  "D": 10, "C": 0}},
+    {"name": "pure_corr",   "asc": 2, "build": {"S": 0,  "A": 0,  "P": 0,  "I": 0,  "L": 0,  "D": 0,  "C": 10}},
+    {"name": "per_int_pen", "asc": 2, "build": {"S": 0,  "A": 0,  "P": 25, "I": 25, "L": 0,  "D": 0,  "C": 0}},
+    {"name": "str_corr",    "asc": 2, "build": {"S": 30, "A": 0,  "P": 0,  "I": 0,  "L": 0,  "D": 0,  "C": 10}},
+    {"name": "mixed_a2",    "asc": 2, "build": {"S": 14, "A": 12, "P": 3,  "I": 0,  "L": 8,  "D": 10, "C": 10}},
+    {"name": "mixed_a1",    "asc": 1, "build": {"S": 20, "A": 15, "P": 5,  "I": 5,  "L": 5,  "D": 10, "C": 0}},
+    {"name": "gating_a0",   "asc": 0, "build": {"S": 10, "A": 10, "P": 0,  "I": 0,  "L": 0,  "D": 10, "C": 10}}
+  ],
+  "_blockComment": "Block HP/armor check across the deep-floor scaling, including the floor-150 armor-skip and floor-300 double-trigger bugs lobogrande's engine preserves. Zero cards. Their block ids are <type><tier>; we map type com->common, leg->legendary, myth->mythic, div->divine.",
+  "blockChecks": {
+    "ids": ["dirt1","com1","rare1","epic1","leg1","myth1","div1","com4","rare4","epic4","leg4","myth4","div4"],
+    "floors": [1, 50, 99, 100, 149, 150, 199, 200, 250, 300]
+  }
+}
