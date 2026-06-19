@@ -61,6 +61,19 @@ setTimeout(() => {
   const out = {};
   for (const sc of [...spec.scenarios, ...(spec.upgradeScenarios || [])]) out[sc.name] = derive(sc);
 
+  // --- Per-level coefficients for the folded pool upgrades ---
+  // Set each field to level 1 and read the coefficient it adds, to compare against
+  // their UPGRADE_DEF value. These upgrades join an already-validated pool, so the
+  // coefficient is the only thing left to check.
+  const coeffsOut = {};
+  set("ascension", "2");
+  for (const cc of (spec.coefficientChecks || [])) {
+    set(cc.field, "1");
+    const inc = W.getInputs().inc;
+    coeffsOut[cc.field] = inc[cc.incField] || 0;
+    set(cc.field, "0");
+  }
+
   // --- Card HP/reward multipliers by rarity ---
   const cardsOut = {};
   for (const c of (spec.cardChecks || [])) {
@@ -87,7 +100,7 @@ setTimeout(() => {
     }
   }
 
-  fs.writeFileSync(path.join(HERE, "ours.json"), JSON.stringify({ stats: out, cards: cardsOut, blocks: blocksOut }, null, 2));
-  console.log(`wrote ours.json (${Object.keys(out).length} stat scenarios, ${Object.keys(cardsOut).length} cards, ${Object.keys(blocksOut).length} block ids)` + (errs.length ? `  [jsdom notes: ${errs.length}]` : ""));
+  fs.writeFileSync(path.join(HERE, "ours.json"), JSON.stringify({ stats: out, cards: cardsOut, blocks: blocksOut, coeffs: coeffsOut }, null, 2));
+  console.log(`wrote ours.json (${Object.keys(out).length} stat scenarios, ${Object.keys(cardsOut).length} cards, ${Object.keys(blocksOut).length} block ids, ${Object.keys(coeffsOut).length} coeffs)` + (errs.length ? `  [jsdom notes: ${errs.length}]` : ""));
   process.exit(0);
 }, 500);

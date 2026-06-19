@@ -28,6 +28,12 @@
     {"name": "u_div",     "asc": 2, "build": {"S": 0,  "A": 0,  "P": 0,  "I": 0,  "L": 0,  "D": 10, "C": 0},  "ours": {"modDivA2": 5}, "theirs": {"34": 5}},
     {"name": "u_corr",    "asc": 2, "build": {"S": 30, "A": 0,  "P": 0,  "I": 0,  "L": 0,  "D": 0,  "C": 10}, "ours": {"modCorrA2": 10}, "theirs": {"52": 10}}
   ],
+  "_coeffComment": "The damage%/armor-pen% pool upgrades are folded into the displayed base in our model (reverseBaseStats divides them back out), so they cannot be set on a clean base without double-applying. They join the SAME pool as the per-point strDamagePct / intArmorPen that the stat scenarios already validate, so the only thing left to verify is that our per-level coefficient equals their UPGRADE_DEF value. row gives their UPGRADE_DEF F-multiplier; incField is the our-side coefficient one level adds.",
+  "coefficientChecks": [
+    {"field": "bonusDmgArpenA0", "incField": "nonAttrDmgPct", "row": 36},
+    {"field": "bonusDmgExpA1",   "incField": "nonAttrDmgPct", "row": 51},
+    {"field": "bonusArpenCdA0",  "incField": "nonAttrPenPct", "row": 29}
+  ],
   "_cardComment": "Card HP/reward multipliers by rarity. Their get_card_bonuses(level) vs our cardBonusForState(state). Levels: 1 standard, 2 gilded, 3 polychrome; F41 (row 41) is the +15% polychrome upgrade.",
   "cardChecks": [
     {"name": "standard",      "ourState": "owned",      "polyUpgrade": false, "theirLevel": 1, "theirPoly": 0},

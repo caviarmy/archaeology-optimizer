@@ -41,6 +41,12 @@ out = {}
 for sc in spec["scenarios"] + spec.get("upgradeScenarios", []):
     out[sc["name"]] = stats_for(sc)
 
+# --- Per-level coefficients for the folded pool upgrades (from UPGRADE_DEF) ---
+upgrade_defs = {}
+for cc in spec.get("coefficientChecks", []):
+    row = cc["row"]
+    upgrade_defs[str(row)] = Player.UPGRADE_DEF[row][1]   # the F (first) multiplier
+
 # --- Card HP/reward multipliers by rarity ---
 cards_out = {}
 for c in spec.get("cardChecks", []):
@@ -63,5 +69,5 @@ if bc:
             blocks_out[bid][str(fl)] = {"hp": float(blk.hp), "armor": float(blk.armor)}
 
 with open(os.path.join(HERE, "theirs.json"), "w") as f:
-    json.dump({"stats": out, "cards": cards_out, "blocks": blocks_out}, f, indent=2)
-print("wrote theirs.json (%d stat scenarios, %d cards, %d block ids)" % (len(out), len(cards_out), len(blocks_out)))
+    json.dump({"stats": out, "cards": cards_out, "blocks": blocks_out, "upgradeDefs": upgrade_defs}, f, indent=2)
+print("wrote theirs.json (%d stat scenarios, %d cards, %d block ids, %d coeffs)" % (len(out), len(cards_out), len(blocks_out), len(upgrade_defs)))

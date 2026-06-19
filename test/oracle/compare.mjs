@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const theirsAll = JSON.parse(fs.readFileSync(path.join(HERE, "theirs.json"), "utf8"));
 const oursAll = JSON.parse(fs.readFileSync(path.join(HERE, "ours.json"), "utf8"));
+const spec = JSON.parse(fs.readFileSync(path.join(HERE, "scenarios.json"), "utf8"));
 const theirs = theirsAll.stats || theirsAll;
 const ours = oursAll.stats || oursAll;
 
@@ -43,6 +44,16 @@ function fmt(x) { return x === undefined ? "—" : (Math.abs(x) >= 100 ? x.toFix
 
 console.log(`Oracle stat comparison: ${total - fail}/${total} field checks within tolerance across ${Object.keys(theirs).length} scenarios.`);
 
+// --- Folded pool-upgrade per-level coefficients vs their UPGRADE_DEF ---
+const tcoef = theirsAll.upgradeDefs || {}, ocoef = oursAll.coeffs || {};
+let pfail = 0, ptotal = 0;
+for (const cc of (spec.coefficientChecks || [])) {
+  ptotal++;
+  const tv = tcoef[String(cc.row)], ov = ocoef[cc.field];
+  if (!(ov !== undefined && Math.abs(tv - ov) <= 1e-9)) { pfail++; rows.push(`  FAIL  coeff ${cc.field.padEnd(16)} (row ${cc.row}) theirs=${tv} ours=${ov}`); }
+}
+if (ptotal) console.log(`Oracle coefficient comparison: ${ptotal - pfail}/${ptotal} pool-upgrade per-level coefficients match their UPGRADE_DEF.`);
+
 // --- Card HP/reward multipliers by rarity ---
 const tc = theirsAll.cards || {}, oc = oursAll.cards || {};
 let cfail = 0, ctotal = 0;
@@ -74,6 +85,6 @@ for (const id of Object.keys(tb)) {
 }
 if (btotal) console.log(`Oracle block comparison: ${btotal - bfail}/${btotal} hp/armor checks within tolerance across ${Object.keys(tb).length} block ids x ${Object.keys(tb[Object.keys(tb)[0]]||{}).length} floors.`);
 
-const allFail = fail + cfail + bfail;
+const allFail = fail + pfail + cfail + bfail;
 if (allFail) { console.log("Divergences:"); rows.forEach(r => console.log(r)); console.log(`\n${allFail} divergence(s).`); process.exit(1); }
-else { console.log("All within tolerance. Our stat math (incl. skill-buff upgrades), card multipliers, and block model (incl. the floor-150/300 scaling bugs) match lobogrande's source-faithful engine."); }
+else { console.log("All within tolerance. Our stat math (incl. skill-buff upgrades), pool-upgrade coefficients, card multipliers, and block model (incl. the floor-150/300 scaling bugs) match lobogrande's source-faithful engine."); }
