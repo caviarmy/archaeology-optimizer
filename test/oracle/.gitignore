@@ -1,3 +1,5 @@
 vendor/
 theirs.json
 ours.json
+run_theirs.json
+run_ours.json

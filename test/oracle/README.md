@@ -88,16 +88,31 @@ stat), so there is nothing to diverge.
   floor scaling, so the block armor tolerance is 3%, which still catches any
   structural scaling error (a missed bug would be a large factor).
 
-## Phase 2: results (combat run) comparison
+## 4. Run-results comparison (Phase 2)
 
-The layers above validate the inputs to a run (stats and block stats). The next
-step is comparing run *results*: their `engine/combat_loop.py`
-(`CombatSimulator(player).run_simulation()`) against our `aggregateBuildSim`, for
-floor reached, rewards, and block counts. It is a separate phase because it needs
-the full upgrade/card/RNG configuration mapped between the engines, and because
-their micro-tick simulation and our expected-value-plus-Monte-Carlo model agree
-in expectation rather than exactly, so it is a tolerance comparison on averages
-rather than a near-equality check.
+`bash test/oracle/phase2.sh`
+
+Runs a full dig many times in both engines (their
+`CombatSimulator(player).run_simulation()` vs our `simulateOneRun`) and compares
+the **average floor reached**. Scenarios use zero upgrades/cards and no Luck or
+Divinity, so there are no stamina refunds, crosshairs, or auto-abilities, leaving
+a clean stamina-limited dig. Their micro-tick simulation and our model agree in
+expectation, not exactly, so this is a tolerance comparison on averages.
+
+Current result: **all 4 scenarios agree on average floor.** Two things to know:
+
+- **Floor accounting.** Our `floorReached` counts within-floor partial progress;
+  their `highest_floor` is the integer floor. So ours reads consistently about
+  0.2 of a floor higher. The gate is `max(0.5 floor, 6%)`, which passes that
+  accounting offset while still failing a real depth divergence (a whole floor or
+  more).
+- **Block count is informational.** The engines can mine slightly different block
+  counts to the same depth (3-16% here), from per-floor node-count and
+  partial-floor differences, without that being a depth defect, so only floor is
+  gated.
+
+Adding upgrade/card/ability configurations and reward comparisons to this phase
+is the natural next extension.
 
 ## Provenance
 
