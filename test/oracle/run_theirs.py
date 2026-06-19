@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+# Run each scenario through lobogrande's source-faithful Player and emit the
+# derived stats to theirs.json. Zero upgrades / zero cards, so this is the pure
+# per-point base math (the part we can compare with no upgrade-index mapping).
+import json, os, sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "vendor"))
+try:
+    from core.player import Player
+except Exception as e:
+    sys.stderr.write("Could not import vendored engine. Run ./fetch-engine.sh first.\n%s\n" % e)
+    sys.exit(2)
+
+with open(os.path.join(HERE, "scenarios.json")) as f:
+    spec = json.load(f)
+
+out = {}
+for sc in spec["scenarios"]:
+    p = Player()
+    p.base_damage_const = spec["baseDamageConst"]
+    p.arch_level = 100
+    p.asc1_unlocked = sc["asc"] >= 1
+    p.asc2_unlocked = sc["asc"] >= 2
+    b = sc["build"]
+    p.base_stats = {"Str": b["S"], "Agi": b["A"], "Per": b["P"], "Int": b["I"],
+                    "Luck": b["L"], "Div": b["D"], "Corr": b["C"]}
+    out[sc["name"]] = {
+        "damage":          float(p.damage),
+        "maxSta":          float(p.max_sta),
+        "armorPen":        float(p.armor_pen),
+        "critChance":      float(p.crit_chance),
+        "critDmgMult":     float(p.crit_dmg_mult),
+        "superCritChance": float(p.super_crit_chance),
+        "superCritMult":   float(p.super_crit_dmg_mult),
+        "ultraCritChance": float(p.ultra_crit_chance),
+    }
+
+# --- Block HP/armor across the deep-floor scaling (incl. the preserved bugs) ---
+blocks_out = {}
+bc = spec.get("blockChecks")
+if bc:
+    from core.block import Block
+    pp = Player()  # zero upgrades / zero cards
+    for bid in bc["ids"]:
+        blocks_out[bid] = {}
+        for fl in bc["floors"]:
+            blk = Block(bid, fl, pp)
+            blocks_out[bid][str(fl)] = {"hp": float(blk.hp), "armor": float(blk.armor)}
+
+with open(os.path.join(HERE, "theirs.json"), "w") as f:
+    json.dump({"stats": out, "blocks": blocks_out}, f, indent=2)
+print("wrote theirs.json (%d stat scenarios, %d block ids)" % (len(out), len(blocks_out)))
