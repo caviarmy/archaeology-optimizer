@@ -61,12 +61,17 @@ blocks_out = {}
 bc = spec.get("blockChecks")
 if bc:
     from core.block import Block
-    pp = Player()  # zero upgrades / zero cards
+    pp = Player()  # zero upgrades / zero cards (exp/frag gain = 1, no mods)
     for bid in bc["ids"]:
-        blocks_out[bid] = {}
+        entry = {"byFloor": {}}
         for fl in bc["floors"]:
             blk = Block(bid, fl, pp)
-            blocks_out[bid][str(fl)] = {"hp": float(blk.hp), "armor": float(blk.armor)}
+            entry["byFloor"][str(fl)] = {"hp": float(blk.hp), "armor": float(blk.armor)}
+        # xp/frag yield does not scale with floor (only HP/armor do), so sample once.
+        blk0 = Block(bid, bc["floors"][0], pp)
+        entry["xp"] = float(blk0.xp)
+        entry["frag"] = float(blk0.frag_amt)
+        blocks_out[bid] = entry
 
 with open(os.path.join(HERE, "theirs.json"), "w") as f:
     json.dump({"stats": out, "cards": cards_out, "blocks": blocks_out, "upgradeDefs": upgrade_defs}, f, indent=2)

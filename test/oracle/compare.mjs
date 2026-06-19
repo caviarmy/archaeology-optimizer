@@ -75,15 +75,28 @@ const hpTol = (t, o) => Math.abs(t - o) <= Math.max(1.0, 0.002 * Math.abs(t));
 // scaling. 3% absorbs integer base-armor rounding while still catching any
 // structural scaling error (a missed 150-skip or 300-double would be a large factor).
 const arTol = (t, o) => Math.abs(t - o) <= Math.max(1.0, 0.03 * Math.abs(t));
+// xp/frag yield are within 0.5% (their floor/round rules vs our raw values).
+const rwTol = (t, o) => Math.abs(t - o) <= Math.max(0.01, 0.005 * Math.abs(t));
+let rwfail = 0, rwtotal = 0;
 for (const id of Object.keys(tb)) {
-  for (const fl of Object.keys(tb[id])) {
-    const t = tb[id][fl], o = (ob[id] || {})[fl] || {};
+  const byFloor = tb[id].byFloor || {};
+  for (const fl of Object.keys(byFloor)) {
+    const t = byFloor[fl], o = ((ob[id] || {}).byFloor || {})[fl] || {};
     btotal += 2;
     if (!(o.hp !== undefined && hpTol(t.hp, o.hp))) { bfail++; rows.push(`  FAIL  block ${id}@${fl} hp     theirs=${fmt(t.hp)} ours=${fmt(o.hp)}`); }
     if (!(o.armor !== undefined && arTol(t.armor, o.armor))) { bfail++; rows.push(`  FAIL  block ${id}@${fl} armor  theirs=${fmt(t.armor)} ours=${fmt(o.armor)}`); }
   }
+  // per-block reward yield (xp, fragments)
+  const oid = ob[id] || {};
+  for (const f of ["xp", "frag"]) {
+    rwtotal++;
+    if (!(oid[f] !== undefined && rwTol(tb[id][f], oid[f]))) { rwfail++; rows.push(`  FAIL  reward ${id} ${f}  theirs=${fmt(tb[id][f])} ours=${fmt(oid[f])}`); }
+  }
 }
-if (btotal) console.log(`Oracle block comparison: ${btotal - bfail}/${btotal} hp/armor checks within tolerance across ${Object.keys(tb).length} block ids x ${Object.keys(tb[Object.keys(tb)[0]]||{}).length} floors.`);
+const nFloors = Object.keys((tb[Object.keys(tb)[0]] || {}).byFloor || {}).length;
+if (btotal) console.log(`Oracle block comparison: ${btotal - bfail}/${btotal} hp/armor checks within tolerance across ${Object.keys(tb).length} block ids x ${nFloors} floors.`);
+if (rwtotal) console.log(`Oracle reward comparison: ${rwtotal - rwfail}/${rwtotal} per-block xp/fragment yields match across ${Object.keys(tb).length} blocks.`);
+bfail += rwfail;
 
 const allFail = fail + pfail + cfail + bfail;
 if (allFail) { console.log("Divergences:"); rows.forEach(r => console.log(r)); console.log(`\n${allFail} divergence(s).`); process.exit(1); }
