@@ -129,6 +129,88 @@
       "superCritChance": 0,
       "superCritMult": 2,
       "ultraCritChance": 0
+    },
+    "u_str_a0": {
+      "damage": 101.5,
+      "maxSta": 100,
+      "armorPen": 0,
+      "critChance": 0,
+      "critDmgMult": 2.8499999999999996,
+      "superCritChance": 0,
+      "superCritMult": 2,
+      "ultraCritChance": 0
+    },
+    "u_str_a1": {
+      "damage": 64,
+      "maxSta": 100,
+      "armorPen": 0,
+      "critChance": 0,
+      "critDmgMult": 3.3,
+      "superCritChance": 0,
+      "superCritMult": 2,
+      "ultraCritChance": 0
+    },
+    "u_agi": {
+      "damage": 10,
+      "maxSta": 500,
+      "armorPen": 0,
+      "critChance": 0.4,
+      "critDmgMult": 1.5,
+      "superCritChance": 0,
+      "superCritMult": 2,
+      "ultraCritChance": 0
+    },
+    "u_per": {
+      "damage": 10,
+      "maxSta": 100,
+      "armorPen": 175,
+      "critChance": 0,
+      "critDmgMult": 1.5,
+      "superCritChance": 0,
+      "superCritMult": 2,
+      "ultraCritChance": 0
+    },
+    "u_div": {
+      "damage": 40,
+      "maxSta": 100,
+      "armorPen": 0,
+      "critChance": 0,
+      "critDmgMult": 1.5,
+      "superCritChance": 0.3,
+      "superCritMult": 2,
+      "ultraCritChance": 0
+    },
+    "u_corr": {
+      "damage": 84,
+      "maxSta": 70,
+      "armorPen": 0,
+      "critChance": 0,
+      "critDmgMult": 2.8499999999999996,
+      "superCritChance": 0,
+      "superCritMult": 2,
+      "ultraCritChance": 0
+    }
+  },
+  "cards": {
+    "standard": {
+      "hpMult": 0.9,
+      "rewardMult": 1.1,
+      "lootMult": 1.1
+    },
+    "gilded": {
+      "hpMult": 0.8,
+      "rewardMult": 1.2,
+      "lootMult": 1.2
+    },
+    "polychrome": {
+      "hpMult": 0.65,
+      "rewardMult": 1.35,
+      "lootMult": 1.35
+    },
+    "polychrome_up": {
+      "hpMult": 0.5,
+      "rewardMult": 1.5,
+      "lootMult": 1.5
     }
   },
   "blocks": {
