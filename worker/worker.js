@@ -216,48 +216,52 @@ export default {
     const mimeType = m[1], b64 = m[2];
     if (b64.length > 9_000_000) return json({ error: "Image too large (downscale before sending)" }, 413, cors);
 
-    // OCR uses the full Flash model (not flash-lite): it is markedly more reliable
-    // on dense, small-text screenshots and far less likely to return an empty read,
-    // which was causing intermittent "couldn't read the image" failures. Cost per
-    // call is ~1.3x lite (negligible at OCR's daily-capped volume). Override with
-    // the GEMINI_OCR_MODEL secret if needed.
-    const model = env.GEMINI_OCR_MODEL || "gemini-2.0-flash";
+    // Use the configured model (set via GEMINI_MODEL in wrangler.toml). The model
+    // is NOT the cause of the intermittent failures — see thinkingConfig below.
+    const model = env.GEMINI_MODEL || "gemini-2.5-flash-lite";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+    // Root cause of the intermittent "couldn't read the image" failures: the 2.5
+    // models are THINKING models, and by default they can spend their output budget
+    // on internal reasoning before answering. With structured-output JSON that
+    // occasionally leaves no room for the actual answer, so the candidate comes back
+    // EMPTY (finishReason MAX_TOKENS) — a transient miss that "works on retry". OCR
+    // is pure transcription and needs no thinking, so we disable it (2.5 models only;
+    // sending thinkingConfig to a non-2.5 model errors). This makes reads reliable,
+    // faster and cheaper. A bounded server-side retry covers any residual transient.
+    const generationConfig = { temperature: 0, responseMimeType: "application/json", responseSchema: SCHEMA };
+    if (/2\.5/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: 0 };
     const payload = {
       contents: [{ role: "user", parts: [{ text: PROMPT }, { inlineData: { mimeType, data: b64 } }] }],
-      generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: SCHEMA }
+      generationConfig
     };
 
-    let gem;
-    try {
-      gem = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    } catch (e) {
-      return json({ error: "Could not reach Gemini", detail: String(e) }, 502, cors);
-    }
-    if (!gem.ok) {
-      const detail = (await gem.text()).slice(0, 600);
-      return json({ error: "Gemini request failed", status: gem.status, detail }, 502, cors);
-    }
+    // Retry only the genuine transient failures (network blip, 5xx, empty candidate,
+    // unparseable or all-null read) — never a 4xx. With thinking disabled an empty
+    // read should be rare; this is a small safety net, not blind hammering.
+    let clean = null, lastErr = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let gem;
+      try {
+        gem = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      } catch (e) { lastErr = { error: "Could not reach Gemini", detail: String(e) }; continue; }
+      if (gem.status >= 500) { lastErr = { error: "Gemini request failed", status: gem.status, detail: (await gem.text()).slice(0, 300) }; continue; }
+      if (!gem.ok) { const detail = (await gem.text()).slice(0, 600); return json({ error: "Gemini request failed", status: gem.status, detail }, 502, cors); }
 
-    const out = await gem.json();
-    const cand = out?.candidates?.[0];
-    const text = cand?.content?.parts?.[0]?.text || "";
-    // An empty candidate (no text) is a distinct, common flaky failure: the model
-    // returned nothing usable (finishReason MAX_TOKENS/SAFETY/RECITATION, or a
-    // prompt block). Report it precisely instead of mislabeling it "non-JSON".
-    if (!text) {
-      const why = cand?.finishReason || out?.promptFeedback?.blockReason || "empty response";
-      return json({ error: "Gemini returned no readable result", finishReason: why }, 502, cors);
-    }
-    let stats;
-    try { stats = JSON.parse(text); } catch { return json({ error: "Model returned non-JSON", raw: text.slice(0, 600) }, 502, cors); }
+      const out = await gem.json();
+      const cand = out?.candidates?.[0];
+      const text = cand?.content?.parts?.[0]?.text || "";
+      if (!text) { lastErr = { error: "Gemini returned no readable result", finishReason: cand?.finishReason || out?.promptFeedback?.blockReason || "empty response" }; continue; }
 
-    // Keep only known numeric fields; drop nulls so the client doesn't overwrite with blanks.
-    const clean = {};
-    for (const f of FIELDS) {
-      const v = stats[f];
-      if (typeof v === "number" && isFinite(v)) clean[f] = v;
+      let stats;
+      try { stats = JSON.parse(text); } catch { lastErr = { error: "Model returned non-JSON", raw: text.slice(0, 300) }; continue; }
+
+      // Keep only known numeric fields; drop nulls so the client doesn't overwrite with blanks.
+      const c = {};
+      for (const f of FIELDS) { const v = stats[f]; if (typeof v === "number" && isFinite(v)) c[f] = v; }
+      if (Object.keys(c).length === 0) { lastErr = { error: "Model read no values from the image", finishReason: cand?.finishReason || "all-null" }; continue; }
+      clean = c; break;
     }
+    if (!clean) return json({ ...(lastErr || { error: "OCR failed" }), retried: true }, 502, cors);
     return json({ stats: clean }, 200, cors);
   }
 };
