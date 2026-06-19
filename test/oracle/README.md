@@ -35,20 +35,40 @@ runs every scenario through both engines, and diffs:
 - **Stats:** for builds that exercise every per-point attribute and the
   ascension gating, compares damage, max stamina, crit chance, crit-damage
   multiplier, super-crit chance, and armor pen.
+- **Upgrades:** the per-point skill buffs, each set to a level in both engines
+  and compared on the stats it moves.
+- **Cards:** the HP and reward multipliers for each rarity (standard, gilded,
+  polychrome, and polychrome with the +15% upgrade).
 - **Blocks:** base HP and armor for every tier and rarity, scaled across floors
   1 to 300, which exercises the deep-floor scaling including the two game bugs
   their engine preserves (the floor-150 armor skip and the floor-300
   double-trigger).
 
-Current result: **94/94 stat checks and 260/260 block checks within tolerance.**
-Our per-point math and block model match their source-faithful engine.
+Current result: **137/137 stat checks (incl. skill-buff upgrades), 8/8 card
+multiplier checks, and 260/260 block checks within tolerance.** Our per-point
+math, skill-buff upgrades, card multipliers, and block model all match their
+source-faithful engine.
 
-### Why a zero-upgrade baseline
+### Coverage and mapping
 
-Scenarios use no upgrades and no cards. That makes the per-point base math
-directly comparable with no upgrade-index mapping, so a divergence is a real math
-difference rather than a mapping guess. Upgrades can be added later by mapping our
-upgrade fields to their `UPGRADE_DEF` indices one at a time.
+The base scenarios use no upgrades, so the per-point base math is comparable
+with no mapping. The upgrade scenarios then map one of our skill-buff fields to
+one of their upgrade rows (verified one to one), so a divergence is a real math
+difference, not a mapping guess:
+
+| our field | their row | effect |
+| --- | --- | --- |
+| modStrA0 | 25 | Strength flat damage + damage% |
+| modStrA1 | 47 | Strength damage% + crit damage% |
+| modAgi | 26 | max stamina per Agility |
+| modPer | 33 | armor pen per Perception |
+| modInt | 35 | exp gain per Intellect |
+| modDivA2 | 34 | Divinity flat damage + super-crit |
+| modCorrA2 | 52 | Corruption damage% |
+
+Still to add: the flat-damage and damage%/armor-pen pool upgrades, which our
+model folds into the displayed base stat rather than computing from a level, so
+they need the base walked out to compare apples to apples.
 
 ### Two documented, benign differences
 
