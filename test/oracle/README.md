@@ -44,11 +44,29 @@ runs every scenario through both engines, and diffs:
   1 to 300, which exercises the deep-floor scaling including the two game bugs
   their engine preserves (the floor-150 armor skip and the floor-300
   double-trigger).
+- **Block rewards:** the per-block xp and fragment yield for every tier and
+  rarity (zero cards, gain multipliers at 1), against their `Block.xp` /
+  `Block.frag_amt`.
 
-Current result: **137/137 stat checks (incl. skill-buff upgrades), 3/3 pool-upgrade
-coefficient checks, 8/8 card multiplier checks, and 260/260 block checks within
-tolerance.** Our per-point math, skill-buff upgrades, pool-upgrade coefficients,
-card multipliers, and block model all match their source-faithful engine.
+Current result: **137/137 stats, 3/3 pool-upgrade coefficients, 8/8 card
+multipliers, 260/260 block hp/armor, and 26/26 per-block xp/fragment yields
+within tolerance.** Our per-point math, skill-buff upgrades, pool-upgrade
+coefficients, card multipliers, block model, and per-block rewards all match
+their source-faithful engine.
+
+### Block-spawn model (`bash test/oracle/spawn.sh`)
+
+Their spawn model is a fixed 24-slot grid: each slot rolls top-down (divine to
+dirt) a "1-in-X" chance per unlocked rarity and takes the first hit, else stays
+empty, with no minimum. The marginal per-slot probability that falls out of that
+sequential roll equals our percentage rate table, and the spawn check confirms it
+(42/42 per-slot rarity probabilities match their sampled distribution). The one
+real difference: **our model guarantees the first 6 of the 24 slots are filled,
+theirs has no minimum**, so our floors carry about `6*(1-p)` extra blocks (`p` =
+the per-slot fill probability), largest at shallow floors (about +3 at floor 1,
+shrinking toward 0 as floors fill). This is the source of the block-count and
+run-reward differences below, and it is a modeling choice in our engine, not a
+defect found against theirs.
 
 ### Coverage and mapping
 
@@ -106,13 +124,14 @@ Current result: **all 4 scenarios agree on average floor.** Two things to know:
   0.2 of a floor higher. The gate is `max(0.5 floor, 6%)`, which passes that
   accounting offset while still failing a real depth divergence (a whole floor or
   more).
-- **Block count is informational.** The engines can mine slightly different block
-  counts to the same depth (3-16% here), from per-floor node-count and
-  partial-floor differences, without that being a depth defect, so only floor is
-  gated.
+- **Block count and reward are informational.** Ours mines 3-16% more blocks to
+  the same depth (the 6-node minimum above), so total xp per run runs slightly
+  higher too. Per-block reward valuation is validated cleanly in the block-reward
+  check; at run level, xp per block stays within a few percent, the small gap
+  being the extra low-floor blocks our minimum adds. Only floor is gated.
 
-Adding upgrade/card/ability configurations and reward comparisons to this phase
-is the natural next extension.
+Adding upgrade/card/ability configurations to this phase is the natural next
+extension.
 
 ## Provenance
 
