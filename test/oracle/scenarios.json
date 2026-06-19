@@ -41,6 +41,17 @@
     {"name": "polychrome",    "ourState": "polychrome", "polyUpgrade": false, "theirLevel": 3, "theirPoly": 0},
     {"name": "polychrome_up", "ourState": "polychrome", "polyUpgrade": true,  "theirLevel": 3, "theirPoly": 1}
   ],
+  "_runComment": "Phase 2: run RESULTS. Run a full dig many times in both engines (zero upgrades/cards, no Luck/Div so there are no stamina refunds, crosshairs, or auto-abilities) and compare the average floor reached. Their micro-tick sim and our EV+Monte-Carlo model agree in expectation, so floor is gated within a tolerance and block count is informational. Builds use only S/A/P/I to keep the dig deterministic in its mechanics.",
+  "runComparison": {
+    "N": 400,
+    "floorTolerancePct": 6,
+    "scenarios": [
+      {"name": "l20",     "level": 20, "asc": 2, "build": {"S": 10, "A": 10, "P": 0,  "I": 0,  "L": 0, "D": 0, "C": 0}},
+      {"name": "l40_str", "level": 40, "asc": 2, "build": {"S": 20, "A": 20, "P": 0,  "I": 0,  "L": 0, "D": 0, "C": 0}},
+      {"name": "l40_bal", "level": 40, "asc": 2, "build": {"S": 10, "A": 10, "P": 10, "I": 10, "L": 0, "D": 0, "C": 0}},
+      {"name": "l60",     "level": 60, "asc": 2, "build": {"S": 30, "A": 30, "P": 0,  "I": 0,  "L": 0, "D": 0, "C": 0}}
+    ]
+  },
   "_blockComment": "Block HP/armor check across the deep-floor scaling, including the floor-150 armor-skip and floor-300 double-trigger bugs lobogrande's engine preserves. Zero cards. Their block ids are <type><tier>; we map type com->common, leg->legendary, myth->mythic, div->divine.",
   "blockChecks": {
     "ids": ["dirt1","com1","rare1","epic1","leg1","myth1","div1","com4","rare4","epic4","leg4","myth4","div4"],
