@@ -3,7 +3,7 @@
 ## 2026-06-19
 
 ### Added
-- **The header shows an automatic build stamp — version + last updated — that needs no manual bumping.** It reads the latest commit on `main` (exactly what GitHub Pages deploys) from GitHub's public API and shows its date and short commit id (e.g. `v2026 Jun 19 · 8665461`), with the full timestamp and the change summary on hover. It updates on every push to main on its own, so you can always tell at a glance whether you're on the latest build. The result is cached briefly per visitor, and falls back to the built-in version when offline.
+- **A discreet automatic build stamp in the footer — version + last updated — that needs no manual bumping.** At the bottom of the page it reads the latest commit on `main` (exactly what GitHub Pages deploys) from GitHub's public API and shows its date and short commit id (e.g. `v2026 Jun 19 · 8665461`), with the full timestamp and the change summary on hover. It updates on every push to main on its own, so you can always tell whether you're on the latest build. The result is cached briefly per visitor, and falls back to the built-in version when offline.
 
 ## 2026-06-17
 
