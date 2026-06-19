@@ -2,6 +2,9 @@
 
 ## 2026-06-19
 
+### Fixed
+- **Stat-import screenshot reading no longer fails intermittently — real root cause fixed.** The true cause was not the model (it happened on every 2.5 model): the 2.5 Gemini models are *thinking* models, and by default they can spend their output budget on internal reasoning before answering. With structured-output JSON that occasionally left no room for the answer, so the model returned an empty result (an intermittent "couldn't read the image" that worked on retry). OCR is pure transcription, so the worker now disables thinking for that call (`thinkingBudget: 0` on 2.5 models), which makes reads reliable — and faster and cheaper. A small bounded server-side retry covers any residual transient (a network blip, a 5xx, or an empty/all-null read), and a genuine failure now reports the model's exact finish reason. The OCR model itself is unchanged from your configured one. (Supersedes the 2026-06-17 note that attributed this to the model tier. Worker change, deploys on merge.)
+
 ### Added
 - **A discreet automatic build stamp in the footer — version + last updated — that needs no manual bumping.** At the bottom of the page it reads the latest commit on `main` (exactly what GitHub Pages deploys) from GitHub's public API and shows its date and short commit id (e.g. `v2026 Jun 19 · 8665461`), with the full timestamp and the change summary on hover. It updates on every push to main on its own, so you can always tell whether you're on the latest build. The result is cached briefly per visitor, and falls back to the built-in version when offline.
 
