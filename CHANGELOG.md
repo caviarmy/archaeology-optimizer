@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-06-19
+
+### Added
+- **The loaded build version now shows in the header** (e.g. `v2026.06.19.1`), so you can tell at a glance which version you're running without exporting the debug JSON. The service worker is network-first, so when you're online this is always the freshest deployed build; a changed number here confirms an update went through.
+
 ## 2026-06-17
 
 ### Fixed
