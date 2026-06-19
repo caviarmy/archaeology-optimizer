@@ -36,7 +36,8 @@ runs every scenario through both engines, and diffs:
   ascension gating, compares damage, max stamina, crit chance, crit-damage
   multiplier, super-crit chance, and armor pen.
 - **Upgrades:** the per-point skill buffs, each set to a level in both engines
-  and compared on the stats it moves.
+  and compared on the stats it moves; plus a coefficient check that confirms our
+  per-level value for the folded pool upgrades matches their `UPGRADE_DEF`.
 - **Cards:** the HP and reward multipliers for each rarity (standard, gilded,
   polychrome, and polychrome with the +15% upgrade).
 - **Blocks:** base HP and armor for every tier and rarity, scaled across floors
@@ -44,10 +45,10 @@ runs every scenario through both engines, and diffs:
   their engine preserves (the floor-150 armor skip and the floor-300
   double-trigger).
 
-Current result: **137/137 stat checks (incl. skill-buff upgrades), 8/8 card
-multiplier checks, and 260/260 block checks within tolerance.** Our per-point
-math, skill-buff upgrades, card multipliers, and block model all match their
-source-faithful engine.
+Current result: **137/137 stat checks (incl. skill-buff upgrades), 3/3 pool-upgrade
+coefficient checks, 8/8 card multiplier checks, and 260/260 block checks within
+tolerance.** Our per-point math, skill-buff upgrades, pool-upgrade coefficients,
+card multipliers, and block model all match their source-faithful engine.
 
 ### Coverage and mapping
 
@@ -66,9 +67,15 @@ difference, not a mapping guess:
 | modDivA2 | 34 | Divinity flat damage + super-crit |
 | modCorrA2 | 52 | Corruption damage% |
 
-Still to add: the flat-damage and damage%/armor-pen pool upgrades, which our
-model folds into the displayed base stat rather than computing from a level, so
-they need the base walked out to compare apples to apples.
+The damage% and armor-pen% pool upgrades are folded into the displayed base in
+our model (`reverseBaseStats` divides them back out), so they cannot be set on a
+clean base without double-applying, and a same-build round trip cancels the
+coefficient. But they join the same pool as the per-point `strDamagePct` /
+`intArmorPen` that the stat scenarios already validate, so the only thing left is
+the per-level coefficient, which the coefficient check compares directly against
+their `UPGRADE_DEF`. The flat-damage, gem, and max-stamina upgrades are pure base
+passthrough (no per-level coefficient on our side; they live in the entered
+stat), so there is nothing to diverge.
 
 ### Two documented, benign differences
 
