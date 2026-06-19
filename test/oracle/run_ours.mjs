@@ -36,20 +36,18 @@ setTimeout(() => {
   if (typeof W.setAllUpgrades === "function") W.setAllUpgrades(false); // clear every upgrade
   d.dispatchEvent(new W.Event("change", { bubbles: true }));
 
-  const out = {};
-  for (const sc of spec.scenarios) {
+  const derive = (sc) => {
     set("ascension", String(sc.asc));
+    const ours = sc.ours || {};
+    for (const [field, lvl] of Object.entries(ours)) set(field, String(lvl)); // apply this scenario's skill-buff upgrade
     const inp = W.getInputs();
     const b = sc.build;
     // Ascension gating is enforced upstream of getDerived (activeSkillSpec never
     // allocates a locked stat), so mirror it here: zero Div below A1, Corr below A2.
-    const stats = {
-      S: b.S, A: b.A, P: b.P, I: b.I, L: b.L,
-      D: sc.asc >= 1 ? b.D : 0,
-      C: sc.asc >= 2 ? b.C : 0,
-    };
+    const stats = { S: b.S, A: b.A, P: b.P, I: b.I, L: b.L, D: sc.asc >= 1 ? b.D : 0, C: sc.asc >= 2 ? b.C : 0 };
     const der = W.getDerived(stats, inp);
-    out[sc.name] = {
+    for (const field of Object.keys(ours)) set(field, "0"); // reset so it doesn't leak into the next scenario
+    return {
       damage:          der.damage,
       maxSta:          der.stamina,
       armorPen:        der.armorPenFlat * (1 + (der.armorPenPct || 0)),
@@ -59,6 +57,15 @@ setTimeout(() => {
       superCritMult:   der.superDamage,
       ultraCritChance: der.ultraChance,
     };
+  };
+  const out = {};
+  for (const sc of [...spec.scenarios, ...(spec.upgradeScenarios || [])]) out[sc.name] = derive(sc);
+
+  // --- Card HP/reward multipliers by rarity ---
+  const cardsOut = {};
+  for (const c of (spec.cardChecks || [])) {
+    const cb = W.cardBonusForState(c.ourState, { polyUpgrade: !!c.polyUpgrade });
+    cardsOut[c.name] = { hpMult: cb.hpMult, rewardMult: cb.rewardMult, lootMult: cb.rewardMult };
   }
   // --- Block HP/armor across the deep-floor scaling ---
   const blocksOut = {};
@@ -80,7 +87,7 @@ setTimeout(() => {
     }
   }
 
-  fs.writeFileSync(path.join(HERE, "ours.json"), JSON.stringify({ stats: out, blocks: blocksOut }, null, 2));
-  console.log(`wrote ours.json (${Object.keys(out).length} stat scenarios, ${Object.keys(blocksOut).length} block ids)` + (errs.length ? `  [jsdom notes: ${errs.length}]` : ""));
+  fs.writeFileSync(path.join(HERE, "ours.json"), JSON.stringify({ stats: out, cards: cardsOut, blocks: blocksOut }, null, 2));
+  console.log(`wrote ours.json (${Object.keys(out).length} stat scenarios, ${Object.keys(cardsOut).length} cards, ${Object.keys(blocksOut).length} block ids)` + (errs.length ? `  [jsdom notes: ${errs.length}]` : ""));
   process.exit(0);
 }, 500);

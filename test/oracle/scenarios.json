@@ -19,6 +19,22 @@
     {"name": "mixed_a1",    "asc": 1, "build": {"S": 20, "A": 15, "P": 5,  "I": 5,  "L": 5,  "D": 10, "C": 0}},
     {"name": "gating_a0",   "asc": 0, "build": {"S": 10, "A": 10, "P": 0,  "I": 0,  "L": 0,  "D": 10, "C": 10}}
   ],
+  "_upgradeComment": "Per-point skill-buff upgrades. Each maps a single our-field to a single their-row (verified): modStrA0->25, modStrA1->47, modAgi->26, modPer->33, modInt->35, modDivA2->34, modCorrA2->52. Both engines get the same level; we then compare the same derived stats.",
+  "upgradeScenarios": [
+    {"name": "u_str_a0",  "asc": 2, "build": {"S": 30, "A": 0,  "P": 0,  "I": 0,  "L": 0,  "D": 0,  "C": 0},  "ours": {"modStrA0": 5}, "theirs": {"25": 5}},
+    {"name": "u_str_a1",  "asc": 2, "build": {"S": 30, "A": 0,  "P": 0,  "I": 0,  "L": 0,  "D": 0,  "C": 0},  "ours": {"modStrA1": 1}, "theirs": {"47": 1}},
+    {"name": "u_agi",     "asc": 2, "build": {"S": 0,  "A": 40, "P": 0,  "I": 0,  "L": 0,  "D": 0,  "C": 0},  "ours": {"modAgi": 5},   "theirs": {"26": 5}},
+    {"name": "u_per",     "asc": 2, "build": {"S": 0,  "A": 0,  "P": 25, "I": 0,  "L": 0,  "D": 0,  "C": 0},  "ours": {"modPer": 5},   "theirs": {"33": 5}},
+    {"name": "u_div",     "asc": 2, "build": {"S": 0,  "A": 0,  "P": 0,  "I": 0,  "L": 0,  "D": 10, "C": 0},  "ours": {"modDivA2": 5}, "theirs": {"34": 5}},
+    {"name": "u_corr",    "asc": 2, "build": {"S": 30, "A": 0,  "P": 0,  "I": 0,  "L": 0,  "D": 0,  "C": 10}, "ours": {"modCorrA2": 10}, "theirs": {"52": 10}}
+  ],
+  "_cardComment": "Card HP/reward multipliers by rarity. Their get_card_bonuses(level) vs our cardBonusForState(state). Levels: 1 standard, 2 gilded, 3 polychrome; F41 (row 41) is the +15% polychrome upgrade.",
+  "cardChecks": [
+    {"name": "standard",      "ourState": "owned",      "polyUpgrade": false, "theirLevel": 1, "theirPoly": 0},
+    {"name": "gilded",        "ourState": "gilded",     "polyUpgrade": false, "theirLevel": 2, "theirPoly": 0},
+    {"name": "polychrome",    "ourState": "polychrome", "polyUpgrade": false, "theirLevel": 3, "theirPoly": 0},
+    {"name": "polychrome_up", "ourState": "polychrome", "polyUpgrade": true,  "theirLevel": 3, "theirPoly": 1}
+  ],
   "_blockComment": "Block HP/armor check across the deep-floor scaling, including the floor-150 armor-skip and floor-300 double-trigger bugs lobogrande's engine preserves. Zero cards. Their block ids are <type><tier>; we map type com->common, leg->legendary, myth->mythic, div->divine.",
   "blockChecks": {
     "ids": ["dirt1","com1","rare1","epic1","leg1","myth1","div1","com4","rare4","epic4","leg4","myth4","div4"],

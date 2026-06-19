@@ -15,17 +15,18 @@ except Exception as e:
 with open(os.path.join(HERE, "scenarios.json")) as f:
     spec = json.load(f)
 
-out = {}
-for sc in spec["scenarios"]:
+def stats_for(sc):
     p = Player()
     p.base_damage_const = spec["baseDamageConst"]
     p.arch_level = 100
     p.asc1_unlocked = sc["asc"] >= 1
     p.asc2_unlocked = sc["asc"] >= 2
+    for row, lvl in (sc.get("theirs") or {}).items():
+        p.set_upgrade_level(int(row), lvl)
     b = sc["build"]
     p.base_stats = {"Str": b["S"], "Agi": b["A"], "Per": b["P"], "Int": b["I"],
                     "Luck": b["L"], "Div": b["D"], "Corr": b["C"]}
-    out[sc["name"]] = {
+    return {
         "damage":          float(p.damage),
         "maxSta":          float(p.max_sta),
         "armorPen":        float(p.armor_pen),
@@ -35,6 +36,19 @@ for sc in spec["scenarios"]:
         "superCritMult":   float(p.super_crit_dmg_mult),
         "ultraCritChance": float(p.ultra_crit_chance),
     }
+
+out = {}
+for sc in spec["scenarios"] + spec.get("upgradeScenarios", []):
+    out[sc["name"]] = stats_for(sc)
+
+# --- Card HP/reward multipliers by rarity ---
+cards_out = {}
+for c in spec.get("cardChecks", []):
+    p = Player(); p.asc2_unlocked = True
+    if c.get("theirPoly"): p.set_upgrade_level(41, c["theirPoly"])
+    p.set_card_level("com1", c["theirLevel"])
+    hp, exp, loot = p.get_card_bonuses("com1")
+    cards_out[c["name"]] = {"hpMult": float(hp), "rewardMult": float(exp), "lootMult": float(loot)}
 
 # --- Block HP/armor across the deep-floor scaling (incl. the preserved bugs) ---
 blocks_out = {}
@@ -49,5 +63,5 @@ if bc:
             blocks_out[bid][str(fl)] = {"hp": float(blk.hp), "armor": float(blk.armor)}
 
 with open(os.path.join(HERE, "theirs.json"), "w") as f:
-    json.dump({"stats": out, "blocks": blocks_out}, f, indent=2)
-print("wrote theirs.json (%d stat scenarios, %d block ids)" % (len(out), len(blocks_out)))
+    json.dump({"stats": out, "cards": cards_out, "blocks": blocks_out}, f, indent=2)
+print("wrote theirs.json (%d stat scenarios, %d cards, %d block ids)" % (len(out), len(cards_out), len(blocks_out)))

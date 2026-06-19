@@ -43,6 +43,18 @@ function fmt(x) { return x === undefined ? "—" : (Math.abs(x) >= 100 ? x.toFix
 
 console.log(`Oracle stat comparison: ${total - fail}/${total} field checks within tolerance across ${Object.keys(theirs).length} scenarios.`);
 
+// --- Card HP/reward multipliers by rarity ---
+const tc = theirsAll.cards || {}, oc = oursAll.cards || {};
+let cfail = 0, ctotal = 0;
+for (const name of Object.keys(tc)) {
+  for (const f of ["hpMult", "rewardMult"]) {
+    ctotal++;
+    const tv = tc[name][f], ov = (oc[name] || {})[f];
+    if (!(ov !== undefined && Math.abs(tv - ov) <= 1e-9)) { cfail++; rows.push(`  FAIL  card ${name.padEnd(14)} ${f.padEnd(11)} theirs=${fmt(tv)} ours=${fmt(ov)}`); }
+  }
+}
+if (ctotal) console.log(`Oracle card comparison: ${ctotal - cfail}/${ctotal} multiplier checks across ${Object.keys(tc).length} rarities.`);
+
 // --- Block HP/armor (deep-floor scaling incl. the floor-150/300 bugs) ---
 const tb = theirsAll.blocks || {}, ob = oursAll.blocks || {};
 let bfail = 0, btotal = 0;
@@ -62,6 +74,6 @@ for (const id of Object.keys(tb)) {
 }
 if (btotal) console.log(`Oracle block comparison: ${btotal - bfail}/${btotal} hp/armor checks within tolerance across ${Object.keys(tb).length} block ids x ${Object.keys(tb[Object.keys(tb)[0]]||{}).length} floors.`);
 
-const allFail = fail + bfail;
+const allFail = fail + cfail + bfail;
 if (allFail) { console.log("Divergences:"); rows.forEach(r => console.log(r)); console.log(`\n${allFail} divergence(s).`); process.exit(1); }
-else { console.log("All within tolerance. Our stat math AND block model (incl. the floor-150/300 scaling bugs) match lobogrande's source-faithful engine."); }
+else { console.log("All within tolerance. Our stat math (incl. skill-buff upgrades), card multipliers, and block model (incl. the floor-150/300 scaling bugs) match lobogrande's source-faithful engine."); }
