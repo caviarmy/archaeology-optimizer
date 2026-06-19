@@ -41,6 +41,11 @@
     {"name": "polychrome",    "ourState": "polychrome", "polyUpgrade": false, "theirLevel": 3, "theirPoly": 0},
     {"name": "polychrome_up", "ourState": "polychrome", "polyUpgrade": true,  "theirLevel": 3, "theirPoly": 1}
   ],
+  "_spawnComment": "Block-spawn model: confirm our per-slot rarity rate table equals their actual sampled spawn distribution (their 24-slot sequential 1-in-X rolls), and surface the active-node count difference from our 6-node-per-floor minimum.",
+  "spawnComparison": {
+    "samples": 3000,
+    "floors": [1, 5, 10, 30, 60, 100]
+  },
   "_runComment": "Phase 2: run RESULTS. Run a full dig many times in both engines (zero upgrades/cards, no Luck/Div so there are no stamina refunds, crosshairs, or auto-abilities) and compare the average floor reached. Their micro-tick sim and our EV+Monte-Carlo model agree in expectation, so floor is gated within a tolerance and block count is informational. Builds use only S/A/P/I to keep the dig deterministic in its mechanics.",
   "runComparison": {
     "N": 400,

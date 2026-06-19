@@ -25,6 +25,10 @@ setTimeout(() => {
   set("baseSuperChance", "0"); set("baseSuperDamage", String(spec.baseSuperDamage)); set("baseUltraChance", "0");
   set("baseArmorPenFlat", "0"); set("baseStaminaMod", "0"); set("staminaModGain", "0");
   set("baseAutoTap", "0"); set("baseSpeedModGain", "0");
+  // XP: base gain 1 to match their zero-upgrade exp_gain_mult base; no xp mods or
+  // gleaming so per-block xp is just the block's value scaled by Intellect's gain.
+  set("baseXpGain", "1"); set("baseFragGain", "1"); set("baseXpMod", "0"); set("baseLootMod", "0");
+  set("baseGleamingChance", "0");
   d.getElementById("baseStatModeZero").checked = true;
   if (typeof W.setAllUpgrades === "function") W.setAllUpgrades(false);
 
@@ -34,13 +38,14 @@ setTimeout(() => {
     set("selectedLevel", String(sc.level)); set("ascension", String(sc.asc));
     const inp = W.getInputs(), blocks = W.visibleBlocks(inp);
     const b = sc.build, st = { S: b.S, A: b.A, P: b.P, I: b.I, L: b.L, D: sc.asc >= 1 ? b.D : 0, C: sc.asc >= 2 ? b.C : 0 };
-    let fl = 0, blk = 0;
+    let fl = 0, blk = 0, xp = 0;
     for (let s = 0; s < N; s++) {
       const r = W.simulateOneRun(st, inp, blocks, mk(1000 + s));
       fl += r.floorReached;
       blk += Object.values(r.blockCounts || {}).reduce((a, c) => a + c, 0);
+      xp += (r.channels && r.channels.xp) || 0;
     }
-    out[sc.name] = { floor: fl / N, blocks: blk / N };
+    out[sc.name] = { floor: fl / N, blocks: blk / N, xp: xp / N };
   }
   fs.writeFileSync(path.join(HERE, "run_ours.json"), JSON.stringify(out, null, 2));
   console.log(`wrote run_ours.json (${Object.keys(out).length} scenarios x ${N} runs)`);

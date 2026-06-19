@@ -26,13 +26,14 @@ for sc in rc["scenarios"]:
     b = sc["build"]
     p.base_stats = {"Str": b["S"], "Agi": b["A"], "Per": b["P"], "Int": b["I"],
                     "Luck": b["L"], "Div": b["D"], "Corr": b["C"]}
-    fl = blk = 0.0
+    fl = blk = xp = 0.0
     for s in range(N):
         random.seed(1000 + s)
         st = CombatSimulator(p).run_simulation()
         fl += st.highest_floor
         blk += st.blocks_mined
-    out[sc["name"]] = {"floor": fl / N, "blocks": blk / N}
+        xp += st.total_xp
+    out[sc["name"]] = {"floor": fl / N, "blocks": blk / N, "xp": xp / N}
 
 json.dump(out, open(os.path.join(HERE, "run_theirs.json"), "w"), indent=2)
 print("wrote run_theirs.json (%d scenarios x %d runs)" % (len(out), N))

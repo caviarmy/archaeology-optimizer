@@ -92,11 +92,15 @@ setTimeout(() => {
       const m = id.match(/^([a-z]+)(\d+)$/);
       const type = TYPE[m[1]], tier = +m[2];
       const base = vb.find(b => b.type === type && b.tier === tier);
-      blocksOut[id] = {};
+      const entry = { byFloor: {} };
       for (const fl of bc.floors) {
         const ss = W.stageScale(fl);
-        blocksOut[id][String(fl)] = { hp: base.hp * ss.hp, armor: (base.armor || 0) * ss.armor };
+        entry.byFloor[String(fl)] = { hp: base.hp * ss.hp, armor: (base.armor || 0) * ss.armor };
       }
+      // Zero cards: xp0 / loot0 are the raw per-block xp and fragment yields.
+      entry.xp = base.xp0;
+      entry.frag = base.loot0;
+      blocksOut[id] = entry;
     }
   }
 
