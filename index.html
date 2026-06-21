@@ -66,8 +66,9 @@ label{display:block;font-weight:800;margin:8px 0 5px;font-size:12px;color:#34405
 .target-only{display:none}
 body[data-workflow="target"] .target-only{display:flex}
 .pill-note{display:inline-block;background:#eef2ff;color:#1e3a8a;border:1px solid #c7d2fe;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;margin:6px 0 0}
-.metric .v.shimmer,.metric .k.shimmer{color:transparent;border-radius:6px;min-width:48px;background:linear-gradient(90deg,#eef1f6 25%,#e3e8f1 37%,#eef1f6 63%);background-size:400% 100%;animation:heroShimmer 1.15s ease-in-out infinite}
-@keyframes heroShimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+.metric .v.loading{display:inline-block;height:19px;min-width:88px;max-width:100%;border-radius:6px;color:transparent;background:#c2cde0;animation:heroPulse 1s ease-in-out infinite}
+.metric.good .v.loading{background:#a9d9bf}
+@keyframes heroPulse{0%,100%{opacity:.4}50%{opacity:1}}
 .helper{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px;color:#7c2d12;margin:8px 0}
 .helper.warn-note{background:#fef2f2;border-color:#fecaca;color:#991b1b}
 .actionbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
@@ -290,11 +291,10 @@ body[data-target-used="false"] .target-only{
 body[data-block-target="true"] .goal-block-field{display:block!important}
 
 
-/* v31: simulation results become the lead card after a simulation run */
+/* The simulation card stays below the estimate card; it does not reorder on run. */
 #results.active{display:flex;flex-direction:column}
 #deterministicCard{order:1}
 #simulationCard{order:2}
-body[data-simulation-ready="true"] #simulationCard{order:0}
 .sim-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .sim-card-head h2{margin:0}
 #simulationCard #clearMonteRerank{display:none}
@@ -627,7 +627,7 @@ body[data-landing="true"] #guidedReenter{display:none}
         <summary>Top candidate builds</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="topBuildsTable">
-            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>Est. rewards / hr</th><th>Avg floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
+            <thead><tr></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -636,7 +636,6 @@ body[data-landing="true"] #guidedReenter{display:none}
 
     <div class="card" id="simulationCard">
       <div class="sim-card-head"><h2 id="simTitle">Simulated result</h2><button id="clearMonteRerank" class="clear-chip">Clear simulation</button></div>
-      <span class="pill-note" id="simSeedNote" hidden></span>
       <div class="metrics simulation-summary" id="simHero"></div>
       <button type="button" class="sanity-link" data-sanity>Something not look right?</button>
       <details id="simulationDetails" open>
@@ -1189,12 +1188,12 @@ function renderHero(el, row, inp){
 function renderHeroShimmer(el, inp){
   if(!el) return;
   el.innerHTML = "";
-  // Mirror the eventual tile count so the layout does not jump when results land.
-  const n = heroTiles(null, inp).length;
-  for(let i=0;i<n;i++){
-    const m = document.createElement("div"); m.className = "metric" + (i===0?" good":"");
-    const k = document.createElement("div"); k.className = "k"; k.textContent = i===0?"Build":" ";
-    const v = document.createElement("div"); v.className = "v shimmer"; v.textContent = " ";
+  // Keep the real labels and tile layout (so the card reads as "these values are
+  // loading", not as empty boxes); only the values pulse as skeletons.
+  for(const t of heroTiles(null, inp)){
+    const m = document.createElement("div"); m.className = "metric" + (t.good?" good":"");
+    const k = document.createElement("div"); k.className = "k"; k.textContent = t.label;
+    const v = document.createElement("div"); v.className = "v loading"; v.textContent = "0";
     m.appendChild(k); m.appendChild(v); el.appendChild(m);
   }
 }
@@ -2518,7 +2517,8 @@ function scoreBuild(stats, inp, blocks){
   const perStam = finalizeMetrics(channels, used);
   const targetDiff = Math.abs(floorReached - inp.targetFloor);
   const out = {stats:{...stats}, der, rewardHr:metrics.allRewards, floorReached, targetDiff, totalValue, used, totalNodes, totalTicks, channels, metrics,
-    rewardsPerHour:metrics.allRewards, rewardsPerTick:totalValue/Math.max(1,totalTicks), rewardsPerStam:perStam.allRewards};
+    rewardsPerHour:metrics.allRewards, rewardsPerTick:totalValue/Math.max(1,totalTicks), rewardsPerStam:perStam.allRewards,
+    blocksPerHour:totalNodes * hourScale};
   out.primaryMetric = metricValue(out, primaryFocusKey(inp), inp);
   out.secondaryMetric = metricValue(out, secondaryFocusKey(inp), inp);
   out.rewardHr = out.primaryMetric;
@@ -3101,21 +3101,35 @@ function renderBest(best, top, count){
     bandEl.textContent = fmt(bestPrimary - Math.abs(bestPrimary)*tol, 1);
   }
 
-  const tbody = document.querySelector("#topBuildsTable tbody");
-  tbody.innerHTML = "";
+  // Same columns as the simulation table (goal-driven), so the two read identically.
+  // The estimate is a fixed ranking by the chosen goal, so the headers are static
+  // (no click-to-sort) and rows stay in rank order.
+  const table = document.getElementById("topBuildsTable");
+  const thead = table.querySelector("thead");
+  const tbody = table.querySelector("tbody");
+  const asc = inp.ascension ?? 0;
+  top.forEach((x,i)=>{ x.estRank = i+1; });
+  const cols = buildResultColumns(inp, {mode:"estimate"});
+
+  const htr=document.createElement("tr");
+  cols.forEach(c=>{
+    const th=document.createElement("th"); th.textContent=c.label;
+    if(c.req){ th.className=c.req===2?"req-a2":"req-a1"; if(asc<c.req) th.style.display="none"; }
+    if(c.cls) th.classList.add(c.cls);
+    htr.appendChild(th);
+  });
+  thead.innerHTML=""; thead.appendChild(htr);
+
+  tbody.innerHTML="";
   top.forEach((x,i)=>{
     const tr=document.createElement("tr");
     if(i===0) tr.className="best";
-    const st=x.stats, der=x.der;
-    const asc = inp.ascension ?? 0;
-    const cells=[{v:i+1},{v:st.S},{v:st.A},{v:st.P},{v:st.I},{v:st.L},
-      {v:st.D||0,req:1},{v:st.C||0,req:2},
-      {v:fmt(x.rewardHr,1)},{v:fmt(x.floorReached,2)},{v:fmt(der.stamina,0)},{v:fmt(der.damage,1)},{v:fmt(der.critChance*100,1)}];
-    for(const c of cells){
-      const td=document.createElement("td"); td.textContent=c.v;
-      if(c.req){ td.className = c.req===2?"req-a2":"req-a1"; if(asc < c.req) td.style.display="none"; }
+    cols.forEach(c=>{
+      const td=document.createElement("td"); td.textContent=c.text(x);
+      if(c.req){ td.className=c.req===2?"req-a2":"req-a1"; if(asc<c.req) td.style.display="none"; }
+      if(c.cls) td.classList.add(c.cls);
       tr.appendChild(td);
-    }
+    });
     tbody.appendChild(tr);
   });
 }
@@ -3437,18 +3451,13 @@ async function runMonteRerank(){
 
   document.body.dataset.simulationReady = "true";
   showStatus(`Simulation complete in ${((performance.now()-start)/1000).toFixed(2)}s.`, 5000);
-  const simCard=document.getElementById("simulationCard");
-  if(simCard){
-    setTimeout(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}), 80);
-    setTimeout(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}), 220);
-  }
   btn.disabled=false; btn.classList.remove("btn-spin");
 }
 
 // Run Full Simulation entry point. With a fresh matching estimate it simulates the
 // top builds directly; otherwise it generates the estimate first (the guided-mode
-// combo), then simulates. The sim hero shimmers and the section scrolls into view
-// the moment it's clicked, so the wait reads as loading rather than a dead button.
+// combo), then simulates. Only once the simulation actually starts do we put the
+// hero into its loading state and gently bring the card into view.
 async function runFullSimulation(){
   const inp = getInputs();
   let fresh = false;
@@ -3456,17 +3465,17 @@ async function runFullSimulation(){
     fresh = lastExactTopBuilds && lastExactTopBuilds.length > 0 &&
             lastExactSignature && deterministicSignature(inp) === lastExactSignature;
   } catch(e){ fresh = false; }
-  renderHeroShimmer(document.getElementById("simHero"), inp);
-  const simCard = document.getElementById("simulationCard");
-  if(simCard) setTimeout(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}), 40);
   if(!fresh){
-    await runExact();   // also clears any prior simulation (resets the shimmer)
+    await runExact();   // also clears any prior simulation
     if(!(lastExactTopBuilds && lastExactTopBuilds.length)){
       renderHero(document.getElementById("simHero"), null, inp);
       return;
     }
-    renderHeroShimmer(document.getElementById("simHero"), inp);   // re-arm after the clear
   }
+  renderHeroShimmer(document.getElementById("simHero"), inp);
+  const simCard = document.getElementById("simulationCard");
+  // One gentle scroll, after the loading state is painted, so the view settles once.
+  if(simCard) requestAnimationFrame(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}));
   await runMonteRerank();
 }
 
@@ -3475,20 +3484,41 @@ async function runFullSimulation(){
 let _simSortKey="rank", _simSortDir=1, _simSortWired=false;
 // Rank columns sort ascending (1 first); metric columns sort descending (best first).
 function simSortNaturalDir(key){ return (key==="rank" || key==="detRank") ? 1 : -1; }
-// Columns for the simulation table. Identity + stats are always present, then the
+// Columns for the result tables. Identity + stats are always present, then the
 // PRIMARY goal column(s) and SECONDARY goal column(s) (highlighted), then the
 // always-useful metrics (rewards, reward/stamina, blocks, XP, loot, floor). A goal
 // that already is one of those metrics is pulled to the front and not duplicated.
-function buildSimColumns(inp){
+// The estimate and simulation tables share these columns so they read the same;
+// the getters are shape-agnostic (an EV scoreBuild row exposes its per-hour
+// numbers under `metrics`/`floorReached`, a simulation row under the *PerHour
+// fields), and the only difference is the rank column(s).
+function buildResultColumns(inp, opts={}){
+  const sim = opts.mode !== "estimate";
   const rar = {common:"Common", rare:"Rare", epic:"Epic", legendary:"Legendary", mythic:"Mythic", divine:"Divine"};
+  // Unified per-row accessors that work for both row shapes.
+  const sumCounts = r => r.countsPerHour ? Object.values(r.countsPerHour).reduce((a,b)=>a+b,0) : 0;
+  const acc = {
+    rewardsPerHour: r => r.rewardsPerHour ?? (r.metrics && r.metrics.allRewards) ?? 0,
+    rewardsPerTick: r => r.rewardsPerTick || 0,
+    blocksPerHour:  r => r.blocksPerHour ?? sumCounts(r),
+    xpPerHour:      r => r.xpPerHour ?? (r.metrics && r.metrics.xp) ?? 0,
+    allLootPerHour: r => r.allLootPerHour ?? (r.metrics && r.metrics.allLoot) ?? 0,
+    mcAvgFloor:     r => r.mcAvgFloor ?? r.floorReached ?? 0,
+  };
+  const lootGet = fk => r => (r.lootPerHour && r.lootPerHour[fk] != null) ? r.lootPerHour[fk] : ((r.metrics && r.metrics[fk]) || 0);
+  const targetGet = r => r.targetPct != null ? r.targetPct : Math.min(100, (acc.mcAvgFloor(r) / Math.max(1, inp.targetFloor || 1)) * 100);
   const BASE = {rewardsPerHour:["Rewards / hr",1], rewardsPerTick:["Reward / stamina",3], blocksPerHour:["Blocks / hr",1],
                 xpPerHour:["XP / hr",1], allLootPerHour:["Loot / hr",1], mcAvgFloor:["Avg floor",2]};
   const baseOrder = ["rewardsPerHour","rewardsPerTick","blocksPerHour","xpPerHour","allLootPerHour","mcAvgFloor"];
-  const mkBase = (id,cls)=>({id, label:BASE[id][0], sortable:true, cls, get:r=>r[id]||0, text:r=>fmt(r[id]||0,BASE[id][1])});
+  const mkBase = (id,cls)=>({id, label:BASE[id][0], sortable:true, cls, get:acc[id], text:r=>fmt(acc[id](r),BASE[id][1])});
   const used = new Set();
   const cols = [];
-  cols.push({id:"rank", label:"Sim Rank", sortable:true, get:r=>r.simRank, text:r=>String(r.simRank)});
-  cols.push({id:"detRank", label:"Est. rank", sortable:true, get:r=>r.detRank||0, text:r=>(r.detRank==null?"—":String(r.detRank))});
+  if(sim){
+    cols.push({id:"rank", label:"Sim Rank", sortable:true, get:r=>r.simRank, text:r=>String(r.simRank)});
+    cols.push({id:"detRank", label:"Est. rank", sortable:true, get:r=>r.detRank||0, text:r=>(r.detRank==null?"—":String(r.detRank))});
+  } else {
+    cols.push({id:"rank", label:"Rank", sortable:true, get:r=>r.estRank||0, text:r=>String(r.estRank||0)});
+  }
   [["S","STR"],["A","AGI"],["P","PER"],["I","INT"],["L","Luck"]].forEach(([k,l])=>cols.push({label:l, get:r=>r.stats[k]||0, text:r=>String(r.stats[k]||0)}));
   cols.push({label:"Div", req:1, get:r=>r.stats.D||0, text:r=>String(r.stats.D||0)});
   cols.push({label:"Cor", req:2, get:r=>r.stats.C||0, text:r=>String(r.stats.C||0)});
@@ -3498,9 +3528,9 @@ function buildSimColumns(inp){
     if(fk==="allRewards"){ used.add("rewardsPerHour"); return mkBase("rewardsPerHour", cls); }
     if(fk==="xp"){ used.add("xpPerHour"); return mkBase("xpPerHour", cls); }
     if(fk==="allLoot"){ used.add("allLootPerHour"); return mkBase("allLootPerHour", cls); }
-    if(rar[fk]) return {id:synthId, label:rar[fk]+" loot / hr", sortable:true, cls, get:r=>(r.lootPerHour||{})[fk]||0, text:r=>fmt((r.lootPerHour||{})[fk]||0,1)};
+    if(rar[fk]) return {id:synthId, label:rar[fk]+" loot / hr", sortable:true, cls, get:lootGet(fk), text:r=>fmt(lootGet(fk)(r),1)};
     if(fk==="block") return {id:synthId, label:(_blockTargetLabel||"Target block")+" / hr", sortable:true, cls, get:r=>(r.countsPerHour||{})[inp.blockTargetKey]||0, text:r=>fmt((r.countsPerHour||{})[inp.blockTargetKey]||0,1)};
-    if(fk==="target") return {id:synthId, label:"Reach target %", sortable:true, cls, get:r=>r.targetPct||0, text:r=>fmt(r.targetPct||0,1)+"%"};
+    if(fk==="target") return {id:synthId, label:"Reach target %", sortable:true, cls, get:targetGet, text:r=>fmt(targetGet(r),1)+"%"};
     return null;
   };
   const pc = goalCol(primaryFocusKey(inp), "goal-col", "goal");      if(pc) cols.push(pc);
@@ -3565,7 +3595,7 @@ function renderSimResults(sortKey, dir){
     return pb-pa;
   }).forEach((r,i)=>{ r.simRank=i+1; });
   const asc = currentAscension();
-  const cols = buildSimColumns(_focusInp);
+  const cols = buildResultColumns(_focusInp);
   // A column from a previous goal may no longer exist; fall back to Sim Rank.
   if(!cols.some(c=>c.sortable && c.id===_simSortKey)){ _simSortKey="rank"; _simSortDir=1; }
   const sortCol = cols.find(c=>c.sortable && c.id===_simSortKey) || cols[0];
@@ -3602,9 +3632,6 @@ function renderSimResults(sortKey, dir){
   renderHero(document.getElementById("simHero"), best, _focusInp);
   const title=document.getElementById("simTitle");
   if(title) title.textContent=`Simulated result: ${rewardFocusLabel(primaryFocusKey(_focusInp))}`;
-  // Reproducibility diagnostics live in a small note under the hero, not the tiles.
-  const seedNote=document.getElementById("simSeedNote");
-  if(seedNote){ seedNote.textContent=`Estimate rank ${best.detRank} • seed ${window.__simSeed}`; seedNote.hidden=false; }
   renderThroughputDetail(best);
 }
 
@@ -3689,7 +3716,6 @@ function clearMonteRerank(silent=false){
   if(tbody) tbody.innerHTML="";
   window.__simResults=null;
   renderHero(document.getElementById("simHero"), null, getInputs());
-  const seedNote=document.getElementById("simSeedNote"); if(seedNote){ seedNote.textContent=""; seedNote.hidden=true; }
   const simTitle=document.getElementById("simTitle"); if(simTitle) simTitle.textContent=`Simulated result: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
   const td=document.getElementById("throughputDetailBody"); if(td) td.innerHTML="";
   document.body.dataset.simulationReady = "false";
