@@ -39,7 +39,9 @@ window.performance = window.performance || { now: () => Date.now() };
   }
 
   const t0=Date.now();
-  const res = await W.simGuidedSearch(inp, blocks, level, null);
+  const _tl = Math.max(10, inp.mcTopCount||10);
+  let res = await W.exhaustiveSearch(inp, blocks, level, _tl, null);
+  if(res.bailed){ const _all = W.fastSearch(inp, blocks, level); res = { topBuilds: W.rankCandidates(_all, inp).slice(0, _tl), count: _all.length }; }
   const secs=((Date.now()-t0)/1000).toFixed(1);
   const guided = res.topBuilds[0].stats;
   const evBest = W.rankCandidates(W.fastSearch(inp, blocks, level), inp)[0].stats;
@@ -48,7 +50,7 @@ window.performance = window.performance || { now: () => Date.now() };
 
   const K=400;
   console.log(`level=${level} goal=${W.primaryFocusKey(inp)} sec=${W.secondaryFocusKey(inp)}`);
-  console.log(`guided search : ${secs}s, ${res.count} builds tried, K-adaptive`);
+  console.log(`estimate      : ${secs}s, ${res.count} builds scored`);
   console.log(`guided best   : ${lbl(guided)}   hi-fi rate ${rate(guided,K).toFixed(1)}`);
   console.log(`EV best (fast): ${lbl(evBest)}   hi-fi rate ${rate(evBest,K).toFixed(1)}`);
   if(exhEvBest) console.log(`EV best (exh) : ${lbl(exhEvBest)}   hi-fi rate ${rate(exhEvBest,K).toFixed(1)}`);

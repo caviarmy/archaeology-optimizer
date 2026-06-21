@@ -46,7 +46,9 @@ set("primaryGoal","allRewards"); set("secondaryGoal","none");
 
   // ---- the actual application workflow, run once ----
   async function workflow(){
-    const res=await W.simGuidedSearch(inp, blocks, level, null);          // Estimate
+    const _tl=Math.max(10, inp.mcTopCount||10);                            // Estimate (exact EV, fast-search fallback)
+    let res=await W.exhaustiveSearch(inp, blocks, level, _tl, null);
+    if(res.bailed){ const _all=W.fastSearch(inp, blocks, level); res={ topBuilds: W.rankCandidates(_all, inp).slice(0, _tl), count: _all.length }; }
     const finalists=res.topBuilds.slice(0, inp.mcTopCount).map(c=>c.stats);
     const seed=((Math.random()*1e9)>>>0)||1;                              // fresh sim seed, like the app
     let best=null,bestV=-Infinity;

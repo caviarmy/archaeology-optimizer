@@ -87,7 +87,9 @@ function rewardsPerHour(st, inp, blocks, K, makeRng){
 
     // ---- The application's actual workflow ----
     // Stage 1 (Estimate): the simulation-guided search. Uses its own internal seed.
-    const res=await W.simGuidedSearch(inp, blocks, lvl, null);
+    const _tl=Math.max(10, inp.mcTopCount||10);
+    let res=await W.exhaustiveSearch(inp, blocks, lvl, _tl, null);
+    if(res.bailed){ const _all=W.fastSearch(inp, blocks, lvl); res={ topBuilds: W.rankCandidates(_all, inp).slice(0, _tl), count: _all.length }; }
     const estPick=res.topBuilds[0].stats;
     const finalists=res.topBuilds.map(c=>c.stats);   // the top-N pool the app shows
     // Stage 2 (Simulate): re-rank those finalists at high fidelity (mcRunsPerBuild),

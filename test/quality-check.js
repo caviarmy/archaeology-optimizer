@@ -41,7 +41,9 @@ function rate(st, runs){   // high-fidelity rewards/hr, common seeds
 
 (async () => {
   const t0=Date.now();
-  const res = await W.simGuidedSearch(inp, blocks, level, null);
+  const _tl = Math.max(10, inp.mcTopCount||10);
+  let res = await W.exhaustiveSearch(inp, blocks, level, _tl, null);
+  if(res.bailed){ const _all = W.fastSearch(inp, blocks, level); res = { topBuilds: W.rankCandidates(_all, inp).slice(0, _tl), count: _all.length }; }
   const guidedSecs=((Date.now()-t0)/1000).toFixed(1);
   const guided = res.topBuilds[0].stats;
   const evBest = W.rankCandidates(W.fastSearch(inp, blocks, level), inp)[0].stats;
@@ -57,7 +59,7 @@ function rate(st, runs){   // high-fidelity rewards/hr, common seeds
   for(const b of frontier){ const v=rate(b,K); tried++; if(v>bestV){bestV=v; best=b;} }
 
   console.log(`level=${level}`);
-  console.log(`guided search : ${guidedSecs}s, ${res.count} builds tried`);
+  console.log(`estimate      : ${guidedSecs}s, ${res.count} builds scored`);
   console.log(`guided best   : ${lbl(guided)}  high-fidelity rate ${gv.toFixed(0)}`);
   console.log(`EV best       : ${lbl(evBest)}  high-fidelity rate ${ev.toFixed(0)}  (${((gv/ev-1)*100).toFixed(2)}% worse than guided)`);
   console.log(`neighborhood best (${tried} tried): ${lbl(best)}  rate ${bestV.toFixed(0)}`);
