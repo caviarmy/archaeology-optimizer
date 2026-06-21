@@ -65,7 +65,9 @@ label{display:block;font-weight:800;margin:8px 0 5px;font-size:12px;color:#34405
 .up-ico{width:16px;height:16px;vertical-align:-3px;margin-right:6px;image-rendering:pixelated}
 .target-only{display:none}
 body[data-workflow="target"] .target-only{display:flex}
-.pill-note{display:inline-block;background:#eef2ff;color:#1e3a8a;border:1px solid #c7d2fe;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;margin-bottom:8px}
+.pill-note{display:inline-block;background:#eef2ff;color:#1e3a8a;border:1px solid #c7d2fe;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;margin:6px 0 0}
+.metric .v.shimmer,.metric .k.shimmer{color:transparent;border-radius:6px;min-width:48px;background:linear-gradient(90deg,#eef1f6 25%,#e3e8f1 37%,#eef1f6 63%);background-size:400% 100%;animation:heroShimmer 1.15s ease-in-out infinite}
+@keyframes heroShimmer{0%{background-position:100% 0}100%{background-position:0 0}}
 .helper{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px;color:#7c2d12;margin:8px 0}
 .helper.warn-note{background:#fef2f2;border-color:#fecaca;color:#991b1b}
 .actionbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
@@ -611,27 +613,21 @@ body[data-landing="true"] #guidedReenter{display:none}
 
   <section id="results" class="panel active">
     <div class="card" id="deterministicCard">
-      <span class="pill-note">Fast estimate — press Simulate best build to confirm</span>
       <h2 id="optimizerTitle">Estimated best build</h2>
+      <span class="pill-note">Fast estimate. Run Full Simulation to confirm.</span>
       <div class="actionbar">
-        <button id="runExact">Estimate best build</button>
-        <button id="runMonteRerank" class="ghost" disabled title="Run Estimate best build first">Simulate best build</button>
+        <button id="runExact" class="ghost">Generate Estimate Only</button>
+        <button id="runMonteRerank">Run Full Simulation</button>
         <label class="check-row" style="margin:0 0 0 6px"><input id="thoroughSearch" type="checkbox"> Thorough (exact, slow)</label>
       </div>
       <div id="ascWarning" class="asc-warning" hidden></div>
-      <div class="metrics">
-        <div class="metric good"><div class="k">Best build</div><div class="v" id="bestBuild">—</div></div>
-        <div class="metric"><div class="k" id="bestValueLabel">Rewards / real-time hour</div><div class="v" id="bestRph">—</div></div>
-        <div class="metric"><div class="k">Rewards / stamina</div><div class="v" id="bestPerTick">—</div></div>
-        <div class="metric"><div class="k">Expected floor</div><div class="v" id="bestFloor">—</div></div>
-        <div class="metric"><div class="k">Goal</div><div class="v" id="bestModeLabel">Reward</div></div>
-      </div>
+      <div class="metrics" id="evHero"></div>
       <button type="button" class="sanity-link" data-sanity>Something not look right?</button>
       <details>
         <summary>Top candidate builds</summary>
         <div class="table-wrap" style="margin-top:8px">
           <table id="topBuildsTable">
-            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>Est. rewards / hr</th><th>Expected floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
+            <thead><tr><th>Selected rank</th><th>STR</th><th>AGI</th><th>PER</th><th>INT</th><th>Luck</th><th class="req-a1">Div</th><th class="req-a2">Cor</th><th>Est. rewards / hr</th><th>Avg floor</th><th>Stamina</th><th>Dmg</th><th>Crit %</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -639,16 +635,9 @@ body[data-landing="true"] #guidedReenter{display:none}
     </div>
 
     <div class="card" id="simulationCard">
-      <div class="sim-card-head"><h2>Simulated result</h2><button id="clearMonteRerank" class="clear-chip">Clear simulation</button></div>
-      <div class="metrics simulation-summary">
-        <div class="metric good"><div class="k">Best simulated build</div><div class="v" id="simBestBuild">—</div></div>
-        <div class="metric"><div class="k">Rewards / real-time hour</div><div class="v" id="simPerHour">—</div></div>
-        <div class="metric"><div class="k">Rewards / stamina</div><div class="v" id="simPerTick">—</div></div>
-        <div class="metric"><div class="k">Expected floor</div><div class="v" id="simAvgFloor">—</div></div>
-        <div class="metric"><div class="k">Target hit chance</div><div class="v" id="simTargetChance">—</div></div>
-        <div class="metric"><div class="k">Est. rank</div><div class="v" id="simDetRank">—</div></div>
-        <div class="metric"><div class="k">Seed used</div><div class="v" id="simSeedUsed">—</div></div>
-      </div>
+      <div class="sim-card-head"><h2 id="simTitle">Simulated result</h2><button id="clearMonteRerank" class="clear-chip">Clear simulation</button></div>
+      <span class="pill-note" id="simSeedNote" hidden></span>
+      <div class="metrics simulation-summary" id="simHero"></div>
       <button type="button" class="sanity-link" data-sanity>Something not look right?</button>
       <details id="simulationDetails" open>
         <summary>Detailed simulation table (click a column to sort)</summary>
@@ -1102,7 +1091,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.21.1";  // bump on notable releases; surfaced in the debug export and the header
+const APP_VERSION = "2026.06.21.2";  // bump on notable releases; surfaced in the debug export and the header
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1141,6 +1130,73 @@ function primaryFocusKey(inp){
 function secondaryFocusKey(inp){
   const key = inp.goal?.secondary || "none";
   return key === primaryFocusKey(inp) ? "none" : key;
+}
+
+// ---- Shared result hero -----------------------------------------------------
+// The estimate and simulation cards show the same goal-driven tiles. A unified
+// per-hour accessor reads either an EV scoreBuild row or a simulation aggregate
+// row (both expose rewardsPerHour and a metrics / lootPerHour map).
+function heroMetricValue(row, key, inp){
+  if(!row) return 0;
+  if(key==="target"){
+    if(row.targetPct != null) return row.targetPct;   // simulation: real hit rate
+    const tf = Math.max(1, inp.targetFloor || 1);      // estimate: expected reach (capped)
+    return Math.min(100, (heroFloorValue(row) / tf) * 100);
+  }
+  if(key==="allRewards") return row.rewardsPerHour ?? row.metrics?.allRewards ?? 0;
+  if(key==="xp") return row.xpPerHour ?? row.metrics?.xp ?? 0;
+  if(key==="allLoot") return row.allLootPerHour ?? row.metrics?.allLoot ?? 0;
+  if(key==="block"){ const k=inp.blockTargetKey; return (row.countsPerHour && row.countsPerHour[k]) ?? row.metrics?.allLoot ?? 0; }
+  return (row.lootPerHour && row.lootPerHour[key]) ?? row.metrics?.[key] ?? 0;   // a loot rarity
+}
+function heroMetricLabel(key){
+  if(key==="target") return "Target hit chance";
+  if(key==="allRewards") return "Avg rewards / hr";
+  if(key==="xp") return "XP / hr";
+  if(key==="allLoot") return "Loot / hr";
+  if(key==="block") return (_blockTargetLabel||"Target block")+" / hr";
+  return rewardFocusLabel(key)+" / hr";
+}
+function heroFloorValue(row){ return row ? (row.mcAvgFloor ?? row.floorReached ?? 0) : 0; }
+// Ordered tiles for the current goal (identical selection for both cards):
+// build, primary, secondary, then the reward/floor tail. Floor sits at the very
+// bottom, except for a target-floor goal where it follows the goal metrics. The
+// tail reward is avg rewards, or XP for a loot-only goal, or loot for an XP goal.
+function heroTiles(row, inp){
+  const pk = primaryFocusKey(inp), sk = secondaryFocusKey(inp);
+  const isTarget = pk === "target";
+  const val = k => !row ? "—" : (k==="target" ? fmt(heroMetricValue(row,k,inp),1)+"%" : fmt(heroMetricValue(row,k,inp),1));
+  const metricTile = k => ({label:heroMetricLabel(k), value:val(k)});
+  const floorTile = ()=>({label:"Avg floor", value: row ? fmt(heroFloorValue(row),2) : "—"});
+  const tiles = [{label:"Build", value: row ? buildLabel(row.stats) : "—", good:true}, metricTile(pk)];
+  if(sk !== "none") tiles.push(metricTile(sk));
+  if(isTarget) tiles.push(floorTile());
+  const tailKey = pk==="allLoot" ? "xp" : pk==="xp" ? "allLoot" : "allRewards";
+  if(tailKey !== pk && tailKey !== sk) tiles.push(metricTile(tailKey));
+  if(!isTarget) tiles.push(floorTile());
+  return tiles;
+}
+function renderHero(el, row, inp){
+  if(!el) return;
+  el.innerHTML = "";
+  for(const t of heroTiles(row, inp)){
+    const m = document.createElement("div"); m.className = "metric" + (t.good?" good":"");
+    const k = document.createElement("div"); k.className = "k"; k.textContent = t.label;
+    const v = document.createElement("div"); v.className = "v"; v.textContent = t.value;
+    m.appendChild(k); m.appendChild(v); el.appendChild(m);
+  }
+}
+function renderHeroShimmer(el, inp){
+  if(!el) return;
+  el.innerHTML = "";
+  // Mirror the eventual tile count so the layout does not jump when results land.
+  const n = heroTiles(null, inp).length;
+  for(let i=0;i<n;i++){
+    const m = document.createElement("div"); m.className = "metric" + (i===0?" good":"");
+    const k = document.createElement("div"); k.className = "k"; k.textContent = i===0?"Build":" ";
+    const v = document.createElement("div"); v.className = "v shimmer"; v.textContent = " ";
+    m.appendChild(k); m.appendChild(v); el.appendChild(m);
+  }
 }
 function goalUsesLoot(key){
   return ["allRewards","allLoot","common","rare","epic","legendary","mythic","divine"].includes(key);
@@ -1235,12 +1291,16 @@ function updateGoalUI(){
   document.body.dataset.blockTarget = (primary === "block") ? "true" : "false";
   document.body.dataset.showLootSettings = (goalUsesLoot(primary) || goalUsesLoot(secondary)) ? "true" : "false";
 
+  const inp = getInputs();
   const title = document.getElementById("optimizerTitle");
-  if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
-  const label = document.getElementById("bestValueLabel");
-  if(label) label.textContent = primaryFocusKey(getInputs())==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(getInputs()))} / hr`;
-  const modeLabel = document.getElementById("bestModeLabel");
-  if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(getInputs()));
+  if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
+  const simTitle = document.getElementById("simTitle");
+  if(simTitle && !(window.__simResults && window.__simResults.length))
+    simTitle.textContent = `Simulated result: ${rewardFocusLabel(primaryFocusKey(inp))}`;
+  // Reflect the goal layout in the heroes even before a run (placeholder tiles),
+  // so switching goals reshapes the cards without leaving stale results behind.
+  if(!(lastExactTopBuilds && lastExactTopBuilds.length)) renderHero(document.getElementById("evHero"), null, inp);
+  if(!(window.__simResults && window.__simResults.length)) renderHero(document.getElementById("simHero"), null, inp);
 }
 // Target-floor goal = chance of REACHING the target floor. When a simulated
 // hit-rate is available (sc.targetPct, 0..100) rank by that, with a faint
@@ -1642,8 +1702,7 @@ function deterministicSignature(inp){
 }
 
 function resetBestResults(){
-  const ids = ["bestBuild","bestRph","bestPerTick","bestFloor"];
-  ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent="—"; });
+  renderHero(document.getElementById("evHero"), null, getInputs());
   const tbody=document.querySelector("#topBuildsTable tbody");
   if(tbody) tbody.innerHTML="";
 }
@@ -1667,8 +1726,10 @@ function updateSimButtonState(){
     fresh = lastExactTopBuilds && lastExactTopBuilds.length > 0 &&
             lastExactSignature && deterministicSignature(getInputs()) === lastExactSignature;
   } catch(e){ fresh = false; }
-  btn.disabled = !fresh;
-  btn.title = fresh ? "" : "Run Estimate best build first";
+  // Run Full Simulation is always actionable: with a fresh estimate it simulates
+  // the top builds; otherwise it first generates an estimate, then simulates.
+  btn.disabled = false;
+  btn.title = fresh ? "" : "Generates an estimate first, then runs the full simulation";
 }
 
 function getInputs(){
@@ -3026,20 +3087,10 @@ function buildLabel(s){
 
 function renderBest(best, top, count){
   if(!best) return;
-  const s=best.stats, d=best.der;
-  document.getElementById("bestBuild").textContent = buildLabel(s);
-  const _pkBest = primaryFocusKey(getInputs());
-  document.getElementById("bestRph").textContent = (_pkBest==="target") ? fmt(best.targetPct||0,1)+"%" : fmt(best.rewardHr,1);
-  const ptEl = document.getElementById("bestPerTick");
-  if(ptEl) ptEl.textContent = fmt(best.rewardsPerTick != null ? best.rewardsPerTick : 0, 3);
-  document.getElementById("bestFloor").textContent = fmt(best.floorReached,2);
   const inp = getInputs();
-  const modeLabel = document.getElementById("bestModeLabel");
-  if(modeLabel) modeLabel.textContent = rewardFocusLabel(primaryFocusKey(inp));
+  renderHero(document.getElementById("evHero"), best, inp);
   const title = document.getElementById("optimizerTitle");
   if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
-  const valueLabel = document.getElementById("bestValueLabel");
-  if(valueLabel) valueLabel.textContent = primaryFocusKey(inp)==="target" ? "Target hit chance" : `${rewardFocusLabel(primaryFocusKey(inp))} / hr`;
   const ccEl = document.getElementById("candidateCount");
   if(ccEl) ccEl.textContent = count.toLocaleString();
   const bandEl = document.getElementById("primaryBandFloor");
@@ -3394,6 +3445,31 @@ async function runMonteRerank(){
   btn.disabled=false; btn.classList.remove("btn-spin");
 }
 
+// Run Full Simulation entry point. With a fresh matching estimate it simulates the
+// top builds directly; otherwise it generates the estimate first (the guided-mode
+// combo), then simulates. The sim hero shimmers and the section scrolls into view
+// the moment it's clicked, so the wait reads as loading rather than a dead button.
+async function runFullSimulation(){
+  const inp = getInputs();
+  let fresh = false;
+  try {
+    fresh = lastExactTopBuilds && lastExactTopBuilds.length > 0 &&
+            lastExactSignature && deterministicSignature(inp) === lastExactSignature;
+  } catch(e){ fresh = false; }
+  renderHeroShimmer(document.getElementById("simHero"), inp);
+  const simCard = document.getElementById("simulationCard");
+  if(simCard) setTimeout(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}), 40);
+  if(!fresh){
+    await runExact();   // also clears any prior simulation (resets the shimmer)
+    if(!(lastExactTopBuilds && lastExactTopBuilds.length)){
+      renderHero(document.getElementById("simHero"), null, inp);
+      return;
+    }
+    renderHeroShimmer(document.getElementById("simHero"), inp);   // re-arm after the clear
+  }
+  await runMonteRerank();
+}
+
 // Render the simulation results table sorted by `sortKey` (descending unless dir=1),
 // and refresh the headline tiles + throughput detail for the current top build.
 let _simSortKey="rank", _simSortDir=1, _simSortWired=false;
@@ -3523,16 +3599,12 @@ function renderSimResults(sortKey, dir){
 
   // Hero card always shows the fixed rank-1 build, regardless of table sort.
   const best = results.find(r=>r.simRank===1) || sorted[0];
-  document.getElementById("simBestBuild").textContent=buildLabel(best.stats);
-  document.getElementById("simPerHour").textContent=fmt(best.rewardsPerHour,1);
-  document.getElementById("simPerTick").textContent=fmt(best.rewardsPerTick,3);
-  document.getElementById("simAvgFloor").textContent=fmt(best.mcAvgFloor,2);
-  document.getElementById("simTargetChance").textContent=fmt(best.targetPct,1)+"%";
-  // The "Target hit chance" tile only means something for the target-floor goal.
-  const tEl=document.getElementById("simTargetChance"); const tMetric=tEl&&tEl.closest(".metric");
-  if(tMetric) tMetric.style.display = (primaryFocusKey(_focusInp)==="target") ? "" : "none";
-  document.getElementById("simDetRank").textContent=String(best.detRank);
-  const seedEl=document.getElementById("simSeedUsed"); if(seedEl) seedEl.textContent=window.__simSeed;
+  renderHero(document.getElementById("simHero"), best, _focusInp);
+  const title=document.getElementById("simTitle");
+  if(title) title.textContent=`Simulated result: ${rewardFocusLabel(primaryFocusKey(_focusInp))}`;
+  // Reproducibility diagnostics live in a small note under the hero, not the tiles.
+  const seedNote=document.getElementById("simSeedNote");
+  if(seedNote){ seedNote.textContent=`Estimate rank ${best.detRank} • seed ${window.__simSeed}`; seedNote.hidden=false; }
   renderThroughputDetail(best);
 }
 
@@ -3615,12 +3687,11 @@ function wireSteppers(){
 function clearMonteRerank(silent=false){
   const tbody=document.querySelector("#monteRerankTable tbody");
   if(tbody) tbody.innerHTML="";
-  ["simBestBuild","simPerHour","simPerTick","simAvgFloor","simTargetChance","simDetRank","simSeedUsed"].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.textContent="—";
-  });
-  const td=document.getElementById("throughputDetailBody"); if(td) td.innerHTML="";
   window.__simResults=null;
+  renderHero(document.getElementById("simHero"), null, getInputs());
+  const seedNote=document.getElementById("simSeedNote"); if(seedNote){ seedNote.textContent=""; seedNote.hidden=true; }
+  const simTitle=document.getElementById("simTitle"); if(simTitle) simTitle.textContent=`Simulated result: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
+  const td=document.getElementById("throughputDetailBody"); if(td) td.innerHTML="";
   document.body.dataset.simulationReady = "false";
   if(!silent) document.getElementById("status").textContent="Simulation results cleared.";
 }
@@ -3679,6 +3750,7 @@ function buildDebugData(){
     inputs[el.id] = (el.type==="checkbox"||el.type==="radio") ? el.checked : el.value;
   });
   const txt=id=>{const e=document.getElementById(id); return e?e.textContent.trim():null;};
+  const heroDump=id=>{const e=document.getElementById(id); if(!e) return null; return Array.from(e.querySelectorAll(".metric")).map(m=>({k:((m.querySelector(".k")||{}).textContent||"").trim(), v:((m.querySelector(".v")||{}).textContent||"").trim()}));};
   let parsedInputs=null;
   try{ parsedInputs=getInputs(); }catch(e){ parsedInputs={error:String(e)}; }
   const data={
@@ -3691,7 +3763,7 @@ function buildDebugData(){
     parsedInputs,
     estimate:{
       title:txt("optimizerTitle"),
-      heroCard:{ bestBuild:txt("bestBuild"), rewardsPerHour:txt("bestRph"), rewardsPerTick:txt("bestPerTick"), expectedFloor:txt("bestFloor"), goal:txt("bestModeLabel") },
+      heroCard:heroDump("evHero"),
       signature:(typeof lastExactSignature!=="undefined")?lastExactSignature:null,
       topBuilds:(typeof lastExactTopBuilds!=="undefined" && lastExactTopBuilds)
         ? lastExactTopBuilds.map(b=>({detRank:b.detRank, stats:b.stats, floorReached:b.floorReached,
@@ -3700,8 +3772,8 @@ function buildDebugData(){
         : []
     },
     simulation:{
-      heroCard:{ bestBuild:txt("simBestBuild"), rewardsPerHour:txt("simPerHour"), rewardsPerTick:txt("simPerTick"),
-        expectedFloor:txt("simAvgFloor"), targetHit:txt("simTargetChance"), evRank:txt("simDetRank") },
+      title:txt("simTitle"),
+      heroCard:heroDump("simHero"),
       seed:window.__simSeed||null,
       sort:{ key:(typeof _simSortKey!=="undefined"?_simSortKey:null), dir:(typeof _simSortDir!=="undefined"?_simSortDir:null) },
       results:window.__simResults||null
@@ -5131,7 +5203,7 @@ function bindGoalSelector(){
   });
 }
 document.getElementById("runExact").addEventListener("click",runExact);
-document.getElementById("runMonteRerank").addEventListener("click",runMonteRerank);
+document.getElementById("runMonteRerank").addEventListener("click",runFullSimulation);
 document.getElementById("runCustomSim")?.addEventListener("click",runCustomSim);
 document.getElementById("exportDebug")?.addEventListener("click",exportDebug);
 document.getElementById("clearMonteRerank").addEventListener("click",clearMonteRerank);

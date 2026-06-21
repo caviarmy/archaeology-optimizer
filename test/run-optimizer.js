@@ -41,10 +41,10 @@ window.performance = window.performance || { now: () => Date.now() };
     await window.runExact();
     const secs = ((Date.now()-t0)/1000).toFixed(1);
     console.log(`level=${level}`);
-    console.log("best build :", doc.getElementById("bestBuild").textContent);
-    console.log("exp. floor :", doc.getElementById("bestFloor").textContent);
-    console.log("best score :", doc.getElementById("bestRph").textContent);
-    console.log("rewards/tick:", doc.getElementById("bestPerTick").textContent);
+    // The estimate hero is now a goal-driven set of tiles (k/v pairs).
+    const hero = Array.from(doc.getElementById("evHero").querySelectorAll(".metric"))
+      .map(m => `${m.querySelector(".k").textContent}=${m.querySelector(".v").textContent}`);
+    console.log("estimate   :", hero.join(" | "));
     console.log("time       :", secs + "s");
   } catch (e) {
     console.log("runExact THREW:", e.stack || e.message || e);
