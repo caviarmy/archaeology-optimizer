@@ -1089,7 +1089,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.21.3";  // bump on notable releases; surfaced in the debug export and the header
+const APP_VERSION = "2026.06.21.4";  // bump on notable releases; surfaced in the debug export and the header
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -2015,6 +2015,7 @@ function getDerived(stats, inp){
   // the simulation schedules Enrage per-attack. Quake's AoE and Flurry's stamina
   // refund are approximated for the EV below (quakeHitsSaved / flurryStamPerHit).
   let evDamage = damage, evCritDamage = critDamage;
+  let enrageUptime = 0, enrageDamage = damage, enrageCritDamage = critDamage;
   const en = inp.abilities?.enrage;
   if(en && en.on){
     const atk = Math.max(0.01, inp.atkSpeed || 1);
@@ -2025,6 +2026,14 @@ function getDerived(stats, inp){
     // Enrage's +damage% is additive: it joins the percent pool, not multiplied on.
     evDamage = flatDamage * (1 + dmgPctPool + uptime * ((en.dmgPct || 0) / 100));
     evCritDamage = critDamage + uptime * ((en.critDmgPct || 0) / 100);
+    // Full (not uptime-averaged) Enrage swing, plus its uptime. The hit-cost model
+    // blends hits-to-kill at the base and full-Enrage swing by this uptime, rather
+    // than averaging the damage first — hits-to-kill is convex in per-hit damage,
+    // so averaging understates the cost (a rare boosted swing doesn't shorten a
+    // kill as much as the average damage implies).
+    enrageUptime = uptime;
+    enrageDamage = flatDamage * (1 + dmgPctPool + ((en.dmgPct || 0) / 100));
+    enrageCritDamage = critDamage + ((en.critDmgPct || 0) / 100);
   }
   // Stamina mod: a block that rolls it returns staminaModGain stamina when cleared.
   // It is a refund POOLED into the run budget (it lets the dig reach further), not a
@@ -2050,7 +2059,15 @@ function getDerived(stats, inp){
   // Approximates Flurry's faster swings and speed-modded blocks; the simulation is exact.
   const flurryUptime = (fl && fl.on) ? Math.min(1, (fl.charges || 0) / Math.max(1e-9, atkSpd * (fl.cooldown || 1) * (1 - icCd))) : 0;
   const speedModRate = inp.base?.speedModAtkRate > 0 ? inp.base.speedModAtkRate : 1;
-  const effectiveAtkRate = atkSpd * (1 + flurryUptime * ((fl?.atkSpeedPct || 0) / 100)) * (1 + clamp(speedChance,0,0.95) * Math.max(0, speedModRate - 1));
+  // Average the per-swing TIME and invert, rather than averaging the rate: a speed
+  // boost on a fraction of swings shortens the dig less than averaging the rate
+  // implies (time is convex in rate). Flurry uptime and speed-modded blocks are
+  // treated as independent fractions of swings.
+  const flurryFp = (fl?.atkSpeedPct || 0) / 100;
+  const speedPc = clamp(speedChance, 0, 0.95);
+  const flurryTimeFactor = (1 - flurryUptime) + flurryUptime / (1 + flurryFp);
+  const speedTimeFactor  = (1 - speedPc) + speedPc / Math.max(1e-9, speedModRate);
+  const effectiveAtkRate = atkSpd / Math.max(1e-9, flurryTimeFactor * speedTimeFactor);
   // Crosshairs as an average tick-efficiency gain. Auto-crosshairs are free hits
   // (real time, ~2.175%/block/1.005s), doing part of each floor's damage so the
   // player spends fewer ticks. Per floor: M = 1 + (avgLiveBlocks/atkSpeed) * lambda
@@ -2067,7 +2084,7 @@ function getDerived(stats, inp){
   const atkS = Math.max(0.01, inp.atkSpeed || 1);
   const chLambda = (inp.crosshair?.spawnPct ?? 0.02175) / (inp.crosshair?.interval || 1.005);
   const chFactorPerBlock = autoTapEff>0 ? chLambda * autoTapEff * chRatio / (2*atkS) : 0;
-  return {damage,flatDamage,dmgPctPool,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage,autoTapEff,chFactorPerBlock,staminaRefundPerNode,quakeOn,quakeShare,quakeUptime,flurryStamPerHit,effectiveAtkRate};
+  return {damage,flatDamage,dmgPctPool,critChance,critDamage,superChance,superDamage,ultraChance,ultraDamage,gleamingMult,xpMult,xpFactor,lootMult,lootFactor,speedChance,staminaModChance,stamina,armorPenFlat,armorPenPct,evDamage,evCritDamage,enrageUptime,enrageDamage,enrageCritDamage,autoTapEff,chFactorPerBlock,staminaRefundPerNode,quakeOn,quakeShare,quakeUptime,flurryStamPerHit,effectiveAtkRate};
 }
 
 // Effective block armor after the player's penetration. Percent armor pen buffs
@@ -2255,11 +2272,32 @@ function expectedHitsFull(hp, der, inp, armor=0){
   const cacheKey = Math.ceil(hp * 1000) + "|" + Math.round(armor * 100);
   if(der._hitCache.has(cacheKey)) return der._hitCache.get(cacheKey);
 
+  // Enrage blend: hits-to-kill is convex in per-hit damage, so we can't average the
+  // damage first (the old evDamage approach understated the cost). Compute the kill
+  // cost at the base swing and at the full-Enrage swing, then blend by Enrage uptime
+  // — a block is killed during an Enrage window only ~uptime of the time.
+  const u = der.enrageUptime || 0;
+  let result;
+  if(u > 0){
+    const hBase = _hitsToKillAt(hp, der, armor, der.damage, der.critDamage);
+    if(hBase === Infinity){ result = Infinity; }            // unbreakable at the steady-state swing
+    else {
+      const hEnr = _hitsToKillAt(hp, der, armor, der.enrageDamage, der.enrageCritDamage);
+      result = (1 - u) * hBase + u * hEnr;
+    }
+  } else {
+    result = _hitsToKillAt(hp, der, armor, der.evDamage ?? der.damage, der.evCritDamage ?? der.critDamage);
+  }
+  der._hitCache.set(cacheKey, result);
+  return result;
+}
+
+// Expected swings to break a block of `hp` (armor subtracted per hit, blocked hits
+// still cost a swing) under the nested crit ladder, for a GIVEN base swing dmg/cdmg.
+function _hitsToKillAt(hp, der, armor, dmg, cdmg){
   const cc = der.critChance;                       // crit chance
   const sc = der.superChance;                      // super crit chance (on a crit)
   const uc = der.ultraChance;                      // ultra crit chance (on a super crit)
-  const dmg = der.evDamage ?? der.damage;          // includes the Enrage EV uptime buff
-  const cdmg = der.evCritDamage ?? der.critDamage; // crit damage multiplier
   const sd = der.superDamage;                      // super crit damage multiplier
   const ud = der.ultraDamage;                      // ultra crit damage multiplier
   // Nested crit ladder: super requires a crit, ultra requires a super.
@@ -2274,8 +2312,7 @@ function expectedHitsFull(hp, der, inp, armor=0){
   const hitting = allOutcomes.filter(o => o.d > 0);
   const pZero = allOutcomes.reduce((s,o)=> s + (o.d <= 0 ? o.p : 0), 0);
   if(hitting.length === 0 || pZero >= 1 - 1e-12){
-    der._hitCache.set(cacheKey, Infinity); // no hit can damage it: unbreakable
-    return Infinity;
+    return Infinity;                          // no hit can damage it: unbreakable
   }
 
   const avgHit = allOutcomes.reduce((sum,o) => sum + o.p * o.d, 0);
@@ -2283,9 +2320,7 @@ function expectedHitsFull(hp, der, inp, armor=0){
   const maxHits = Math.ceil(hp / Math.max(1e-9, minHit));
 
   if(maxHits > 80){
-    const approx = hp / avgHit; // avgHit already discounts wasted blocked ticks
-    der._hitCache.set(cacheKey, approx);
-    return approx;
+    return hp / avgHit;                       // avgHit already discounts wasted blocked ticks
   }
 
   // Exact expectation with blocked hits as wasted ticks:
@@ -2305,9 +2340,7 @@ function expectedHitsFull(hp, der, inp, armor=0){
     return value;
   }
 
-  const exact = E(hp);
-  der._hitCache.set(cacheKey, exact);
-  return exact;
+  return E(hp);
 }
 
 function nodeCosts(hits, der, inp){
