@@ -1,8 +1,7 @@
-// Spawn comparison. Gated: our per-slot rarity probability table matches their
-// actual sampled spawn distribution (confirms our rates ARE their sequential
-// 1-in-X model's marginals). Informational: average active nodes per floor, which
-// differs because our model guarantees the first 6 slots fill and theirs has no
-// minimum (so ours carries ~6*(1-p) extra blocks, most at shallow floors).
+// Spawn comparison. Both gated now: (1) our per-slot rarity probability table
+// matches their sampled spawn distribution (our rates ARE their sequential 1-in-X
+// model's marginals), and (2) our expected active-node count matches their sampled
+// average (both 24 slots rolled independently, no minimum).
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -14,8 +13,9 @@ const ours = JSON.parse(fs.readFileSync(path.join(HERE, "spawn_ours.json"), "utf
 const TYPES = ["dirt", "common", "rare", "epic", "legendary", "mythic", "divine"];
 const tol = 0.01; // abs per-slot probability (sampling noise at the configured sample count)
 
-let fail = 0, total = 0;
-console.log("Spawn distribution (per-slot rarity probability, ours rate table vs their sampled):");
+let fail = 0, total = 0, nodeFail = 0, nodeTotal = 0;
+const nodeTol = 0.5; // abs nodes/floor (sampling noise at the configured sample count)
+console.log("Spawn distribution (per-slot rarity probability + active-node count, ours vs their sampled):");
 for (const fl of Object.keys(theirs)) {
   const t = theirs[fl], o = ours[fl] || {};
   const bad = [];
@@ -24,8 +24,11 @@ for (const fl of Object.keys(theirs)) {
     const tv = t.rarityProb[ty] || 0, ov = (o.rarityProb || {})[ty] || 0;
     if (Math.abs(tv - ov) > tol) { fail++; bad.push(`${ty} theirs=${tv.toFixed(3)} ours=${ov.toFixed(3)}`); }
   }
-  console.log(`  floor ${fl.padStart(3)}: ${bad.length ? "FAIL " + bad.join(", ") : "rates match"}  | active nodes theirs=${t.activeAvg.toFixed(1)} ours~${o.expectedActive.toFixed(1)} (informational: ours' 6-node minimum)`);
+  nodeTotal++;
+  const nodeOk = Math.abs(t.activeAvg - o.expectedActive) <= nodeTol;
+  if (!nodeOk) nodeFail++;
+  console.log(`  floor ${fl.padStart(3)}: ${bad.length ? "FAIL " + bad.join(", ") : "rates match"}  | active nodes theirs=${t.activeAvg.toFixed(2)} ours=${o.expectedActive.toFixed(2)} ${nodeOk ? "ok" : "FAIL"}`);
 }
-console.log(`\nRate-distribution checks: ${total - fail}/${total} within ${tol} per-slot probability.`);
-if (fail) { console.log("Our rate table diverges from their spawn distribution."); process.exit(1); }
-console.log("Our spawn rate table matches their sequential 1-in-X model's marginals. The active-node count differs only by our 6-node-per-floor minimum, which their source-faithful model does not impose.");
+console.log(`\nRate-distribution: ${total - fail}/${total} within ${tol} per-slot probability.  Active-node count: ${nodeTotal - nodeFail}/${nodeTotal} within ${nodeTol} nodes.`);
+if (fail + nodeFail) { console.log("Our spawn model diverges from theirs."); process.exit(1); }
+console.log("Our spawn model matches theirs: same per-slot rarity distribution and the same active-node count (24 slots rolled independently, no minimum).");

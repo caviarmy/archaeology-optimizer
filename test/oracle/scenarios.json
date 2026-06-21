@@ -49,7 +49,7 @@
   "_runComment": "Phase 2: run RESULTS. Run a full dig many times in both engines (zero upgrades/cards, no Luck/Div so there are no stamina refunds, crosshairs, or auto-abilities) and compare the average floor reached. Their micro-tick sim and our EV+Monte-Carlo model agree in expectation, so floor is gated within a tolerance and block count is informational. Builds use only S/A/P/I to keep the dig deterministic in its mechanics.",
   "runComparison": {
     "N": 400,
-    "floorTolerancePct": 6,
+    "blockTolerancePct": 6,
     "scenarios": [
       {"name": "l20",     "level": 20, "asc": 2, "build": {"S": 10, "A": 10, "P": 0,  "I": 0,  "L": 0, "D": 0, "C": 0}},
       {"name": "l40_str", "level": 40, "asc": 2, "build": {"S": 20, "A": 20, "P": 0,  "I": 0,  "L": 0, "D": 0, "C": 0}},
