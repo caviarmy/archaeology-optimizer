@@ -1,8 +1,7 @@
-// Spawn model (our side): our rate table IS the per-slot marginal probability, so
-// we report it analytically (no sampling) plus our expected active-node count.
-// Our model: 24 slots, first 6 guaranteed filled, remaining 18 rolled at the
-// per-slot rate. Expected active = 6 + 18 * p, where p = rate-sum/100. Writes
-// spawn_ours.json. The 6-node minimum is the known divergence from their model.
+// Spawn model (our side): our rate table IS the per-slot marginal probability,
+// reported analytically (no sampling), plus our engine's expected active-node
+// count. Our model now matches theirs: 24 slots each rolled independently at the
+// per-slot rate, no minimum. Writes spawn_ours.json.
 import { JSDOM, VirtualConsole } from "jsdom";
 import fs from "fs";
 import path from "path";
@@ -25,10 +24,8 @@ setTimeout(() => {
   const out = {};
   for (const fl of sc.floors) {
     const rates = W.ratesForFloor(fl, inp);                 // per-slot marginal %, by rarity
-    const total = TYPES.reduce((s, t) => s + (rates[t] || 0), 0);
-    const p = Math.min(1, total / 100);
     out[String(fl)] = {
-      expectedActive: 6 + 18 * p,                           // 6 guaranteed + 18 rolled
+      expectedActive: W.expectedActiveNodesForFloor(fl, inp),  // from the engine: 24 * p
       rarityProb: Object.fromEntries(TYPES.map(t => [t, (rates[t] || 0) / 100])),
     };
   }
