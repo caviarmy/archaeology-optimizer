@@ -38,16 +38,18 @@ window.performance = window.performance || { now: () => Date.now() };
 
   try {
     const t0 = Date.now();
-    await window.runExact();
+    if (window.HTMLElement) Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { value(){}, writable:true });
+    window.requestAnimationFrame = window.requestAnimationFrame || (cb => setTimeout(cb, 0));
+    await window.runFullSimulation();
     const secs = ((Date.now()-t0)/1000).toFixed(1);
     console.log(`level=${level}`);
-    // The estimate hero is now a goal-driven set of tiles (k/v pairs).
-    const hero = Array.from(doc.getElementById("evHero").querySelectorAll(".metric"))
+    // The single result hero is a goal-driven set of tiles (k/v pairs).
+    const hero = Array.from(doc.getElementById("simHero").querySelectorAll(".metric"))
       .map(m => `${m.querySelector(".k").textContent}=${m.querySelector(".v").textContent}`);
-    console.log("estimate   :", hero.join(" | "));
+    console.log("best build :", hero.join(" | "));
     console.log("time       :", secs + "s");
   } catch (e) {
-    console.log("runExact THREW:", e.stack || e.message || e);
+    console.log("runFullSimulation THREW:", e.stack || e.message || e);
   }
   if (errors.length) console.log("PAGE ERRORS:\n" + errors.join("\n"));
 })();

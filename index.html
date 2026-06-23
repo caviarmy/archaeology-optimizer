@@ -291,10 +291,7 @@ body[data-target-used="false"] .target-only{
 body[data-block-target="true"] .goal-block-field{display:block!important}
 
 
-/* The simulation card stays below the estimate card; it does not reorder on run. */
 #results.active{display:flex;flex-direction:column}
-#deterministicCard{order:1}
-#simulationCard{order:2}
 .sim-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .sim-card-head h2{margin:0}
 #simulationCard #clearMonteRerank{display:none}
@@ -321,7 +318,7 @@ body[data-simulation-ready="true"] #simulationCard #clearMonteRerank{display:inl
 
 
 /* v33: prevent upward expansion caused by browser scroll anchoring */
-html, body, main, #results, #simulationCard, #deterministicCard, #simulationDetails, #simulationDetails *{
+html, body, main, #results, #simulationCard, #simulationDetails, #simulationDetails *{
   overflow-anchor:none!important;
 }
 #simulationDetails{
@@ -612,29 +609,12 @@ body[data-landing="true"] #guidedReenter{display:none}
   </section>
 
   <section id="results" class="panel active">
-    <div class="card" id="deterministicCard">
-      <h2 id="optimizerTitle">Estimated best build</h2>
-      <span class="pill-note">Fast estimate. Run Full Simulation to confirm.</span>
+    <div class="card" id="simulationCard">
+      <div class="sim-card-head"><h2 id="simTitle">Best build</h2><button id="clearMonteRerank" class="clear-chip">Clear simulation</button></div>
       <div class="actionbar">
-        <button id="runExact" class="ghost">Generate Estimate Only</button>
-        <button id="runMonteRerank">Run Full Simulation</button>
+        <button id="runMonteRerank">Run Simulation</button>
       </div>
       <div id="ascWarning" class="asc-warning" hidden></div>
-      <div class="metrics" id="evHero"></div>
-      <button type="button" class="sanity-link" data-sanity>Something not look right?</button>
-      <details>
-        <summary>Top candidate builds</summary>
-        <div class="table-wrap" style="margin-top:8px">
-          <table id="topBuildsTable">
-            <thead><tr></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </details>
-    </div>
-
-    <div class="card" id="simulationCard">
-      <div class="sim-card-head"><h2 id="simTitle">Simulated result</h2><button id="clearMonteRerank" class="clear-chip">Clear simulation</button></div>
       <div class="metrics simulation-summary" id="simHero"></div>
       <button type="button" class="sanity-link" data-sanity>Something not look right?</button>
       <details id="simulationDetails" open>
@@ -956,7 +936,7 @@ body[data-landing="true"] #guidedReenter{display:none}
           <div><label>Crosshair spawn % / block</label><input id="crosshairSpawnPct" type="number" step="0.001" value="2.175"></div>
           <div><label>Crosshair interval s</label><input id="crosshairInterval" type="number" step="0.001" value="1.005"></div>
           <div><label>Crosshair fire delay s</label><input id="crosshairFireDelay" type="number" step="0.001" value="2"></div>
-          <div><label>Top builds to keep (shown in the estimate, re-simulated by Simulate)</label><input id="mcTopCount" type="number" min="1" max="1000" value="25"></div>
+          <div><label>Candidate builds to simulate (top by fast estimate)</label><input id="mcTopCount" type="number" min="1" max="1000" value="50"></div>
           <div><label>Runs per reward build</label><input id="mcRunsPerBuild" type="number" min="100" max="20000" value="1000"></div>
           <div><label>Simulation seed mode</label><select id="simSeedMode"><option value="random" selected>Random each run</option><option value="fixed">Fixed seed</option></select></div>
           <div><label>Fixed simulation seed</label><input id="simSeedValue" type="text" value="12345"></div>
@@ -1089,7 +1069,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.21.4";  // bump on notable releases; surfaced in the debug export and the header
+const APP_VERSION = "2026.06.23.1";  // bump on notable releases; surfaced in the debug export and the header
 let _blockTargetLabel = "";          // human label for the current block-target goal (e.g. "Tier 3 Epic")
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1290,14 +1270,11 @@ function updateGoalUI(){
   document.body.dataset.showLootSettings = (goalUsesLoot(primary) || goalUsesLoot(secondary)) ? "true" : "false";
 
   const inp = getInputs();
-  const title = document.getElementById("optimizerTitle");
-  if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
   const simTitle = document.getElementById("simTitle");
   if(simTitle && !(window.__simResults && window.__simResults.length))
-    simTitle.textContent = `Simulated result: ${rewardFocusLabel(primaryFocusKey(inp))}`;
-  // Reflect the goal layout in the heroes even before a run (placeholder tiles),
-  // so switching goals reshapes the cards without leaving stale results behind.
-  if(!(lastExactTopBuilds && lastExactTopBuilds.length)) renderHero(document.getElementById("evHero"), null, inp);
+    simTitle.textContent = `Best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
+  // Reflect the goal layout in the hero even before a run (placeholder tiles), so
+  // switching goals reshapes the card without leaving stale results behind.
   if(!(window.__simResults && window.__simResults.length)) renderHero(document.getElementById("simHero"), null, inp);
 }
 // Target-floor goal = chance of REACHING the target floor. When a simulated
@@ -1699,17 +1676,10 @@ function deterministicSignature(inp){
   return JSON.stringify(stable);
 }
 
-function resetBestResults(){
-  renderHero(document.getElementById("evHero"), null, getInputs());
-  const tbody=document.querySelector("#topBuildsTable tbody");
-  if(tbody) tbody.innerHTML="";
-}
-
 function markOptimizerStale(){
   if(isRunningExact) return;
   lastExactTopBuilds = [];
   lastExactSignature = null;
-  resetBestResults();
   clearMonteRerank(true);
   updateSimButtonState();
 }
@@ -2592,8 +2562,6 @@ async function runExact(){
   const level = inp.selectedLevel;
   const blocks = visibleBlocks(inp);
   const status = document.getElementById("status");
-  const btn = document.getElementById("runExact");
-  btn.disabled = true; btn.classList.add("btn-spin");
   showStatus("Searching every build…", 30000);
   await new Promise(r=>setTimeout(r,20));
 
@@ -2615,12 +2583,9 @@ async function runExact(){
     topBuilds = res.topBuilds; count = res.count;
   }
 
-  const best = topBuilds[0];
   lastExactTopBuilds = topBuilds.map((x, i2) => ({...x, detRank: i2 + 1}));
   lastExactSignature = exactSignature;
-  renderBest(best, topBuilds.slice(0, inp.mcTopCount), count);
   showStatus(`Build search complete in ${((performance.now()-start)/1000).toFixed(2)}s (${count.toLocaleString()} build${count===1?"":"s"} scored)${extra}.`, 5000);
-  btn.disabled = false; btn.classList.remove("btn-spin");
   isRunningExact = false;
   updateSimButtonState();   // a fresh estimate now exists -> allow Simulate
 }
@@ -2859,8 +2824,8 @@ function simFocusValue(row, inp){
   if(row.lootPerHour && row.lootPerHour[k]!=null) return row.lootPerHour[k];
   return row.rewardsPerHour;
 }
-// Shape a sim-aggregate row like a scoreBuild output so renderBest / rankCandidates
-// / runMonteRerank all work unchanged (metrics are per-real-time-hour from the sim).
+// Shape a sim-aggregate row like a scoreBuild output so rankCandidates / the result
+// table all work unchanged (metrics are per-real-time-hour from the sim).
 function simCandidate(st, row, inp){
   const der = getDerived(st, inp);
   const lp = row.lootPerHour || {};
@@ -2882,54 +2847,7 @@ function buildLabel(s){
   return lbl;
 }
 
-function renderBest(best, top, count){
-  if(!best) return;
-  const inp = getInputs();
-  renderHero(document.getElementById("evHero"), best, inp);
-  const title = document.getElementById("optimizerTitle");
-  if(title) title.textContent = `Estimated best build: ${rewardFocusLabel(primaryFocusKey(inp))}`;
-  const ccEl = document.getElementById("candidateCount");
-  if(ccEl) ccEl.textContent = count.toLocaleString();
-  const bandEl = document.getElementById("primaryBandFloor");
-  if(bandEl && top.length){
-    const pk = primaryFocusKey(inp);
-    const tol = Math.max(0, (inp.goal?.tolerancePct || 0) / 100);
-    const bestPrimary = Math.max(...top.map(x=>metricValue(x, pk, inp)));
-    bandEl.textContent = fmt(bestPrimary - Math.abs(bestPrimary)*tol, 1);
-  }
 
-  // Same columns as the simulation table (goal-driven), so the two read identically.
-  // The estimate is a fixed ranking by the chosen goal, so the headers are static
-  // (no click-to-sort) and rows stay in rank order.
-  const table = document.getElementById("topBuildsTable");
-  const thead = table.querySelector("thead");
-  const tbody = table.querySelector("tbody");
-  const asc = inp.ascension ?? 0;
-  top.forEach((x,i)=>{ x.estRank = i+1; });
-  const cols = buildResultColumns(inp, {mode:"estimate"});
-
-  const htr=document.createElement("tr");
-  cols.forEach(c=>{
-    const th=document.createElement("th"); th.textContent=c.label;
-    if(c.req){ th.className=c.req===2?"req-a2":"req-a1"; if(asc<c.req) th.style.display="none"; }
-    if(c.cls) th.classList.add(c.cls);
-    htr.appendChild(th);
-  });
-  thead.innerHTML=""; thead.appendChild(htr);
-
-  tbody.innerHTML="";
-  top.forEach((x,i)=>{
-    const tr=document.createElement("tr");
-    if(i===0) tr.className="best";
-    cols.forEach(c=>{
-      const td=document.createElement("td"); td.textContent=c.text(x);
-      if(c.req){ td.className=c.req===2?"req-a2":"req-a1"; if(asc<c.req) td.style.display="none"; }
-      if(c.cls) td.classList.add(c.cls);
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-}
 
 
 /* Simulation uses exact randomized node slots and crits. It is intentionally separate from optimizer. */
@@ -3205,7 +3123,6 @@ function aggregateBuildSim(stats, inp, blocks, runs, rng){
 async function runMonteRerank(){
   const inp=getInputs(), blocks=visibleBlocks(inp);
   const status=document.getElementById("status");
-  const btn=document.getElementById("runMonteRerank");
   const tbody=document.querySelector("#monteRerankTable tbody");
 
   if(!lastExactTopBuilds || lastExactTopBuilds.length===0){
@@ -3213,11 +3130,10 @@ async function runMonteRerank(){
     return;
   }
   if(deterministicSignature(inp) !== lastExactSignature){
-    showStatus("Settings changed. Run Find best build again before simulating.", 5000);
+    showStatus("Settings changed. Run the simulation again.", 5000);
     return;
   }
 
-  btn.disabled=true; btn.classList.add("btn-spin");
   tbody.innerHTML="";
   const builds=lastExactTopBuilds.slice(0, inp.mcTopCount);
   const runs=inp.mcRunsPerBuild;
@@ -3248,7 +3164,6 @@ async function runMonteRerank(){
 
   document.body.dataset.simulationReady = "true";
   showStatus(`Simulation complete in ${((performance.now()-start)/1000).toFixed(2)}s.`, 5000);
-  btn.disabled=false; btn.classList.remove("btn-spin");
 }
 
 // Run Full Simulation entry point. With a fresh matching estimate it simulates the
@@ -3257,23 +3172,29 @@ async function runMonteRerank(){
 // hero into its loading state and gently bring the card into view.
 async function runFullSimulation(){
   const inp = getInputs();
+  const btn = document.getElementById("runMonteRerank");
   let fresh = false;
   try {
     fresh = lastExactTopBuilds && lastExactTopBuilds.length > 0 &&
             lastExactSignature && deterministicSignature(inp) === lastExactSignature;
   } catch(e){ fresh = false; }
-  if(!fresh){
-    await runExact();   // also clears any prior simulation
-    if(!(lastExactTopBuilds && lastExactTopBuilds.length)){
-      renderHero(document.getElementById("simHero"), null, inp);
-      return;
+  if(btn){ btn.disabled = true; btn.classList.add("btn-spin"); }
+  try {
+    if(!fresh){
+      await runExact();   // generate the candidate builds to simulate (also clears any prior sim)
+      if(!(lastExactTopBuilds && lastExactTopBuilds.length)){
+        renderHero(document.getElementById("simHero"), null, inp);
+        return;
+      }
     }
+    renderHeroShimmer(document.getElementById("simHero"), inp);
+    const simCard = document.getElementById("simulationCard");
+    // One gentle scroll, after the loading state is painted, so the view settles once.
+    if(simCard) requestAnimationFrame(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}));
+    await runMonteRerank();
+  } finally {
+    if(btn){ btn.disabled = false; btn.classList.remove("btn-spin"); }
   }
-  renderHeroShimmer(document.getElementById("simHero"), inp);
-  const simCard = document.getElementById("simulationCard");
-  // One gentle scroll, after the loading state is painted, so the view settles once.
-  if(simCard) requestAnimationFrame(()=>simCard.scrollIntoView({behavior:"smooth", block:"start"}));
-  await runMonteRerank();
 }
 
 // Render the simulation results table sorted by `sortKey` (descending unless dir=1),
@@ -3362,32 +3283,26 @@ function renderSimResults(sortKey, dir){
   };
   const _bestP = results.reduce((m,rw)=>Math.max(m, simFocusValue(rw,_focusInp)), -Infinity);
   const _thr = _bestP - Math.abs(_bestP) * _tol;
-  // A rare secondary (e.g. a loot rarity) is noisy even at the Simulate run count,
-  // so the top in-band builds are often within a percent or two of each other and
-  // the simulation can't reliably order them. When two are within that noise band
-  // we break the tie by the noise-free EV secondary, which reliably points to the
-  // true best (the simulation already confirmed they are essentially tied). The
-  // band scales with run count: more runs -> tighter band -> less deferral to EV.
-  const _blocks = visibleBlocks(_focusInp);
-  const _runs = Math.max(1, _focusInp.mcRunsPerBuild || 1000);
-  const _tieTol = Math.min(0.02, 0.6/Math.sqrt(_runs));
-  const _evCache = new Map();
-  const _evSec = (rw)=>{ if(_sk==="none") return 0; const k=rw.stats?[rw.stats.S,rw.stats.A,rw.stats.P,rw.stats.I,rw.stats.L,rw.stats.D,rw.stats.C].join(","):""; let v=_evCache.get(k); if(v===undefined){ try{ v=metricValue(scoreBuild(rw.stats,_focusInp,_blocks),_sk,_focusInp)||0; }catch(_e){ v=0; } _evCache.set(k,v); } return v; };
-  // Best in-band simulated secondary defines the plateau; builds within the noise
-  // band of it are ranked by EV secondary, the rest strictly by simulated secondary.
-  let _bestSec=-Infinity;
+  // Within the primary tolerance band, rank by the SIMULATED secondary, then break
+  // near-ties by the simulated PRIMARY. A rare secondary (a specific loot rarity) is
+  // noisy at the run count, so secondaries are compared on a quantized noise band:
+  // builds in the same band-bucket are treated as tied and ordered by their primary
+  // (which is far less noisy). Bucketing keeps the comparison transitive and makes it
+  // impossible for a build to outrank one that beats it in BOTH metrics — the old
+  // EV-secondary tie-break did exactly that, producing a Pareto-dominated #1.
+  let _bestSec = 0;
   if(_sk!=="none"){ for(const rw of results){ if(simFocusValue(rw,_focusInp)>=_thr-1e-9){ const s=_rowVal(rw,_sk)||0; if(s>_bestSec) _bestSec=s; } } }
-  const _tieAbs = _tieTol*Math.max(Math.abs(_bestSec),1e-9);
-  const _onPlateau = (rw)=> (_rowVal(rw,_sk)||0) >= _bestSec - _tieAbs;
+  const _runs = Math.max(1, _focusInp.mcRunsPerBuild || 1000);
+  const _band = Math.min(0.02, 0.6/Math.sqrt(_runs)) * Math.max(_bestSec, 1e-9);   // secondary noise band
+  const _secBucket = rw => _band>0 ? Math.round((_rowVal(rw,_sk)||0) / _band) : (_rowVal(rw,_sk)||0);
   results.slice().sort((a,b)=>{
     const pa=simFocusValue(a,_focusInp), pb=simFocusValue(b,_focusInp);
     const ai=pa>=_thr-1e-9, bi=pb>=_thr-1e-9;
-    if(ai!==bi) return ai?-1:1;
+    if(ai!==bi) return ai?-1:1;                          // in the primary band first
     if(ai && bi && _sk!=="none"){
-      const ga=_onPlateau(a), gb=_onPlateau(b);
-      if(ga!==gb) return ga?-1:1;                                   // plateau builds rank first
-      if(ga){ const ea=_evSec(a), eb=_evSec(b); if(Math.abs(eb-ea)>1e-9) return eb-ea; }  // plateau: EV secondary
-      else { const sa=_rowVal(a,_sk)||0, sb=_rowVal(b,_sk)||0; if(Math.abs(sb-sa)>1e-9) return sb-sa; }  // below: simulated secondary
+      const ba=_secBucket(a), bb=_secBucket(b);
+      if(ba!==bb) return bb-ba;                          // higher simulated secondary (bucketed) wins
+      // within the secondary noise band: higher simulated primary wins (Pareto-safe)
     }
     return pb-pa;
   }).forEach((r,i)=>{ r.simRank=i+1; });
@@ -3428,7 +3343,7 @@ function renderSimResults(sortKey, dir){
   const best = results.find(r=>r.simRank===1) || sorted[0];
   renderHero(document.getElementById("simHero"), best, _focusInp);
   const title=document.getElementById("simTitle");
-  if(title) title.textContent=`Simulated result: ${rewardFocusLabel(primaryFocusKey(_focusInp))}`;
+  if(title) title.textContent=`Best build: ${rewardFocusLabel(primaryFocusKey(_focusInp))}`;
   renderThroughputDetail(best);
 }
 
@@ -3513,7 +3428,7 @@ function clearMonteRerank(silent=false){
   if(tbody) tbody.innerHTML="";
   window.__simResults=null;
   renderHero(document.getElementById("simHero"), null, getInputs());
-  const simTitle=document.getElementById("simTitle"); if(simTitle) simTitle.textContent=`Simulated result: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
+  const simTitle=document.getElementById("simTitle"); if(simTitle) simTitle.textContent=`Best build: ${rewardFocusLabel(primaryFocusKey(getInputs()))}`;
   const td=document.getElementById("throughputDetailBody"); if(td) td.innerHTML="";
   document.body.dataset.simulationReady = "false";
   if(!silent) document.getElementById("status").textContent="Simulation results cleared.";
@@ -3585,8 +3500,6 @@ function buildDebugData(){
     inputs,
     parsedInputs,
     estimate:{
-      title:txt("optimizerTitle"),
-      heroCard:heroDump("evHero"),
       signature:(typeof lastExactSignature!=="undefined")?lastExactSignature:null,
       topBuilds:(typeof lastExactTopBuilds!=="undefined" && lastExactTopBuilds)
         ? lastExactTopBuilds.map(b=>({detRank:b.detRank, stats:b.stats, floorReached:b.floorReached,
@@ -5025,7 +4938,6 @@ function bindGoalSelector(){
     updateSettingsSummary();
   });
 }
-document.getElementById("runExact").addEventListener("click",runExact);
 document.getElementById("runMonteRerank").addEventListener("click",runFullSimulation);
 document.getElementById("runCustomSim")?.addEventListener("click",runCustomSim);
 document.getElementById("exportDebug")?.addEventListener("click",exportDebug);
@@ -5865,8 +5777,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     if(typeof updateSettingsSummary==="function") updateSettingsSummary();
     if(typeof refreshAscensionWarning==="function") refreshAscensionWarning();
     if(toAdvanced){
-      var hasSim=window.__simResults && window.__simResults.length;
-      var card=document.getElementById(hasSim?"simulationCard":"deterministicCard");
+      var card=document.getElementById("simulationCard");
       if(card) setTimeout(function(){ try{ card.scrollIntoView({behavior:"smooth", block:"start"}); }catch(_e){} }, 60);
     }
   }
