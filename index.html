@@ -1717,7 +1717,7 @@ function getInputs(){
       fireDelay: Math.max(0, numOr("crosshairFireDelay", 2))       // real seconds
     },
     speedModel:"none", // speed/ticks-per-second intentionally excluded from tick-efficiency optimization
-    mcTopCount:Math.max(1, Math.min(1000, Math.floor(n("mcTopCount") || 25))),
+    mcTopCount:Math.max(1, Math.min(1000, Math.floor(n("mcTopCount") || 50))),
     mcRunsPerBuild:Math.max(100, Math.min(20000, Math.floor(n("mcRunsPerBuild") || 1000))),
     simSeedMode:v("simSeedMode") || "random",
     simSeedValue:String(v("simSeedValue") || "12345"),
@@ -4739,7 +4739,7 @@ function resetAllSettings(){
     primaryGoal:"allRewards",
     secondaryGoal:"none",
     primaryToleranceValue:"2",
-    mcTopCount:"25",
+    mcTopCount:"50",
     mcRunsPerBuild:"1000",
     simSeedMode:"random",
     simSeedValue:"12345",
