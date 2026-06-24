@@ -1,127 +1,103 @@
 # Changelog
 
-## 2026-06-19
+## 2026-06-24
+
+### Changed
+- One Run Simulation button replaces the separate Estimate and Simulate steps.
+- Removed the Thorough search toggle; the search scores every build, then simulates the top candidates.
+- Estimate and simulation share one goal-driven result card and table (Est. rank column kept).
+- Result hero stats follow your goal; per-stamina tiles dropped; avg floor sits after the goal metric.
+- Default candidate builds to simulate raised from 25 to 50.
+- Run Simulation scrolls to the result and shows a loading state.
 
 ### Fixed
-- **Stat-import screenshot reading no longer fails intermittently — real root cause fixed.** The true cause was not the model (it happened on every 2.5 model): the 2.5 Gemini models are *thinking* models, and by default they can spend their output budget on internal reasoning before answering. With structured-output JSON that occasionally left no room for the answer, so the model returned an empty result (an intermittent "couldn't read the image" that worked on retry). OCR is pure transcription, so the worker now disables thinking for that call (`thinkingBudget: 0` on 2.5 models), which makes reads reliable — and faster and cheaper. A small bounded server-side retry covers any residual transient (a network blip, a 5xx, or an empty/all-null read), and a genuine failure now reports the model's exact finish reason. The OCR model itself is unchanged from your configured one. (Supersedes the 2026-06-17 note that attributed this to the model tier. Worker change, deploys on merge.)
+- Result ranking no longer places a build above others that beat it on both primary and secondary.
+- Build search calibrated to the simulation (Enrage hits, attack speed), so the best build surfaces without a large candidate count.
+
+## 2026-06-19
 
 ### Added
-- **A discreet automatic build stamp in the footer — version + last updated — that needs no manual bumping.** At the bottom of the page it reads the latest commit on `main` (exactly what GitHub Pages deploys) from GitHub's public API and shows its date and short commit id (e.g. `v2026 Jun 19 · 8665461`), with the full timestamp and the change summary on hover. It updates on every push to main on its own, so you can always tell whether you're on the latest build. The result is cached briefly per visitor, and falls back to the built-in version when offline.
+- Automatic build stamp in the footer (version and last updated).
+
+### Fixed
+- Screenshot stat import no longer fails intermittently.
 
 ## 2026-06-17
 
-### Fixed
-- **Stat-import screenshot reading is much more reliable.** Imports were intermittently failing on a perfectly valid screenshot ("couldn't read the image"), then working on a retry. The cause was the OCR model: it ran on `gemini-2.0-flash-lite`, the weakest tier, which is not strictly deterministic even at temperature 0 and would occasionally return an empty read of a dense stats panel. OCR now uses the full `gemini-2.0-flash` model, which is markedly more reliable on small, tightly-packed text (cost per call is ~1.3x, negligible at the daily-capped OCR volume; the AI analysis call is unchanged). The worker also now reports an empty read distinctly (with the model's finish reason) instead of mislabeling it a parse error, so any future failure is unambiguous. (Worker change, deploys on merge.)
-
 ### Added
-- **A deep secondary scan now finds the build family a normal search can miss, automatically.** When you set a secondary goal, the hill-climb can get stuck in the build family that favors your primary stat and never try the very different family that maximizes the secondary (for example a Luck-heavy build for epic loot when your primary leans Strength); the two are too far apart in point-spread for a one-point-at-a-time climb to cross between them. Now, whenever a secondary goal is set, the optimizer sweeps the whole build space on the expected-value model, refines the most promising spreads at full resolution, and feeds those builds into the simulation to confirm. In testing at level 47 (all rewards + epic loot), measured against an exhaustive scoring of all 211,950 point spreads, it moved the recommended build from mid-pack among the builds that meet the primary (about 4.5% of epic loot left on the table) to the top 1% of them (about 1% off the verified best); the small remainder is Monte Carlo tie-breaking between near-identical builds on the plateau, which more simulation runs tightens. The progress line reports the scan's live build count as it runs.
+- Secondary-goal search sweeps the whole build space to find the secondary-best build family.
 
 ### Changed
-- **The AI analysis now contrasts genuinely different builds, concisely.** It used to compare near-identical builds that differed by a point or two and wax on. It now picks the most distinct distributions the optimizer actually simulated (the recommended build plus the most stat-distant ones from its own exploration, labelled by their lean), re-runs them on shared random rolls so the numbers are comparable, and the prompt asks for a few sharp contrasts focused on what the recommended build trades off and gains on your goals. (Worker prompt change, deploys on merge.)
-- **The guided "find my best build" step shows a progress bar** with the live counts the optimizer is already reporting (builds tried, simulation progress) instead of a single static line.
+- AI analysis contrasts genuinely different builds, briefly.
+- "Find my best build" shows a progress bar.
 
 ### Fixed
-- **When the simulation can't separate the top builds, the noise-free model breaks the tie.** With a secondary goal, the top in-band builds are often within a percent or two on the secondary (a rare loot rarity is noisy even at the Simulate run count), so which one ranked first could shift run to run. Now, when builds fall within that noise band of the best, they are ordered by the analytic expected-value model (which has no sampling noise) instead of by the coin-flip simulated difference. This keeps the recommendation in the genuinely-best build family rather than occasionally jumping to a worse one that got lucky; the remaining builds are still ranked by the simulation. The band tightens automatically as you raise the runs per build.
-- **Simulate now compares builds on common random numbers, so the ranking between near-tied builds is stable.** The final simulation stepped one continuous random stream across all the builds it ranked, so each build faced different luck; when the top builds were within a percent or two of each other (which is common near the optimum) their order could flip from run to run. Each build is now simulated from the same seed, so they all face identical rolls and the comparison is low-variance (across separate Simulate runs the seed still varies in random-seed mode).
-- **The best build no longer gets dropped before Simulate when a secondary goal is set.** The estimate chose which builds to keep partly by the secondary metric, but a rare secondary (e.g. a specific loot rarity) is far too noisy to rank by at the search's run count — comparing two near-identical builds on it is close to a coin flip — so a genuinely top build could get an unlucky estimate and never reach Simulate. Now the secondary is judged for candidate-keeping by the analytic expected-value model (which computes it with zero noise) rather than the noisy short simulation: the search keeps the top builds by primary reward and by EV goal, and the secondary/tolerance ranking is then applied on the high-fidelity Simulate pass where the numbers are accurate. The simulation now also honors the secondary goal (it previously ranked by primary only), so the estimate and simulation agree on what "best" means.
-- **The AI analysis retries once automatically** if the first request hits a transient network or server error, instead of failing outright (a real failure or the daily cap still reports normally).
+- Near-tied top builds ordered by the noise-free model for a stable pick.
+- Builds simulated on common random numbers, so close rankings are stable.
+- Best build no longer dropped before simulation with a secondary goal; simulation honors the secondary goal.
+- AI analysis retries once on a transient error.
 
 ## 2026-06-16
 
-### Changed
-- **The simulation table now shows columns relevant to your goal, including the secondary goal.** Right after the build's attribute columns it shows a highlighted column for your primary goal (blue) and, when set, your secondary goal (green): the targeted block's count per hour, a specific loot rarity's loot per hour, or (for the target-floor goal) the chance of reaching the floor. After those it always shows rewards/hr, reward/stamina, blocks/hr, XP/hr, loot/hr and average floor (a goal that already is one of those is pulled to the front, not duplicated). The "Target %" column appears only for the target-floor goal, and the P10/P50/P90 columns were removed.
-- **Guided result keeps your simulation when you navigate back, and "Start over" now resets cleanly.** Pressing Back from the result no longer forces a re-run: the Run step recognizes a finished result and lets you return to it with Next (or re-run on purpose). The large "Start over" button on the result is gone; the footer button is now "Start over", which opens the "You have saved stats" prompt. Choosing "Use previous stats" there drops the loaded simulation but keeps your stats and settings (so guided runs fresh), while "Start fresh" clears everything as before.
-
-### Fixed
-- **Higher-ascension upgrades and fields no longer affect the simulation after you switch to a lower ascension.** Values left in Ascension-gated controls (the A1/A2 attribute-modifier upgrades, +5 Stat Caps, and spent Divinity/Corruption) were hidden when you dropped ascension but still fed the model. They are now ignored below their required ascension, and crucially the values are kept (not erased), so switching back up restores them. Spent Divinity/Corruption fields are also hidden below A1/A2 now.
-- **Highest Stage now imports from the stats screenshot and drives Block Bonker only when you enable it.** The screenshot field is read from the game's "Highest Stage" line (the OCR was looking for "Highest Floor", so it never matched). Block Bonker is again a checkbox in Upgrades: when enabled it applies +1% damage and +1% max stamina per Highest Stage (up to 100); when off it applies nothing. The magnitude always comes from the imported Highest Stage, so enabling, disabling and re-enabling after an import all work, and "Max all upgrades" enables it (Clear disables it). (The screenshot mapping needs the worker redeployed with `wrangler deploy`.)
-- **Crit damage from Strength is now valued correctly.** Crit damage is a 1.5x base times one plus the sum of all crit-damage percents, so every "+X% crit damage" (your crit upgrade, Strength's +3% per point) is a percent of that 1.5 base. Strength was being counted as a flat +0.03 per point instead of +0.045 (3% of 1.5), which left the backed-out base crit damage too high (e.g. 1.92 instead of 1.84) and under-valued Strength's crit contribution in the optimizer. You don't enter the crit upgrade anywhere; it stays captured in your shown crit damage.
-- **Infernal cards are no longer treated as Ascension-2 only.** The Infernal rarity is now selectable at any ascension (per-card and in bulk set), the model applies an infernal card's global buff regardless of ascension, and ascension changes no longer downgrade infernal picks. Cards whose block does not exist yet (divine below A1, tier 4 below A2) are still gated as before.
-
-### Changed
-- **"Something not look right?" on the guided result is now a small link, not a card.** It sits between the result stats and the View result tables button, and still opens the troubleshooting checklist (with the AI analyzer at the bottom).
-- **Guided result reaches the AI analyzer through the troubleshooting checklist.** The guided result no longer has a button that jumps straight to the AI. Instead it has "Something not look right?", which opens the same common-issues checklist (ascension, stat import, upgrades, cards, infernal multiplier, polychrome bonus) with your current values, and the "Analyze this result with AI" button sits at the bottom of it, so you check the usual mistakes first. Tapping a checklist item in guided mode now jumps to the matching guided step instead of opening a settings panel behind the wizard.
-
-### Fixed
-- **The target-floor goal now optimizes for the chance of reaching the floor, not the average floor.** It used to rank builds by expected (average) floor relative to the target, so a build with a deeper average but a worse hit rate could be chosen. Now it ranks by the simulated probability of reaching the target floor, with a faint average-floor tiebreak so builds that all reach it about 100% of the time are ordered by their margin. The estimate, the simulation table, and the guided result all show the target as a hit percentage.
-
-### Changed
-- **Cards are now compact and shown directly in guided setup.** The guided cards step no longer hides behind a "Set my cards" button; the card list is right there. Each card is a single row (checkbox, name, then Normal / Gilded / Polychrome / Infernal inline), so far more fits on screen at once, and picking a rarity now marks the card as owned for you. The infernal multiplier field only appears once a card is set to Infernal, and it (plus the Polychrome Bonus toggle) now sits below the card list rather than above it. If an infernal card is set while the multiplier is still 1x the field is flagged red, and pressing Next once raises a soft, non-blocking notice for that and for having polychrome cards with the Polychrome Bonus off.
-- **Result tables now open inside the guided flow.** The result screen has a "View result tables" button that reveals the detailed simulation table and the per-hour throughput breakdown in place, so you no longer have to leave guided setup to see them. "Open the full app" is still there if you want the whole interface.
-- **AI analysis gets the data to argue from cause, not score.** The diagnosis payload now includes, per build, the exact per-hour amount of your primary and secondary goal metrics (e.g. epic-loot/hr when that's your secondary), plus each build's derived damage, crit chance and max stamina. The goals block now spells out your secondary goal and how its protection tolerance trades against the primary. The prompt was tightened to require a mechanism for every comparison (which lever and why, given how rewards are produced) and to address the secondary goal explicitly. (Worker prompt change — redeploy with `wrangler deploy`.)
-- **Block Bonker is now derived from your highest floor cleared, not entered by hand.** The skill grants +1% damage and +1% max stamina per stage (up to +100%), where the stage is your highest floor cleared, capped at 100. There is no longer a Block Bonker toggle or stage field; instead the app reads "highest floor cleared" (from the stat screenshot, or you can type it in) and computes the bonus from it. The damage and stamina percents are still removed from your shown stats and re-applied in the pooled math, so per-point valuations stay correct. (The screenshot import now also reads highest floor — requires the worker to be redeployed with `wrangler deploy`.)
-
 ### Added
-- **Guided setup — a step-by-step flow that's now the default landing.** First-time visitors (and anyone who hasn't switched to the full view) start in a full-screen, on-rails wizard that walks through one decision at a time: what you're optimizing for, your Ascension, your stats (type them in or import a screenshot), abilities, upgrades, cards, a quick check of what you entered, and then a single button that estimates and simulates your best build and shows the result. Each screen has Back/Next and an "Exit guided mode" that drops you into the full advanced view; a "✨ Guided setup" button in the header re-enters it. Progress is remembered between visits. Under the hood it reuses the exact same inputs and engine — the wizard borrows the real settings panels rather than duplicating any field — so nothing about the numbers changes, and switching between guided and advanced never loses what you entered.
+- Guided setup: a step-by-step flow, now the default landing.
+
+### Changed
+- Simulation table shows columns relevant to your goal, including the secondary; removed P10/P50/P90.
+- Guided result keeps your simulation on Back; Start over resets cleanly.
+- "Something not look right?" on the result is a small link, not a card, and opens the AI analyzer via the checklist.
+- Cards are compact and shown directly in guided setup.
+- Result tables open inside the guided flow.
+- "All loot" goal relabeled "Loot only (no XP)".
+- Simulate a specific build scores under your chosen goal.
+- One Rewards / stamina metric instead of two.
+
+### Fixed
+- Higher-ascension upgrades no longer affect the sim after dropping ascension (values kept).
+- Highest Stage imports from the screenshot and drives Block Bonker only when enabled.
+- Crit damage from Strength valued correctly.
+- Infernal cards selectable at any ascension.
+- Target-floor goal optimizes for the chance of reaching the floor, not the average floor.
 
 ## 2026-06-15
 
-### Fixed
-- **Quake's AoE now benefits from Enrage's damage buff during overlap.** Quake deals a percentage of your damage to the other live blocks on a floor; when Enrage is active at the same time, that share now rides Enrage's additive damage% (just like a normal hit). The simulation applies it per swing (exact); the estimate uses the Enrage-uptime-averaged damage. At realistic ability values the impact is negligible and the estimate/simulation stay consistent.
-- **Locked tiers now fall back instead of leaving empty floors.** Tier-4 blocks need Ascension 2 and divine blocks need Ascension 1. Previously, on deep floors where a block type's only variant was a locked tier (e.g. dirt past floor 80 at A1), that type produced no block — its spawn slots silently contributed nothing, and a floor 150+ at A1 could resolve to no blocks at all, under-counting rewards. Now the type keeps spawning its highest unlocked tier (tier 3), scaled for depth, so floors stay populated and the spawn distribution is correct at every ascension.
-
 ### Added
-- **"Target a specific block" goal.** Pick a tier + rarity (e.g. Tier 3 Epic) and the optimizer finds the build that *destroys the most of that block per hour*; the estimate and simulation rank by, and the result shows, the chosen block's count/hr. (As part of this, the simulation's "best" build now always reflects your chosen goal — it previously fixed the rank by rewards/hr even for loot or target-floor goals.)
-- **Block Bonker skill (Obelisk Lv 30).** A toggle in the upgrades tab plus your highest stage reached (capped at 100): it grants +1% damage and +1% max stamina per stage (up to +100% each) and +15 speed-mod gain. The damage and stamina percents are already in your shown stats, so the tool backs them out to recover your true base and re-applies them in the pooled math — keeping damage-% calculations correct as the optimizer re-allocates points.
-- **Per-upgrade "Max" button.** Each upgrade-level stepper now has a one-tap "Max" (in addition to the page-level "Max all upgrades").
-- **Agility, Perception, and Intellect Skill Buff upgrades.** The tool already modelled the Strength, Divinity, and Corruption skill buffs (which raise what a stat point gives); it was missing the other three from the wiki upgrades table. Now you can enter your level (0–5) for Agility (+1 max stamina, +0.02% speed-mod chance per point per level), Perception (+0.01% loot-mod chance, +1 flat armor pen), and Intellect (+1% experience gain, +0.01% experience-mod chance), and they feed both the estimate and the simulation.
-- **"Max all upgrades" / "Clear all" on the upgrades page.** One click fills every upgrade level to its maximum (only the ones your current ascension unlocks; gated upgrades stay at 0) and toggles the +5 stat-cap, or clears them all.
-- **Divinity and Corruption columns in the simulation results table.** The estimate's top-builds table already showed them; the simulation table now does too, appearing only at the ascension that unlocks each (Divinity at A1, Corruption at A2).
-- **Ascension-mismatch warning.** Some stats can't exist below a given ascension (per the game wiki): Crosshair Auto-Tap and Divinity need A1; Gleaming Floor Chance and Corruption need A2. If one is present while Ascension is set lower, the app now warns hard — a red banner on the result, a red border on the Ascension selector, and a red note in the help bubble — while still running. Because Crosshair Auto-Tap is read from the stat screenshot, this catches the common blunder of importing an ascended account but leaving Ascension at A0.
-- **AI "Diagnose this build" in the checklist bubble.** A button at the bottom of the help bubble sends a trimmed snapshot of your build (parsed inputs, chosen build, and the top alternatives — not your account, and not the heavy per-row sim data) to the existing Cloudflare worker, which asks Google Gemini for a short plain-language reason the recommended distribution scored well. The worker enforces the cap server-side: up to five diagnoses per visitor per day, plus a global daily ceiling so worst-case spend stays bounded; cost is well under 1¢ per call. Requires the worker to be redeployed (`wrangler deploy`) to activate.
-- **"Something not look right?" checklist.** A help link under the estimate and the simulation opens a short bubble of the usual setup gaps: ascension, attributes at 0 vs spent points, the +5 stat-cap upgrade, attribute and damage upgrades, cards, the infernal multiplier, and the Polychrome bonus. It reads your current inputs and flags the ones that look unset (for example all upgrade levels at 0, or no cards set), shows each item's current state, and tapping an item jumps straight to that setting and highlights it.
+- Target a specific block goal (max count per hour of a chosen tier and rarity).
+- Block Bonker skill; per-upgrade Max button; Agility, Perception, Intellect skill-buff upgrades; Max all / Clear all.
+- Divinity and Corruption columns in the simulation table.
+- Ascension-mismatch warning.
+- AI Diagnose this build, and a "Something not look right?" checklist.
 
 ### Changed
-- **Tidier card menu.** The card list is now grouped under Tier 1–4 headings with shorter labels (just the rarity), and the grid packs more per row instead of one card per line on mobile. Rarity options still appear only once a card is checked.
-- **The estimate finds the best build without needing a huge "Top builds to keep".** The guided search ranks candidates by a quick, low-run simulation, and that noise could bury the genuinely-best build deep in the ranking — so it only survived the keep-cut if you kept hundreds of builds (otherwise Simulate never saw it). The search now re-scores the hill-climb's distinct local optima at higher fidelity and puts them at the front of the finalists, so the best build surfaces at the default keep count. On a real level-45 config this lifted the default-keep result by ~5% (matching what previously required keeping 500 builds). Also relabeled the table/hero "EV Rank" column to "Est. rank" (it's the estimate's own ranking, not the EV math model's).
-- **One stamina metric instead of two.** The result cards and the simulation table showed both "Rewards / tick" and "Rewards / stam", which looked like they should match but differed by the stamina-refund factor (Stamina Mod / Flurry) — sometimes ~9×. Since one swing always spends exactly one stamina, the honest single number is reward per total stamina spent: there is now one "Rewards / stamina" column, and the misleading net-of-refunds figure is gone from the UI. (The AI analysis uses the same per-stamina-spent value.)
-- **"Simulate a specific build" now scores under your chosen goal.** The manual simulation used to always headline rewards-per-hour; it now reports the primary goal's metric (with the right label) and, when a secondary goal is set, shows that too — so a hand-entered build is judged by the same primary/secondary rules as the optimizer.
-- **The "All loot" goal is now labelled "Loot only (no XP)".** It always excluded XP (it sums loot rarities only); the rename removes any doubt that XP leaks into the loot goal — useful once XP stops mattering (e.g. at the level cap).
-- **AI "Diagnose" now reasons dynamically about why a build wins.** It used to send the top builds by reward — near-duplicates of the winner — so the explanation was generic ("Strength won, more damage"). Now it sends the winner, the heaviest build the search actually tried for each stat (a cap-respecting "what this lever buys at its limit" anchor — real simulated builds, never over the caps), and other strategically different builds, together with the run's goals (primary/secondary) and each build's metrics (blocks/hr, reward/hr, reward/stamina, XP/hr, loot/hr, expected floor). The prompt was rewritten to derive the answer from the value function: identify the qualities the winning build has that the chosen goal rewards and that clear the run's hurdles, then judge each different candidate against those from its own numbers — no pre-scripted narrative or per-stat verdicts. (Worker prompt change — redeploy with `wrangler deploy`.)
-- **Abilities start a dig partway through their cooldown.** The simulation now staggers each ability's first cast to a random point within its cooldown, instead of having every ability ready on floor 1. A player never begins a dig with all cooldowns up, so floor 1 no longer gets a free cast of each ability. Aggregate impact is negligible (it only trims the first-floor transient), and the estimate is unaffected (it already models steady-state uptime).
-- **Simulation now models Instacharge as an explicit proc with stacking charges.** When an ability is cast, each use has the Instacharge chance to instantly reset its cooldown and recast on the spot, and the charges accumulate (a 5-charge ability that double-casts grants 10), chaining while it keeps procing. Previously the simulation approximated this as a flat shortened cooldown (`cooldown × (1 − instacharge)`). The average cast rate is identical, so the estimate and simulation stay consistent (EV↔sim ratio unchanged), but the simulation now reflects the real stacking behavior. The fast estimate keeps the analytic average.
-- **Default block-spawn model now honors the per-slot empty chance.** A non-boss floor lays out 24 slots: the first 6 always fill (their type drawn from the wiki rates renormalized to drop the empty chance), and the remaining 18 fill per-slot at the raw wiki rate — so the leftover (100 − sum of rates) is a genuine empty slot. This replaces the old approach, which rolled a uniform 6–24 "active node count" and discarded the empty chance entirely. The estimate and the simulation use the same model (verified consistent), and both now reflect ~19 active blocks on a deep floor instead of a flat 15. Boss floors (fixed 24-block layouts) and the optional per-slot model are unchanged.
-- **The estimate now searches on the simulation itself, not on the math model.** Before, the fast math model (EV) ranked builds and only its top picks were ever simulated. That model over-credited damage-heavy builds, so a genuinely better build could be filtered out before the simulation ever saw it. Now the math model only suggests starting points, and the optimizer hill-climbs directly on the simulation (the unbiased measure of a build). On real configs this finds builds a few percent better than even an exhaustive scan of the old model, while staying anti-bias: it picks heavy Strength when Strength upgrades make it genuinely best, and Intelligence/Luck when they do.
-- **Fair, fast build comparisons.** Every build in a comparison is simulated on the same random rolls (common random numbers), so the better build wins on merit, not luck. The number of runs per build adapts to the level (more runs where each run is cheap, fewer where runs are deep), and a time budget keeps the search responsive: it always covers the promising builds and pure-stat extremes, then explores random restarts until the budget is spent. Live progress shows the runs-per-build and how many builds have been tried.
-- **The estimate table shows as many builds as you keep.** It used to show a fixed 10 rows. Now it shows the full "Top builds to keep" count, the same builds that Simulate re-ranks. Its rewards-per-hour column is relabeled from "EV" to "Est." since the value now comes from the simulation.
-- **"Top builds to keep" now goes up to 1000** (was capped at 100), and the setting is renamed from "Top reward builds to rerank" to make clear it controls both what the estimate shows and what Simulate re-ranks.
-- **New How it works section, "Finding the best build."** It leads with the punchline (how often the workflow returns the best build and the average gap when it does not), then explains why the optimum cannot be brute-forced (84M builds at level 100 A2, about 39 years to simulate), how the guided search and common random numbers work, the plateau and the simulation noise floor, the measured accuracy at low levels (provable) and at end-game (a best-known reference), and why this is as close as is feasible. The optimizer and assumptions sections were updated to match.
+- Card menu grouped by tier.
+- Estimate finds the best build without a large Top builds to keep.
+
+### Fixed
+- Locked tiers fall back to the highest unlocked tier instead of leaving empty floors.
+- Quake AoE benefits from Enrage during overlap.
 
 ## 2026-06-14
 
 ### Added
-- **Export debug (download JSON).** A button at the very bottom downloads a full snapshot (every input value, the parsed inputs, the estimate and simulation result tables, the manual-build simulation, and the app version/environment) as a single JSON file for review and analysis.
-- **Simulate a specific build.** A collapsed section at the bottom lets you enter an attribute distribution (STR/AGI/PER/INT/Luck, plus Divinity/Corruption when unlocked) and simulate it directly, with no estimate or search needed. It uses your entered stats for everything else and reports the same metrics as the main simulation (rewards per real-time hour, per tick, expected floor, target hit %, and the full throughput breakdown). These fields are independent and never affect the estimate.
-- **Real-time throughput metrics.** Both the estimate and the simulation now headline rewards per real-time hour and rewards per tick (a run restarts at floor 1 with full stamina when it empties, so the rate is one run's total over its elapsed seconds; attack speed, Flurry, and speed mods all raise it). The estimate ranks builds by rewards per real-time hour; the estimate's number is approximate (the simulation is exact). The simulation's results table is sortable by any column and defaults to rewards per real-time hour, and its expandable Throughput detail shows blocks per hour by tier and rarity, plus XP and loot value per hour.
-- **How it works page** (`about.html`, opened with the `?` button). It explains each mechanic in plain language, gives worked numeric examples (damage, crit, armor, mods, gleaming, crosshairs), and includes a calculator to check the math.
-- **Abilities in the build search.** Enrage uptime, Flurry stamina refund, and Quake area damage are now scored in Estimate best build as well as in the simulation.
-- **Attribute modifier upgrades.** Per-stat upgrades that raise what each attribute point gives (Strength A0 and A1, Corruption A2, Divinity A2: extra flat damage, percent damage, crit and super crit, auto-tap, and speed mod chance per point). These feed both the search and the simulation.
-- **Infernal cards.** Per-card buffs plus the Ascension 2 infernal multiplier.
-- **Divinity and Corruption columns** in the top builds table.
-- **+5 Stat Point Caps upgrade toggle**, and a warning when entered stats look inconsistent.
+- Export debug (download JSON).
+- Simulate a specific build.
+- Real-time throughput metrics (rewards/hr, per tick, floor, throughput breakdown).
+- How it works page (about.html).
+- Abilities in the build search (Enrage, Flurry, Quake).
+- Attribute modifier upgrades; Infernal cards; +5 Stat Caps toggle.
 
 ### Changed
-- **Score is now reward per stamina spent** instead of per attack swing. Experience and loot share one scale: loot is valued at the block's own experience, with a loot weight setting.
-- **Stamina refunds now pool into your budget and cannot exceed your max stamina.** Each block refunds up to 10, matching the game. Before, a refund was treated as a discount on a block's cost.
-- **Removed the Max floor input.** A dig always runs until stamina is spent.
-- **Damage is additive.** All percent sources (attributes, upgrades, bonus damage and armor pen percents) are pooled before they apply, rather than compounding.
-- **Crosshairs run on the real-time clock** in the simulation: they spawn, fire, and can be gold, one per block, auto-tap only.
-- **Speed mod attack rate** now reads from the actual stat in the simulation.
-- Reorganized the settings panel. Stat fields stay visible instead of being hidden by ascension.
-- Rewrote the How it works page for clearer flow, and split the assumptions into sourced, method, and estimated.
-- Removed unused tools (floor-push, greedy path, manual build advisor, node table).
+- Score is reward per stamina spent; XP and loot share one scale.
+- Stamina refunds pool into your budget, capped at max stamina.
+- Removed the Max floor input.
+- Damage is additive across percent sources.
+- Crosshairs run on the real-time clock; speed-mod attack rate from the stat.
+- Settings panel reorganized; removed unused tools.
 
 ### Fixed
-- **Live search progress + spinners.** Thorough search now reports "Searching every build… X / Y (Z%)" as it goes, and the Estimate / Simulate / Simulate-this-build buttons show a spinner while running.
-- **Sim table sorting fixed.** Sim Rank is now a fixed property of each build (ranked by rewards per real-time hour), so sorting by another column reorders rows without changing ranks; headers show a ▲/▼ sort arrow; and the hero card always shows the rank-1 build regardless of how you sort.
-- **Upgrade-level fields are now −/+ steppers** (Attribute modifiers and damage/armor-pen bonuses), so it's clear you enter a whole level, not a free value.
-- **Primary protection only appears when a secondary goal is set** (it has no effect without one).
-- **Simulate best build is disabled until a fresh estimate exists**, and re-disables whenever a setting changes, so you can't simulate stale builds.
-- **+5 Stat Pt. Caps now defaults to off** and reliably applies/removes (the two linked checkboxes and the simulate gating stay in sync through the settings modal).
-- **Throughput detail shows whole blocks per hour** ("<1" for rarer-than-hourly), since blocks are discrete.
-- Renamed the estimate section to **"Estimated best build"** so it's clear it's the fast estimate to confirm with Simulate.
-- **Agility no longer grants Stamina Mod Chance** (the game does not give it).
-- **Instacharge** now shortens ability cooldowns, which raises uptime.
-- Crit, super crit, and ultra crit now resolve the same way in the search and the simulation.
-- Breaking a block counts whole hits instead of dividing HP by average damage.
-- Added a floor-cap safety bound of 1000. Made the input reader free of side effects. Fixed the optimizer pairwise line search. Stopped the settings header from covering content.
+- Live search progress and button spinners.
+- Simulation table sorting (fixed ranks, sort arrows).
+- Upgrade fields are steppers; primary protection only with a secondary goal.
+- Simulate disabled until a fresh estimate; +5 Stat Caps defaults off.
+- Whole blocks per hour; whole-hit block breaking.
+- Agility no longer grants Stamina Mod Chance; Instacharge shortens cooldowns.
