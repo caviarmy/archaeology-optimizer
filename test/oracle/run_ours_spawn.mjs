@@ -1,7 +1,5 @@
-// Spawn model (our side): our rate table IS the per-slot marginal probability,
-// reported analytically (no sampling), plus our engine's expected active-node
-// count. Our model now matches theirs: 24 slots each rolled independently at the
-// per-slot rate, no minimum. Writes spawn_ours.json.
+
+
 import { JSDOM, VirtualConsole } from "jsdom";
 import fs from "fs";
 import path from "path";
@@ -23,9 +21,9 @@ setTimeout(() => {
   const TYPES = ["dirt", "common", "rare", "epic", "legendary", "mythic", "divine"];
   const out = {};
   for (const fl of sc.floors) {
-    const rates = W.ratesForFloor(fl, inp);                 // per-slot marginal %, by rarity
+    const rates = W.ratesForFloor(fl, inp);
     out[String(fl)] = {
-      expectedActive: W.expectedActiveNodesForFloor(fl, inp),  // from the engine: 24 * p
+      expectedActive: W.expectedActiveNodesForFloor(fl, inp),
       rarityProb: Object.fromEntries(TYPES.map(t => [t, (rates[t] || 0) / 100])),
     };
   }

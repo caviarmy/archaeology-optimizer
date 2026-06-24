@@ -1,9 +1,5 @@
-// Quality + timing check for the guided search.
-//   node test/quality-check.js [level]
-// Compares, at HIGH fidelity (K=300, common seeds):
-//   - guided search best   (sim-driven)
-//   - EV best              (fastSearch)
-//   - neighborhood brute force around the guided best (is it a local max?)
+
+
 const { JSDOM, VirtualConsole } = require("jsdom");
 const fs = require("fs"), path = require("path");
 const level = Number(process.argv[2] || 100);
@@ -32,7 +28,7 @@ const keys = spec.map(s=>s[0]);
 const caps = Object.fromEntries(spec);
 const lbl = st => keys.map(k=>st[k]||0).join("/");
 
-function rate(st, runs){   // high-fidelity rewards/hr, common seeds
+function rate(st, runs){
   let seed=777; const rng=()=>{ seed=(Math.imul(seed,1103515245)+12345)>>>0; return seed/4294967296; };
   let val=0, sec=0;
   for(let r=0;r<runs;r++){ const s=W.simulateOneRun(st,inp,blocks,rng); val+=s.totalValue; sec+=s.timeSec; }
@@ -51,7 +47,6 @@ function rate(st, runs){   // high-fidelity rewards/hr, common seeds
   const K=300;
   const gv = rate(guided, K), ev = rate(evBest, K);
 
-  // neighborhood brute force: all 1- and 2-point shifts around guided best
   let best=guided, bestV=gv, tried=0;
   const around=(st)=>{ const out=[]; for(const f of keys){ if((st[f]||0)<=0) continue; for(const t of keys){ if(f===t||(st[t]||0)>=caps[t]) continue; const ns={...st}; ns[f]--; ns[t]++; out.push(ns); } } return out; };
   const set2=new Set([lbl(guided)]); const frontier=around(guided);

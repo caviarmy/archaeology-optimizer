@@ -1,5 +1,5 @@
-// Per-floor stamina cost vs reward for a fixed build, to show reward-per-stamina
-// collapsing past floor 150 (HP scales x8/x16/x64, reward stays flat).
+
+
 const { JSDOM, VirtualConsole } = require("jsdom");
 const fs=require("fs"), path=require("path");
 const dom=new JSDOM(fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8"),{runScripts:"dangerously",virtualConsole:new VirtualConsole()});

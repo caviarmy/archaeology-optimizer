@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-# Phase 2 (their side): run a full dig many times per scenario in lobogrande's
-# combat_loop and report the average floor reached (and blocks mined). Zero
-# upgrades/cards and no Luck/Div, so there are no refunds, crosshairs, or
-# auto-abilities. Writes run_theirs.json.
+
 import json, os, sys, random
 
 HERE = os.path.dirname(os.path.abspath(__file__))

@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-# Spawn model (their side): sample many floors and report, per floor, the average
-# number of active (non-empty) blocks and the per-slot probability of each rarity.
-# Their model: 24 slots, each rolled top-down with a 1-in-X chance per unlocked
-# rarity, first hit wins, else empty (no minimum). Writes spawn_theirs.json.
+
 import json, os, sys, random
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -22,7 +19,7 @@ for fl in sc["floors"]:
     active = 0
     rar = {v: 0 for v in RARITY.values()}
     for _ in range(M):
-        random.seed(None)  # independent draws
+        random.seed(None)
         floor = gen.generate_floor(fl, p)
         for blk in floor.grid:
             if blk is None:
@@ -32,7 +29,7 @@ for fl in sc["floors"]:
             rar[RARITY[pre]] += 1
     out[str(fl)] = {
         "activeAvg": active / M,
-        "rarityProb": {k: rar[k] / (24.0 * M) for k in rar},  # per-slot probability
+        "rarityProb": {k: rar[k] / (24.0 * M) for k in rar},
     }
 
 json.dump(out, open(os.path.join(HERE, "spawn_theirs.json"), "w"), indent=2)

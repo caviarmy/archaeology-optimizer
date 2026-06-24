@@ -1,13 +1,5 @@
-// Accuracy of the real workflow on the level-100 Ascension-2 test build.
-//
-// The full build space here is 84M+ allocations, so the true optimum cannot be
-// brute-forced. Instead we build a BEST-KNOWN reference: take the best build the
-// workflow finds, then hill-climb it at high fidelity (common random numbers)
-// until no single-point move improves it -> a verified local optimum, pooled with
-// every build any workflow run produced. We then run the actual workflow several
-// times (its random restarts + simulation seed vary run to run) and report how
-// close each run lands to that reference.
-//   node test/a2-accuracy.js [reps] [Kref] [seed]
+
+
 const { JSDOM, VirtualConsole } = require("jsdom");
 const fs = require("fs"), path = require("path");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
@@ -22,8 +14,7 @@ let _ms = (Number(process.argv[4]||13579))>>>0;
 Math.random = ()=>{ _ms=(_ms+0x6D2B79F5)|0; let t=Math.imul(_ms^_ms>>>15,1|_ms); t=(t+Math.imul(t^t>>>7,61|t))^t; return ((t^t>>>14)>>>0)/4294967296; };
 
 const set=(id,v)=>{ const el=doc.getElementById(id); if(el) el.value=String(v); };
-// The exact level-100 Ascension-2 player stats from the screenshot. Stamina Mod
-// Gain is capped at 10 in game (the screen shows +12 pre-cap).
+
 Object.entries({
   selectedLevel:100, ascension:2,
   baseDamage:1396, baseStamina:932, baseAtkSpeed:2, baseArmorPenFlat:881,
@@ -44,26 +35,24 @@ set("primaryGoal","allRewards"); set("secondaryGoal","none");
   const rngFactory=(seed)=>()=>{ let s=seed>>>0; return ()=>{ s=(Math.imul(s,1103515245)+12345)>>>0; return s/4294967296; }; };
   const rate=(st,K,mk)=>W.aggregateBuildSim(st, inp, blocks, K, mk()).rewardsPerHour;
 
-  // ---- the actual application workflow, run once ----
   async function workflow(){
-    const _tl=Math.max(10, inp.mcTopCount||10);                            // Estimate (exact EV, fast-search fallback)
+    const _tl=Math.max(10, inp.mcTopCount||10);
     let res=await W.exhaustiveSearch(inp, blocks, level, _tl, null);
     if(res.bailed){ const _all=W.fastSearch(inp, blocks, level); res={ topBuilds: W.rankCandidates(_all, inp).slice(0, _tl), count: _all.length }; }
     const finalists=res.topBuilds.slice(0, inp.mcTopCount).map(c=>c.stats);
-    const seed=((Math.random()*1e9)>>>0)||1;                              // fresh sim seed, like the app
+    const seed=((Math.random()*1e9)>>>0)||1;
     let best=null,bestV=-Infinity;
-    for(const st of finalists){ const v=rate(st, inp.mcRunsPerBuild, rngFactory(seed)); if(v>bestV){bestV=v; best=st;} }  // Simulate re-rank
+    for(const st of finalists){ const v=rate(st, inp.mcRunsPerBuild, rngFactory(seed)); if(v>bestV){bestV=v; best=st;} }
     return best;
   }
 
   const picks=[];
   for(let r=0;r<REPS;r++){ const t0=Date.now(); const p=await workflow(); picks.push(p); console.log(`run ${r+1}/${REPS}: ${lbl(p)}   (${((Date.now()-t0)/1000).toFixed(0)}s)`); }
 
-  // ---- best-known reference: high-K hill-climb from the strongest pick ----
   const refSeed=20260615, refSeed2=778899;
   const refCache=new Map();
   const refVal=st=>{ const k=lbl(st); if(!refCache.has(k)) refCache.set(k, rate(st, KREF, rngFactory(refSeed))); return refCache.get(k); };
-  // start from the pick with the best reference value
+
   let cur=picks[0]; for(const p of picks) if(refVal(p)>refVal(cur)) cur=p;
   for(let guard=0; guard<60; guard++){
     let bestN=cur, bestV=refVal(cur);
@@ -75,7 +64,6 @@ set("primaryGoal","allRewards"); set("secondaryGoal","none");
   }
   const ref=cur, refV=refVal(cur);
 
-  // ---- report ----
   const gaps=picks.map(p=>(refV-refVal(p))/refV*100);
   const hits=picks.map(p=>lbl(p)===lbl(ref)?1:0);
   const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;

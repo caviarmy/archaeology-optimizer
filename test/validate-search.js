@@ -1,7 +1,5 @@
-// Validates the fast search against the exhaustive search across many randomized
-// scenarios at moderate levels (where exhaustive is quick). Reports how often the
-// fast search's best build matches the provably-optimal exhaustive one.
-//   node test/validate-search.js [numScenarios]
+
+
 const { JSDOM, VirtualConsole } = require("jsdom");
 const fs = require("fs"), path = require("path");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
@@ -10,9 +8,8 @@ const dom = new JSDOM(html, { runScripts: "dangerously", pretendToBeVisual: true
 const { window } = dom; const W = window; const doc = window.document;
 window.performance = window.performance || { now: () => Date.now() };
 
-// seeded RNG for reproducibility (override Math.random)
 let _seed = (Number(process.argv[3]||12345))>>>0;
-Math.random = ()=>{ _seed = (_seed + 0x6D2B79F5)|0; let t = Math.imul(_seed ^ _seed>>>15, 1|_seed); t = (t + Math.imul(t ^ t>>>7, 61|t)) ^ t; return ((t ^ t>>>14)>>>0)/4294967296; }; // mulberry32
+Math.random = ()=>{ _seed = (_seed + 0x6D2B79F5)|0; let t = Math.imul(_seed ^ _seed>>>15, 1|_seed); t = (t + Math.imul(t ^ t>>>7, 61|t)) ^ t; return ((t ^ t>>>14)>>>0)/4294967296; };
 const N = Number(process.argv[2] || 40);
 const set = (id,v)=>{ const el=doc.getElementById(id); if(el) el.value=String(v); };
 const setChecked = (id,v)=>{ const el=doc.getElementById(id); if(el) el.checked=!!v; };
@@ -21,27 +18,20 @@ const rnd = (a,b)=>a+Math.random()*(b-a);
 const rndi = (a,b)=>Math.floor(rnd(a,b+1));
 const pick = arr => arr[rndi(0,arr.length-1)];
 
-// Only test goals that can actually be reached at these low validation levels.
-// Targeting a deep rarity (mythic floor 20+, divine 50+) ties every build at 0
-// for that rarity, which is a meaningless scenario, not a search test. Restrict
-// to rarities that spawn early (common floor 1, rare 3) plus the aggregate goals
-// and target-floor. (A dig always runs until stamina is spent; there is no max
-// floor input.)
 const REACHABLE = ["allRewards","xp","allLoot","common","rare"];
 const ascOpts = opts("ascension");
 const primaryOpts = ["target", ...REACHABLE].filter(g=>opts("primaryGoal").includes(g));
 const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").includes(g));
 
 (async () => {
-  if(W.populateCardSettings) W.populateCardSettings(); // create card inputs so infernal states can be set
+  if(W.populateCardSettings) W.populateCardSettings();
   let pass=0, fail=0; const fails=[];
   for(let i=0;i<N;i++){
-    // randomize a scenario
+
     const lvl = rndi(12,20);
     set("selectedLevel", lvl);
     set("ascension", pick(ascOpts));
-    // Randomly ignite some infernal cards + an infernal multiplier (only takes
-    // effect at A2). Exercises the multiplicative infernal layer in the search.
+
     set("archInfernalMult", rnd(1, 2.5).toFixed(3));
     doc.querySelectorAll('[id^="card_t"]').forEach(el=>{
       if(el.tagName === "INPUT" && el.type === "hidden") el.value = Math.random() < 0.15 ? "infernal" : "none";
@@ -49,11 +39,11 @@ const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").inc
     set("primaryGoal", pick(primaryOpts));
     set("secondaryGoal", pick(secondaryOpts));
     set("targetFloor", rndi(5, 20));
-    // protection mode + tolerance
+
     const useTol = Math.random()<0.4;
     setChecked("primaryProtectionTolerance", useTol); setChecked("primaryProtectionStrict", !useTol);
     set("primaryToleranceValue", rndi(1,15));
-    // randomize base stats
+
     set("baseDamage", rnd(80,2200).toFixed(1));
     set("baseStamina", rnd(120,1000).toFixed(0));
     set("baseCritChance", rnd(0,70).toFixed(2)); set("baseCritDamage", rnd(1.5,5).toFixed(2));
@@ -63,7 +53,7 @@ const secondaryOpts = ["none", ...REACHABLE].filter(g=>opts("secondaryGoal").inc
     set("baseLootMod", rnd(0,20).toFixed(2)); set("baseLootModGain", rnd(3,9).toFixed(2));
     set("baseSpeedMod", rnd(0,15).toFixed(2)); set("baseStaminaMod", rnd(0,15).toFixed(2));
     set("staminaModGain", rndi(3,10)); set("baseArmorPenFlat", rndi(0,900));
-    // Non-attribute damage%/armor-pen% upgrades (additive-stacking model).
+
     set("modStrA0", rndi(0,5)); set("modStrA1", rndi(0,1));
     set("modCorrA2", rndi(0,10)); set("modDivA2", rndi(0,5));
     set("bonusDmgArpenA0", rndi(0,20)); set("bonusDmgExpA1", rndi(0,5));

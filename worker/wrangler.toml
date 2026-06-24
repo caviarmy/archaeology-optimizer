@@ -2,28 +2,12 @@ name = "arch-optimizer-ocr"
 main = "worker.js"
 compatibility_date = "2024-11-01"
 
-# The Gemini API key is a SECRET, not a var. Set it after deploy with:
-#   wrangler secret put GEMINI_API_KEY
-# (paste the key from https://aistudio.google.com/app/apikey)
-
 [vars]
-# Model used for OCR. Cheapest multimodal option that reads the panel reliably.
-# (gemini-2.0-flash-lite has a 0 free-tier limit; 2.5-flash-lite works. Bump to
-# gemini-2.5-flash if you ever want max read accuracy over cost.)
 GEMINI_MODEL = "gemini-2.5-flash-lite"
-# Per-IP daily request cap for OCR (only enforced if the RL KV namespace below is enabled).
 DAILY_LIMIT = "100"
-# AI "diagnose" caps (only enforced with the RL KV namespace bound):
-#   per-IP/day, plus a global/day ceiling so total spend is bounded under abuse.
 EXPLAIN_DAILY_LIMIT = "5"
 EXPLAIN_GLOBAL_LIMIT = "200"
-# Optional: lock to your app's origin(s), comma-separated. Leave unset to allow any.
-# ALLOWED_ORIGINS = "https://caviarmy.github.io"
 
-# ---- Abuse protection ----------------------------------------------------------
-# Per-IP daily cap (see DAILY_LIMIT above). This MUST be declared here, not only
-# in the dashboard — Git-connected deploys rebuild bindings from this file, so a
-# dashboard-only binding would be removed on the next deploy.
 [[kv_namespaces]]
 binding = "RL"
 id = "6f5ceb657b33438787fc3894cfeccbc1"

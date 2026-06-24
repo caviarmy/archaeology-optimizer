@@ -1,14 +1,5 @@
-// Obelisk Miner OCR proxy — Cloudflare Worker.
-//
-// Holds the Gemini API key (as a secret) and turns a stats-panel screenshot into
-// the structured JSON the optimizer expects. The browser app POSTs:
-//     { "image": "data:image/jpeg;base64,...." }
-// and gets back:
-//     { "stats": { "selectedLevel": 100, "baseDamage": 1396, ... } }
-//
-// Deploy: see README.md in this folder.
 
-// Field keys returned to the app — these match the input element IDs in index.html.
+
 const FIELDS = [
   "selectedLevel","highestFloor","baseDamage","baseStamina","baseCritChance","baseCritDamage",
   "baseSuperChance","baseSuperDamage","baseUltraChance","baseUltraDamage","baseAtkSpeed",
@@ -21,7 +12,6 @@ const FIELDS = [
   "quakeDmgPct","quakeCharges","quakeCooldown"
 ];
 
-// Gemini's responseSchema uses uppercase OpenAPI type enums (OBJECT/NUMBER).
 const SCHEMA = {
   type: "OBJECT",
   properties: Object.fromEntries(FIELDS.map(f => [f, { type: "NUMBER", nullable: true }]))
@@ -50,8 +40,6 @@ Each "... Mod Chance" is a % and the "... Mod Gain" beneath it is a SEPARATE val
 
 Return ONLY the JSON object.`;
 
-// Text-only "diagnose" prompt. The app POSTs { action:"explain", debug:{...} }
-// (a trimmed export from the optimizer) and gets back { explanation: "..." }.
 const EXPLAIN_PROMPT = `You are explaining a build optimizer's result for the idle game "Idle Obelisk Miner: Archaeology" to a player. Reason from the data in front of you; derive the answer from how builds are scored and from the numbers given. Do not recite a fixed story or assume any stat is best or worst.
 
 HOW BUILDS ARE SCORED (the value function)
@@ -109,11 +97,10 @@ function json(body, status, headers) {
   });
 }
 
-const RL_TTL = 172800; // 2-day TTL so yesterday's counters self-clean.
+const RL_TTL = 172800;
 function ipOf(request) { return request.headers.get("CF-Connecting-IP") || "unknown"; }
 function today() { return new Date().toISOString().slice(0, 10); }
 
-// Lightweight per-IP daily cap for OCR. Only active if a KV namespace is bound as `RL`.
 async function ocrRateLimited(env, request) {
   if (!env.RL) return false;
   const key = `rl:${today()}:${ipOf(request)}`;
@@ -124,17 +111,11 @@ async function ocrRateLimited(env, request) {
   return false;
 }
 
-// The per-day counters reset at the next UTC midnight (keys are keyed by UTC date).
 function nextUtcMidnight() {
   const d = new Date();
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0, 0)).toISOString();
 }
 
-// Stricter gate for the AI "diagnose" call: a per-IP daily cap (default 1) AND a
-// global daily ceiling (default 200) so total spend is bounded even under abuse.
-// Both counters are read first and only incremented when the call is allowed.
-// Returns the per-IP limit/used and the reset time so the client can show a count
-// and a "resets in HH:MM:SS" countdown.
 async function explainGate(env, request) {
   const ipLimit = Number(env.EXPLAIN_DAILY_LIMIT || 1);
   const resetsAt = nextUtcMidnight();
@@ -152,12 +133,11 @@ async function explainGate(env, request) {
   return { ok: true, limit: ipLimit, used: ipCur + 1, resetsAt };
 }
 
-// Text-only Gemini call that explains why a build scored well.
 async function handleExplain(env, body, cors, gate) {
   let debugStr;
   try { debugStr = JSON.stringify(body.debug); } catch { return json({ error: "'debug' is not serialisable" }, 400, cors); }
   if (typeof debugStr !== "string" || debugStr.length < 2) return json({ error: "Missing 'debug' snapshot" }, 400, cors);
-  if (debugStr.length > 120000) debugStr = debugStr.slice(0, 120000); // bound tokens/cost
+  if (debugStr.length > 120000) debugStr = debugStr.slice(0, 120000);
 
   const model = env.GEMINI_MODEL || "gemini-2.0-flash-lite";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
@@ -199,8 +179,6 @@ export default {
     let body;
     try { body = await request.json(); } catch { return json({ error: "Body must be JSON" }, 400, cors); }
 
-    // Two actions share this worker: OCR (image -> stats) and the AI "diagnose"
-    // explanation (debug snapshot -> text). They have separate daily caps.
     if (body && (body.action === "explain" || body.debug)) {
       const gate = await explainGate(env, request);
       if (!gate.ok) return json({ error: gate.reason, limit: gate.limit, used: gate.used, resetsAt: gate.resetsAt }, 429, cors);
@@ -216,18 +194,9 @@ export default {
     const mimeType = m[1], b64 = m[2];
     if (b64.length > 9_000_000) return json({ error: "Image too large (downscale before sending)" }, 413, cors);
 
-    // Use the configured model (set via GEMINI_MODEL in wrangler.toml). The model
-    // is NOT the cause of the intermittent failures — see thinkingConfig below.
     const model = env.GEMINI_MODEL || "gemini-2.5-flash-lite";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
-    // Root cause of the intermittent "couldn't read the image" failures: the 2.5
-    // models are THINKING models, and by default they can spend their output budget
-    // on internal reasoning before answering. With structured-output JSON that
-    // occasionally leaves no room for the actual answer, so the candidate comes back
-    // EMPTY (finishReason MAX_TOKENS) — a transient miss that "works on retry". OCR
-    // is pure transcription and needs no thinking, so we disable it (2.5 models only;
-    // sending thinkingConfig to a non-2.5 model errors). This makes reads reliable,
-    // faster and cheaper. A bounded server-side retry covers any residual transient.
+
     const generationConfig = { temperature: 0, responseMimeType: "application/json", responseSchema: SCHEMA };
     if (/2\.5/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: 0 };
     const payload = {
@@ -235,9 +204,6 @@ export default {
       generationConfig
     };
 
-    // Retry only the genuine transient failures (network blip, 5xx, empty candidate,
-    // unparseable or all-null read) — never a 4xx. With thinking disabled an empty
-    // read should be rare; this is a small safety net, not blind hammering.
     let clean = null, lastErr = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       let gem;
@@ -255,7 +221,6 @@ export default {
       let stats;
       try { stats = JSON.parse(text); } catch { lastErr = { error: "Model returned non-JSON", raw: text.slice(0, 300) }; continue; }
 
-      // Keep only known numeric fields; drop nulls so the client doesn't overwrite with blanks.
       const c = {};
       for (const f of FIELDS) { const v = stats[f]; if (typeof v === "number" && isFinite(v)) c[f] = v; }
       if (Object.keys(c).length === 0) { lastErr = { error: "Model read no values from the image", finishReason: cand?.finishReason || "all-null" }; continue; }

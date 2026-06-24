@@ -1,22 +1,5 @@
-// Confidence check for a goal (primary, optionally + secondary within tolerance).
-//
-// The question this answers: is the build the app offers actually one of the very
-// best builds for the chosen goal, or did the search miss it?  Exhaustively
-// simulating every build is impossible at the levels where rare metrics appear
-// (hundreds of thousands of point spreads, deep floors), so we split the question:
-//
-//   Part A (search quality) - enumerate EVERY point spread and score it on the
-//     analytic expected-value model (deterministic, no sampling, ~40s for 200k
-//     builds). Find the globally EV-optimal in-band build and check the app's pick
-//     against it. This proves the search did not miss a build, modulo EV bias.
-//
-//   Part B (EV vs simulation truth) - take the EV-best in-band builds plus the
-//     app's pick and re-simulate them all at high fidelity (KREF, far above the
-//     search's run count) on common random numbers. This proves the EV ranking the
-//     app trusts agrees with the unbiased simulation, i.e. EV bias did not flip the
-//     winner.
-//
-// Usage: node test/goal-accuracy.js [level] [KREF] [primary] [secondary]
+
+
 const { JSDOM, VirtualConsole } = require("jsdom");
 const fs=require("fs"), path=require("path");
 const html=fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8");
@@ -37,10 +20,9 @@ setTimeout(async ()=>{
   const hasSec = SEC && SEC!=="none" && SEC!==PRI;
   const TOL=0.03;
 
-  // ---- Part A: exhaustive analytic enumeration of every point spread ----
   const tA=Date.now();
   const st={S:0,A:0,P:0,I:0,L:0,D:0,C:0};
-  const evRows=[]; // {st, p, s}
+  const evRows=[];
   (function rec(i,rem){
     if(i===keys.length){ if(rem!==0) return;
       const sc=W.scoreBuild(st,inp,blocks);
@@ -51,14 +33,13 @@ setTimeout(async ()=>{
   })(0,total);
   let bestPev=-Infinity; for(const r of evRows) if(r.p>bestPev) bestPev=r.p;
   const thrEv=bestPev - Math.abs(bestPev)*TOL;
-  // goal ordering: in-band first, then by secondary (or by primary if no secondary)
+
   const goalSort=(a,b)=>{ const ai=a.p>=thrEv-1e-9, bi=b.p>=thrEv-1e-9; if(ai!==bi)return ai?-1:1; if(ai&&hasSec&&Math.abs(b.s-a.s)>1e-9)return b.s-a.s; return b.p-a.p; };
   const evOrder=evRows.slice().sort(goalSort);
   const evRank=new Map(evOrder.map((r,i)=>[r.lab,i+1]));
   const inBandCount=evRows.filter(r=>r.p>=thrEv-1e-9).length;
   const evBest=evOrder[0];
 
-  // ---- run the actual app workflow ----
   await W.runExact(); await W.runMonteRerank();
   const wf=W.__simResults.find(r=>r.simRank===1).stats;
   const wfLab=lbl(wf);
@@ -70,7 +51,6 @@ setTimeout(async ()=>{
   console.log(`  APP pick         : ${wfLab}  primary ${(evRows.find(r=>r.lab===wfLab)||{p:NaN}).p.toFixed(1)}${hasSec?`  ${SEC} ${(evRows.find(r=>r.lab===wfLab)||{s:NaN}).s.toFixed(2)}`:""}`);
   console.log(`  APP pick EV goal-rank: #${wfRankA} of ${evRows.length}  (top ${(wfRankA/evRows.length*100).toFixed(2)}%${hasSec?`; top ${(wfRankA/inBandCount*100).toFixed(2)}% of in-band`:""})`);
 
-  // ---- Part B: confirm EV truth == simulation truth on the top in-band set ----
   const tB=Date.now();
   const mk=(seed)=>{let s=seed>>>0;return ()=>{s=(Math.imul(s,1103515245)+12345)>>>0;return s/4294967296;};};
   const toSt=lab=>{const o={S:0,A:0,P:0,I:0,L:0,D:0,C:0};lab.split("/").forEach((v,i)=>o[keys[i]]=+v);return o;};

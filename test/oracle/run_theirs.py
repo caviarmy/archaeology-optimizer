@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# Run each scenario through lobogrande's source-faithful Player and emit the
-# derived stats to theirs.json. Zero upgrades / zero cards, so this is the pure
-# per-point base math (the part we can compare with no upgrade-index mapping).
+
 import json, os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -41,13 +39,11 @@ out = {}
 for sc in spec["scenarios"] + spec.get("upgradeScenarios", []):
     out[sc["name"]] = stats_for(sc)
 
-# --- Per-level coefficients for the folded pool upgrades (from UPGRADE_DEF) ---
 upgrade_defs = {}
 for cc in spec.get("coefficientChecks", []):
     row = cc["row"]
-    upgrade_defs[str(row)] = Player.UPGRADE_DEF[row][1]   # the F (first) multiplier
+    upgrade_defs[str(row)] = Player.UPGRADE_DEF[row][1]
 
-# --- Card HP/reward multipliers by rarity ---
 cards_out = {}
 for c in spec.get("cardChecks", []):
     p = Player(); p.asc2_unlocked = True
@@ -56,18 +52,17 @@ for c in spec.get("cardChecks", []):
     hp, exp, loot = p.get_card_bonuses("com1")
     cards_out[c["name"]] = {"hpMult": float(hp), "rewardMult": float(exp), "lootMult": float(loot)}
 
-# --- Block HP/armor across the deep-floor scaling (incl. the preserved bugs) ---
 blocks_out = {}
 bc = spec.get("blockChecks")
 if bc:
     from core.block import Block
-    pp = Player()  # zero upgrades / zero cards (exp/frag gain = 1, no mods)
+    pp = Player()
     for bid in bc["ids"]:
         entry = {"byFloor": {}}
         for fl in bc["floors"]:
             blk = Block(bid, fl, pp)
             entry["byFloor"][str(fl)] = {"hp": float(blk.hp), "armor": float(blk.armor)}
-        # xp/frag yield does not scale with floor (only HP/armor do), so sample once.
+
         blk0 = Block(bid, bc["floors"][0], pp)
         entry["xp"] = float(blk0.xp)
         entry["frag"] = float(blk0.frag_amt)

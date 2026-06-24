@@ -1,6 +1,5 @@
-// Diff our derived stats against lobogrande's engine and report per field.
-// Tolerances absorb their rounding (damage/stamina/pen rounded to int; crit
-// multipliers to 2 decimals); anything larger is a real divergence to chase.
+
+
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -12,7 +11,6 @@ const spec = JSON.parse(fs.readFileSync(path.join(HERE, "scenarios.json"), "utf8
 const theirs = theirsAll.stats || theirsAll;
 const ours = oursAll.stats || oursAll;
 
-// field -> tolerance check(theirVal, ourVal) => ok
 const TOL = {
   damage:          (t, o) => Math.abs(t - o) <= Math.max(1.0, 0.002 * Math.abs(t)),
   maxSta:          (t, o) => Math.abs(t - o) <= Math.max(1.0, 0.002 * Math.abs(t)),
@@ -30,9 +28,7 @@ const rows = [];
 for (const name of Object.keys(theirs)) {
   const t = theirs[name], o = ours[name] || {};
   for (const f of FIELDS) {
-    // The super-crit multiplier is irrelevant when super-crit chance is 0 (the
-    // term is gated by the chance in combat). Their engine reports 0 there, ours
-    // reports the latent base; both give identical damage, so skip that check.
+
     if (f === "superCritMult" && (t.superCritChance || 0) <= 0) continue;
     total++;
     const tv = t[f], ov = o[f];
@@ -44,7 +40,6 @@ function fmt(x) { return x === undefined ? "—" : (Math.abs(x) >= 100 ? x.toFix
 
 console.log(`Oracle stat comparison: ${total - fail}/${total} field checks within tolerance across ${Object.keys(theirs).length} scenarios.`);
 
-// --- Folded pool-upgrade per-level coefficients vs their UPGRADE_DEF ---
 const tcoef = theirsAll.upgradeDefs || {}, ocoef = oursAll.coeffs || {};
 let pfail = 0, ptotal = 0;
 for (const cc of (spec.coefficientChecks || [])) {
@@ -54,7 +49,6 @@ for (const cc of (spec.coefficientChecks || [])) {
 }
 if (ptotal) console.log(`Oracle coefficient comparison: ${ptotal - pfail}/${ptotal} pool-upgrade per-level coefficients match their UPGRADE_DEF.`);
 
-// --- Card HP/reward multipliers by rarity ---
 const tc = theirsAll.cards || {}, oc = oursAll.cards || {};
 let cfail = 0, ctotal = 0;
 for (const name of Object.keys(tc)) {
@@ -66,16 +60,12 @@ for (const name of Object.keys(tc)) {
 }
 if (ctotal) console.log(`Oracle card comparison: ${ctotal - cfail}/${ctotal} multiplier checks across ${Object.keys(tc).length} rarities.`);
 
-// --- Block HP/armor (deep-floor scaling incl. the floor-150/300 bugs) ---
 const tb = theirsAll.blocks || {}, ob = oursAll.blocks || {};
 let bfail = 0, btotal = 0;
 const hpTol = (t, o) => Math.abs(t - o) <= Math.max(1.0, 0.002 * Math.abs(t));
-// Their project_config rounds base armor to an integer (e.g. com4 = 22 vs our
-// precise 22.46); that sub-1 base difference is amplified by the deep-floor armor
-// scaling. 3% absorbs integer base-armor rounding while still catching any
-// structural scaling error (a missed 150-skip or 300-double would be a large factor).
+
 const arTol = (t, o) => Math.abs(t - o) <= Math.max(1.0, 0.03 * Math.abs(t));
-// xp/frag yield are within 0.5% (their floor/round rules vs our raw values).
+
 const rwTol = (t, o) => Math.abs(t - o) <= Math.max(0.01, 0.005 * Math.abs(t));
 let rwfail = 0, rwtotal = 0;
 for (const id of Object.keys(tb)) {
@@ -86,7 +76,7 @@ for (const id of Object.keys(tb)) {
     if (!(o.hp !== undefined && hpTol(t.hp, o.hp))) { bfail++; rows.push(`  FAIL  block ${id}@${fl} hp     theirs=${fmt(t.hp)} ours=${fmt(o.hp)}`); }
     if (!(o.armor !== undefined && arTol(t.armor, o.armor))) { bfail++; rows.push(`  FAIL  block ${id}@${fl} armor  theirs=${fmt(t.armor)} ours=${fmt(o.armor)}`); }
   }
-  // per-block reward yield (xp, fragments)
+
   const oid = ob[id] || {};
   for (const f of ["xp", "frag"]) {
     rwtotal++;

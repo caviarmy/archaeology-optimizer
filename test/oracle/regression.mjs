@@ -1,8 +1,5 @@
-// Regression guard for OUR engine (no network, no oracle). Re-runs the our-side
-// computation and diffs it against the committed golden_ours.json, so any
-// accidental change to our math (the kind that introduced the old crit-damage
-// bug) fails loudly. Update the golden on purpose with:  node regression.mjs --update
-// Run: node test/oracle/regression.mjs
+
+
 import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -11,7 +8,6 @@ import { fileURLToPath } from "url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const update = process.argv.includes("--update");
 
-// Recompute ours.json from the live engine (pure-ours, deterministic).
 execFileSync("node", [path.join(HERE, "run_ours.mjs")], { stdio: "inherit" });
 const fresh = JSON.parse(fs.readFileSync(path.join(HERE, "ours.json"), "utf8"));
 

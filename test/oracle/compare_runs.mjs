@@ -1,7 +1,5 @@
-// Phase 2 comparison: average floor reached, our EV+Monte-Carlo sim vs their
-// micro-tick combat_loop. Floor is gated within floorTolerancePct; block count is
-// reported as informational (the engines can mine slightly different counts to the
-// same depth without that being a defect).
+
+
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -12,12 +10,7 @@ const theirs = JSON.parse(fs.readFileSync(path.join(HERE, "run_theirs.json"), "u
 const ours = JSON.parse(fs.readFileSync(path.join(HERE, "run_ours.json"), "utf8"));
 
 let fail = 0, total = 0;
-// Blocks mined is the depth metric we gate: it depends on the spawn model, the
-// hits-to-kill, and stamina, and after matching the spawn model it converges.
-// Floor reached is reported but not gated: our fractional floorReached counts
-// empty slots as progress (a per-slot accounting choice), so on the sparse low
-// floors used here it reads higher than their integer highest_floor; the gap
-// shrinks toward deep floors where slots are nearly all filled.
+
 const tol = (spec.runComparison.blockTolerancePct ?? 6) / 100;
 console.log(`Phase 2 run comparison (avg over ${spec.runComparison.N} runs, gate blocks within ${(tol * 100).toFixed(0)}%):`);
 for (const name of Object.keys(theirs)) {

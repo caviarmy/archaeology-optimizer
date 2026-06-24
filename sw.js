@@ -1,7 +1,4 @@
-/* Network-first service worker.
-   Always serves the freshest content when online (so a shared link never shows
-   a stale build), and falls back to the last cached copy when offline.
-   Updates itself immediately on each deploy via skipWaiting + clients.claim. */
+
 const CACHE = "obelisk-arch-cache";
 
 self.addEventListener("install", () => {
@@ -20,7 +17,7 @@ self.addEventListener("fetch", event => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  // Only manage same-origin requests; let cross-origin (e.g. the OCR CDN) pass through.
+
   if (url.origin !== self.location.origin) return;
 
   event.respondWith((async () => {

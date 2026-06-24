@@ -1,7 +1,5 @@
-// Loads the user's actual debug config and runs the guided search, comparing the
-// pick against the EV pick at high fidelity. This is the scenario where the EV was
-// over-crediting STR-heavy builds.
-//   node test/user-config.js <path-to-debug.json>
+
+
 const { JSDOM, VirtualConsole } = require("jsdom");
 const fs = require("fs"), path = require("path");
 const jsonPath = process.argv[2];
@@ -14,14 +12,14 @@ window.performance = window.performance || { now: () => Date.now() };
 
 (async () => {
   if (W.populateCardSettings) W.populateCardSettings();
-  // Apply every raw form value from the debug snapshot.
+
   for (const [id, v] of Object.entries(dbg.inputs)) {
     const el = doc.getElementById(id);
     if (!el) continue;
     if (el.type === "checkbox") el.checked = !!v;
     else el.value = String(v);
   }
-  // Force the smart (non-thorough) guided path.
+
   const th = doc.getElementById("thoroughSearch"); if (th) th.checked = false;
 
   const inp = W.getInputs();
