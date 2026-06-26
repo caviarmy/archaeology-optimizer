@@ -161,8 +161,9 @@ damage to the block per hit = max(0, hit_damage - effective armor)</pre>
 <p>Counting whole hits is what keeps this right when a hit overkills the block. A crit that deals 300 to a block with 50 HP left still counts as one hit, and the extra is dropped, the same as in game. A tempting shortcut, HP divided by average damage per hit, reads a little low because it assumes no damage is ever wasted on overkill. The tool uses that shortcut only for very tanky blocks, the ones that take more than 80 hits, where the overkill is under one hit in eighty and does not matter. Every block below that uses the exact count above.</p>
 
 <h2 id="rewards">8. Rewards and mods</h2>
-<p>Every block gives experience. Blocks above dirt also drop loot. A goal like "all rewards" has to add experience and loot together, so the tool needs both on one scale.</p>
-<h3>Putting experience and loot on one scale</h3>
+<p>Every block gives experience. Blocks above dirt also drop loot. The XP and loot figures shown in the result tables are the actual amounts earned per hour: real experience, and real loot fragments by rarity. They are never blended together for display.</p>
+<p>The one place the two are combined is the <strong>Rewards Score</strong>, the "all rewards" goal. It is a ranking number, not a quantity you collect, so it needs experience and loot on one scale.</p>
+<h3>Putting experience and loot on one scale (for the Rewards Score)</h3>
 <p>Experience and loot fragments are different currencies, and the game never states an exchange rate between them. Setting that rate takes two decisions, and the game answers the first.</p>
 <ul>
 <li><strong>How rarities compare.</strong> Every block already carries an experience reward, and that number reflects how much the game values each rarity: a mythic block gives about 50 times a common's experience. The tool reuses that scaling for loot, so the worth of a mythic fragment against a common one comes from the game, not a guess.</li>
@@ -171,6 +172,7 @@ damage to the block per hit = max(0, hit_damage - effective armor)</pre>
 <pre>loot value of a block = its experience   (times a loot weight, default 1)</pre>
 <p>A Tier 1 common gives 0.15 experience and a fragment, so its loot is also valued at 0.15. A mythic at 7.5 experience has loot worth 7.5. Dirt drops no loot, so it adds only experience. Each block pays its full experience to the experience total and an equal amount to the loot total for its rarity.</p>
 <p>This treats a block's two rewards as equal partners, so a block that drops both is worth twice one that drops only experience, because you walk away with two rewards instead of one. The one judgment call, equal weight, is a single setting (Loot value vs XP, default 1): leave it at 1 for a neutral mix, raise it if loot matters more to you, lower it if less. Marking a rarity worthless sets its loot to zero. Intellect then scales the experience total and Perception scales the loot total.</p>
+<p>This experience-scaled value feeds only the Rewards Score. The loot columns themselves show the actual fragments earned: the block's fragment drop times Fragment Gain and any loot mod, not its experience-equivalent worth. So a mythic row reading 250 means about 250 fragments per hour, not 250 mythic blocks (that count is the Blocks per hour table) and not a blended score.</p>
 <h3>Mods</h3>
 <p>When a floor loads, each block rolls its mods and keeps them, and a block can carry more than one. A mod multiplies the block's reward only when it rolls, so the average reward uses the mod's chance:</p>
 <pre>chance:  experience mod = base + 0.30%*INT + 0.20%*LUCK
@@ -189,6 +191,7 @@ average block reward = base_value * gain_stat * (1 + (mod_gain - 1) * mod_chance
 <p>Your maximum stamina, after Agility and the Corruption penalty:</p>
 <pre>stamina = (base + 5*AGI) * (1 - 3%*COR)</pre>
 <p>A dig spends stamina block by block: a block costs its average hits in stamina. A stamina mod is separate from that cost. When a block rolls it, clearing the block (by you or a crosshair) refunds stamina to your pool (up to 10 per block), so refunds top up the budget and let the dig reach further. The pool never rises above your max stamina, so a refund while you are near full is partly wasted. When stamina cannot cover the next floor, the dig stops partway through it. A dig always runs as deep as stamina allows. The score is total reward divided by total stamina spent, so a build that earns the same reward for less stamina scores higher.</p>
+<p>There is no stamina recovery downtime. The only stamina you gain back is from abilities and stamina mods during a dig; outside of those it does not regenerate. When a dig runs out, the next one starts at floor 1 with full stamina immediately. So the per-hour figures assume continuous digging, which is how the game actually plays: time is set only by your attack rate, not by waiting on a stamina bar.</p>
 
 <h2 id="time">10. Two clocks: ticks and real time</h2>
 <p>The tool tracks two clocks at once, and keeping them apart matters.</p>

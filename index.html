@@ -498,7 +498,7 @@ body[data-landing="true"] #guidedReenter{display:none}
       <div>
         <label>Primary goal</label>
         <select id="primaryGoal">
-          <option value="allRewards">All rewards</option>
+          <option value="allRewards">Rewards Score</option>
           <option value="xp">EXP</option>
           <option value="allLoot">Loot only (no XP)</option>
           <option value="common">Common loot</option>
@@ -515,7 +515,7 @@ body[data-landing="true"] #guidedReenter{display:none}
         <label>Secondary goal</label>
         <select id="secondaryGoal">
           <option value="none">None</option>
-          <option value="allRewards" disabled>All rewards</option>
+          <option value="allRewards" disabled>Rewards Score</option>
           <option value="xp">EXP</option>
           <option value="allLoot">Loot only (no XP)</option>
           <option value="common">Common loot</option>
@@ -606,7 +606,7 @@ body[data-landing="true"] #guidedReenter{display:none}
         </div>
       </details>
       <details id="throughputDetails">
-        <summary>Throughput detail (best simulated build): blocks &amp; loot per real-time hour</summary>
+        <summary>Throughput detail (best simulated build): blocks &amp; actual loot per real-time hour</summary>
         <div id="throughputDetailBody" style="margin-top:8px"></div>
       </details>
     </div>
@@ -628,7 +628,7 @@ body[data-landing="true"] #guidedReenter{display:none}
         <div class="actionbar" style="margin-top:10px"><button id="runCustomSim">Simulate this build</button></div>
         <div class="metrics simulation-summary" id="customSimSummary" style="display:none;margin-top:10px">
           <div class="metric good"><div class="k">Build</div><div class="v" id="customBuild">—</div></div>
-          <div class="metric"><div class="k" id="customPrimaryLabel">Rewards / real-time hour</div><div class="v" id="customPerHour">—</div></div>
+          <div class="metric"><div class="k" id="customPrimaryLabel">Rewards Score</div><div class="v" id="customPerHour">—</div></div>
           <div class="metric" id="customSecondaryMetric" style="display:none"><div class="k" id="customSecondaryLabel">Secondary</div><div class="v" id="customSecondary">—</div></div>
           <div class="metric"><div class="k">Rewards / stamina</div><div class="v" id="customPerTick">—</div></div>
           <div class="metric"><div class="k">Expected floor</div><div class="v" id="customFloor">—</div></div>
@@ -1047,7 +1047,7 @@ function abilityInputs(){
 
 function rewardFocusLabel(key){
   const labels = {
-    allRewards:"All rewards", xp:"EXP", allLoot:"Loot only", common:"Common loot", rare:"Rare loot",
+    allRewards:"Rewards Score", xp:"EXP", allLoot:"Loot only", common:"Common loot", rare:"Rare loot",
     epic:"Epic loot", legendary:"Legendary loot", mythic:"Mythic loot", divine:"Divine loot", target:"Target floor", none:"None"
   };
   if(key==="block") return _blockTargetLabel || "Target block";
@@ -1076,7 +1076,7 @@ function heroMetricValue(row, key, inp){
 }
 function heroMetricLabel(key){
   if(key==="target") return "Target hit chance";
-  if(key==="allRewards") return "Avg rewards / hr";
+  if(key==="allRewards") return "Rewards Score";
   if(key==="xp") return "XP / hr";
   if(key==="allLoot") return "Loot / hr";
   if(key==="block") return (_blockTargetLabel||"Target block")+" / hr";
@@ -1975,10 +1975,12 @@ function visibleBlocks(inp){
   for(const b of blocks){
     if(b.type==="dirt" || b.loot0<=0 || inp.worthless[b.type]){
       b.lootXpEq = 0;
+      b.lootAmt = 0;
       b.isWorthless = true;
       continue;
     }
     b.lootXpEq = b.xp0 * lootWeight;
+    b.lootAmt = b.loot0;
     b.isWorthless = false;
   }
   return blocks;
@@ -2116,10 +2118,16 @@ function quakeHitsSaved(grossHits, nodes, floorHP, der){
 }
 
 function blankChannels(){
-  return {xp:0, common:0, rare:0, epic:0, legendary:0, mythic:0, divine:0};
+  // Rarity keys hold the ACTUAL loot earned (fragments). The matching _val keys
+  // hold the same loot put on the XP scale, used only for the Rewards Score.
+  return {xp:0, common:0, rare:0, epic:0, legendary:0, mythic:0, divine:0,
+          common_val:0, rare_val:0, epic_val:0, legendary_val:0, mythic_val:0, divine_val:0};
 }
 function addChannels(target, source, multiplier=1){
   for(const k of Object.keys(target)) target[k] += (source[k] || 0) * multiplier;
+}
+function lootValueSum(m){
+  return (m.common_val||0)+(m.rare_val||0)+(m.epic_val||0)+(m.legendary_val||0)+(m.mythic_val||0)+(m.divine_val||0);
 }
 function finalizeMetrics(channels, used){
 
@@ -2127,7 +2135,7 @@ function finalizeMetrics(channels, used){
   const metrics = {};
   for(const k of Object.keys(channels)) metrics[k] = channels[k] * scale;
   metrics.allLoot = metrics.common + metrics.rare + metrics.epic + metrics.legendary + metrics.mythic + metrics.divine;
-  metrics.allRewards = metrics.xp + metrics.allLoot;
+  metrics.allRewards = metrics.xp + lootValueSum(metrics); // Rewards Score: XP + loot normalized to the XP scale
   return metrics;
 }
 
@@ -2143,14 +2151,15 @@ function floorCostValue(floor, der, inp, blocks){
     if(!b) continue;
     const hits = expectedHitsFull(b.hp, der, inp, effectiveArmor(b.armor, der, inp));
     const xpValue = b.xp0 * der.xpMult * der.gleamingMult;
-    const lootValue = b.lootXpEq * der.lootMult * der.gleamingMult;
+    const lootScore = b.lootXpEq * der.lootMult * der.gleamingMult;
+    const lootAmt = b.lootAmt * der.lootMult * der.gleamingMult;
     grossHits += expectedCount * hits;
     floorHP += expectedCount * b.hp;
     channels.xp += expectedCount * xpValue;
-    if(channels[type] !== undefined) channels[type] += expectedCount * lootValue;
+    if(channels[type] !== undefined){ channels[type] += expectedCount * lootAmt; channels[type+"_val"] += expectedCount * lootScore; }
     nodes += expectedCount;
   }
-  const value = channels.xp + channels.common + channels.rare + channels.epic + channels.legendary + channels.mythic + channels.divine;
+  const value = channels.xp + lootValueSum(channels);
 
   let playerHits = Math.max(0, grossHits - quakeHitsSaved(grossHits, nodes, floorHP, der));
 
@@ -2199,12 +2208,13 @@ function partialFloorCostValue(floor, der, inp, blocks, remainingStamina){
       const hits = expectedHitsFull(b.hp, der, inp, effectiveArmor(b.armor, der, inp));
       const costs = nodeCosts(hits, der, inp);
       const xpValue = b.xp0 * der.xpMult * der.gleamingMult;
-      const lootValue = b.lootXpEq * der.lootMult * der.gleamingMult;
+      const lootScore = b.lootXpEq * der.lootMult * der.gleamingMult;
+      const lootAmt = b.lootAmt * der.lootMult * der.gleamingMult;
       nodeGross += p * costs.staminaCost;
       nodeTick += p * costs.tickCost;
-      nodeValue += p * (xpValue + lootValue);
+      nodeValue += p * (xpValue + lootScore);
       nodeChannels.xp += p * xpValue;
-      if(nodeChannels[type] !== undefined) nodeChannels[type] += p * lootValue;
+      if(nodeChannels[type] !== undefined){ nodeChannels[type] += p * lootAmt; nodeChannels[type+"_val"] += p * lootScore; }
     }
 
     if(nodeGross <= 0) continue;
@@ -2281,7 +2291,7 @@ function scoreBuild(stats, inp, blocks){
   const metrics = {};
   for(const k of Object.keys(channels)) metrics[k] = channels[k] * hourScale;
   metrics.allLoot = metrics.common + metrics.rare + metrics.epic + metrics.legendary + metrics.mythic + metrics.divine;
-  metrics.allRewards = metrics.xp + metrics.allLoot;
+  metrics.allRewards = metrics.xp + lootValueSum(metrics); // Rewards Score
   const perStam = finalizeMetrics(channels, used);
   const targetDiff = Math.abs(floorReached - inp.targetFloor);
   const out = {stats:{...stats}, der, rewardHr:metrics.allRewards, floorReached, targetDiff, totalValue, used, totalNodes, totalTicks, channels, metrics,
@@ -2634,10 +2644,11 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
     if(node.cleared) return;
     node.cleared = true;
     const xpValue = node.b.xp0 * xpGain * node.xpMod * node.gleam;
-    const lootValue = node.b.lootXpEq * fragGain * node.lootMod * node.gleam;
+    const lootScore = node.b.lootXpEq * fragGain * node.lootMod * node.gleam;
+    const lootAmt = node.b.lootAmt * fragGain * node.lootMod * node.gleam;
     channels.xp += xpValue;
-    if(channels[node.type] !== undefined) channels[node.type] += lootValue;
-    totalValue += xpValue + lootValue;
+    if(channels[node.type] !== undefined){ channels[node.type] += lootAmt; channels[node.type+"_val"] += lootScore; }
+    totalValue += xpValue + lootScore;
     const ck = "t"+node.b.tier+"_"+node.type;
     blockCounts[ck] = (blockCounts[ck] || 0) + 1;
 
@@ -2886,7 +2897,7 @@ function buildResultColumns(inp, opts={}){
   };
   const lootGet = fk => r => (r.lootPerHour && r.lootPerHour[fk] != null) ? r.lootPerHour[fk] : ((r.metrics && r.metrics[fk]) || 0);
   const targetGet = r => r.targetPct != null ? r.targetPct : Math.min(100, (acc.mcAvgFloor(r) / Math.max(1, inp.targetFloor || 1)) * 100);
-  const BASE = {rewardsPerHour:["Rewards / hr",1], rewardsPerTick:["Reward / stamina",3], blocksPerHour:["Blocks / hr",1],
+  const BASE = {rewardsPerHour:["Rewards Score",1], rewardsPerTick:["Reward / stamina",3], blocksPerHour:["Blocks / hr",1],
                 xpPerHour:["XP / hr",1], allLootPerHour:["Loot / hr",1], mcAvgFloor:["Avg floor",2]};
   const baseOrder = ["rewardsPerHour","rewardsPerTick","blocksPerHour","xpPerHour","allLootPerHour","mcAvgFloor"];
   const mkBase = (id,cls)=>({id, label:BASE[id][0], sortable:true, cls, get:acc[id], text:r=>fmt(acc[id](r),BASE[id][1])});
@@ -3004,7 +3015,8 @@ function renderThroughputDetail(row, bodyEl){
   const cap=s=>s[0].toUpperCase()+s.slice(1);
 
   const cnt=v=> v<=0 ? "—" : (v<0.5 ? "<1" : fmt(Math.round(v),0));
-  let h='<div class="table-wrap"><table><thead><tr><th>Blocks / hr</th>';
+  let h='<p class="small">XP and loot are the actual amounts earned per real-time hour (a dig restarts at floor 1 with full stamina the instant it runs out, so this is continuous digging). Rewards Score is not a quantity: it adds XP and loot on one scale, valuing each block\'s loot at its own XP.</p>';
+  h+='<div class="table-wrap"><table><thead><tr><th>Blocks / hr</th>';
   for(const t of tiers) h+=`<th>T${t}</th>`;
   h+='<th>All tiers</th></tr></thead><tbody>';
   for(const rar of rarities){
@@ -3016,9 +3028,9 @@ function renderThroughputDetail(row, bodyEl){
   let grand=0, totRow="";
   for(const t of tiers){ let tt=0; for(const rar of rarities) tt+=cph["t"+t+"_"+rar]||0; grand+=tt; totRow+=`<td>${cnt(tt)}</td>`; }
   h+=`<tr class="best"><td>All blocks</td>${totRow}<td>${cnt(grand)}</td></tr></tbody></table></div>`;
-  h+='<div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>Value / hr</th><th>XP</th>';
+  h+='<div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>Earned / hr</th><th>XP</th>';
   for(const rar of ["common","rare","epic","legendary","mythic","divine"]) h+=`<th>${cap(rar)} loot</th>`;
-  h+='<th>All loot</th></tr></thead><tbody><tr><td>Reward</td>';
+  h+='<th>All loot</th></tr></thead><tbody><tr><td>Amount</td>';
   h+=`<td>${fmt(row.xpPerHour,1)}</td>`;
   for(const rar of ["common","rare","epic","legendary","mythic","divine"]) h+=`<td>${fmt((row.lootPerHour||{})[rar]||0,1)}</td>`;
   h+=`<td>${fmt(row.allLootPerHour,1)}</td></tr></tbody></table></div>`;
@@ -3099,7 +3111,7 @@ async function runCustomSim(){
 
   const cand=simCandidate(stats, row, inp);
   const pk=primaryFocusKey(inp), sk=secondaryFocusKey(inp);
-  const goalLabel=k=> k==="target" ? "Target hit chance" : rewardFocusLabel(k)+" / real-time hour";
+  const goalLabel=k=> k==="target" ? "Target hit chance" : k==="allRewards" ? "Rewards Score" : rewardFocusLabel(k)+" / real-time hour";
   const goalValue=(k,metric)=> k==="target" ? fmt(row.targetPct,1)+"%" : fmt(metric,1);
   set("customPrimaryLabel", goalLabel(pk));
   set("customPerHour", goalValue(pk, cand.primaryMetric));
@@ -4393,7 +4405,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
 
   var STEPS=[
     {key:"intent", title:"What are you optimizing for?",
-     intro:"Pick your main goal: all rewards, XP, a specific loot rarity, a specific block, or a target floor. Add a secondary goal if you want. You can change this later.", render:renderIntent},
+     intro:"Pick your main goal: Rewards Score, XP, a specific loot rarity, a specific block, or a target floor. Add a secondary goal if you want. You can change this later.", render:renderIntent},
     {key:"ascension", title:"What's your Ascension?",
      intro:"This decides which blocks and stats exist. Match it to your account.", render:renderAscension},
     {key:"stats", title:"Your stats", render:renderStats,
@@ -4606,11 +4618,11 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     var hero;
     if(focusKey==="block"){ var fv=0; try{ fv=simFocusValue(best,inp); }catch(_e){} hero={lbl:focusLabel+" / hr", val:fmt(fv,1)}; }
     else if(focusKey==="target"){ hero={lbl:"Target reached", val:fmt(best.targetPct,1)+"%"}; }
-    else { hero={lbl:focusLabel+" / hr", val:fmt(best.rewardsPerHour,1)}; }
+    else { hero={lbl: focusKey==="allRewards" ? "Rewards Score" : focusLabel+" / hr", val:fmt(best.rewardsPerHour,1)}; }
     var html='<div class="wiz-result-hero"><div class="lbl">'+esc(hero.lbl)+'</div><div class="val">'+esc(hero.val)+'</div></div>';
     html+='<div class="wiz-result-hero" style="background:var(--accent2);border-color:#c7d2fe"><div class="lbl" style="color:var(--accent)">Recommended build</div><div class="val" style="font-size:22px">'+esc(buildLabel(best.stats))+'</div></div>';
     html+='<div class="wiz-result-metrics">'
-      +metric("Rewards / hour", fmt(best.rewardsPerHour,1))
+      +metric("Rewards Score", fmt(best.rewardsPerHour,1))
       +metric("Expected floor", fmt(best.mcAvgFloor,2))
       +metric("Reward / stamina", fmt(best.rewardsPerTick,3))
       +metric("Blocks / hour", fmt(best.blocksPerHour,1))
