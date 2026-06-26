@@ -469,18 +469,46 @@ body[data-landing="true"] #guidedReenter{display:none}
   .wiz-result-metrics{grid-template-columns:1fr}
 }
 
+.backup-panel{position:fixed;z-index:1200;width:300px;max-width:calc(100vw - 24px);background:var(--card,#fff);border:1px solid var(--line,#d4d4d8);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.22);padding:14px}
+.backup-panel h3{margin:0 0 6px;font-size:15px}
+.backup-panel .small{margin:0 0 10px}
+.backup-panel button{display:block;width:100%;margin-top:8px}
+.backup-hint{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;background:var(--accent2,#eef2ff);border:1px solid var(--line,#d4d4d8);border-radius:10px;padding:8px 12px;margin:0 0 14px;font-size:13px;font-weight:600;color:var(--ink,#1f2937)}
+.backup-hint-actions{display:flex;align-items:center;gap:8px}
+.backup-hint-actions button{font-size:13px;padding:6px 10px}
+.backup-hint-x{background:transparent;border:0;color:var(--muted,#6b7280);font-weight:800;cursor:pointer;padding:4px 6px;line-height:1}
+.backup-hint-x:hover{color:var(--accent,#4f46e5)}
+.wiz-backup{margin-top:16px;text-align:center;font-size:13px;color:var(--muted,#6b7280)}
+.wiz-backup .wiz-linkbtn{font-size:13px}
 </style>
 </head>
 <body data-workflow="results" data-target-used="false" data-simulation-ready="false" data-ascension="0">
 <header>
   <h1>Obelisk Miner Archaeology Optimizer</h1>
   <div style="display:flex;align-items:center;gap:10px;flex:none">
+    <button type="button" id="backupBtn" class="guided-reenter" aria-haspopup="true" aria-expanded="false" title="Save or load your stats as a file">&#128190; Save / Load</button>
     <button type="button" id="guidedReenter" class="guided-reenter">&#10024; Guided setup</button>
     <a class="help-link" href="about.html" target="_blank" rel="noopener" title="How this app works" aria-label="How this app works">?</a>
   </div>
 </header>
 
+<div id="backupPanel" class="backup-panel" hidden role="dialog" aria-label="Save or load">
+  <h3>Save / load your data</h3>
+  <p class="small">Your stats live only in this browser. If its cache clears, they are gone. Export a text file to keep them, and load it back any time.</p>
+  <button type="button" id="backupExportBtn">&#11015; Export save file</button>
+  <button type="button" id="backupImportBtn" class="ghost">&#11014; Load save file</button>
+</div>
+<input type="file" id="saveFileInput" accept=".txt,text/plain" style="display:none">
+
 <main>
+  <div id="backupHint" class="backup-hint" hidden>
+    <span>&#128190; Your stats are saved only in this browser. Export a backup file so a cache clear can't wipe them.</span>
+    <span class="backup-hint-actions">
+      <button type="button" id="hintExport">Export save</button>
+      <button type="button" id="hintImport" class="ghost">Load save</button>
+      <button type="button" id="hintDismiss" class="backup-hint-x" aria-label="Dismiss this tip">&#10005;</button>
+    </span>
+  </div>
   <section id="landing">
     <div class="landing-card" id="landingIntro">
       <h2>The optimizer finds your best archaeology build for the goal you choose.</h2>
@@ -1937,6 +1965,161 @@ function loadState(){
   }
   syncStatCapMirror();
   return true;
+}
+
+/* ---------- Human-readable save file (export / import) ---------- */
+const BACKUP_HINT_KEY = "obeliskArchaeologyOptimizer.backupHintDismissed";
+
+function normalizeLabel(s){ return String(s||"").toLowerCase().replace(/\s+/g," ").trim(); }
+
+// The label shown in the save file: the field's own on-screen label, so the
+// file matches what the user sees in the app. Colons are swapped out so the
+// "Setting: value" split stays unambiguous.
+function fieldExportLabel(el){
+  let lbl = el.getAttribute("aria-label") || "";
+  if(!lbl){
+    const wrap = el.closest("label");
+    if(wrap && wrap.contains(el)){
+      lbl = Array.from(wrap.childNodes)
+        .filter(n => n.nodeType===3 || (n.nodeType===1 && n.tagName!=="INPUT" && n.tagName!=="SELECT"))
+        .map(n => n.textContent).join(" ");
+    }
+  }
+  if(!lbl){
+    const lab = el.parentElement && el.parentElement.querySelector("label");
+    if(lab) lbl = lab.textContent;
+  }
+  if(!lbl) lbl = el.id;
+  return lbl.replace(/\s+/g," ").trim().replace(/:/g," -");
+}
+
+function exportableElements(){
+  return getPersistableElements().filter(el=>{
+    const t = el.type;
+    if(t==="file" || t==="button" || t==="submit" || t==="reset") return false;
+    if(el.disabled || el.readOnly || !el.id) return false;
+    if(el.id.startsWith("card_")) return false;   // cards handled separately
+    if(el.id.startsWith("custom")) return false;  // manual-sim scratch inputs
+    if(el.classList && el.classList.contains("hidden-control")) return false;
+    return true;
+  });
+}
+
+const BACKUP_SECTION_NAMES = {
+  goalCard:"Goal", "settings-loot":"Loot handling", "settings-base":"Stats",
+  "settings-skills":"Abilities", "settings-upgrades":"Upgrades & modifiers",
+  "settings-cards":"Cards", "settings-scaling":"Attribute scaling", "settings-mc":"Simulation"
+};
+function backupSectionName(el){
+  const sec = el.closest('section[id], #goalCard, .workflow-card[id]');
+  const id = sec ? sec.id : "";
+  if(BACKUP_SECTION_NAMES[id]) return BACKUP_SECTION_NAMES[id];
+  if(!id) return "General";
+  return id.replace(/^settings-/,"").replace(/[-_]/g," ").replace(/\b\w/g, c=>c.toUpperCase());
+}
+
+// One ordered list of entries, used by BOTH export and import, so the labels
+// (including any "(2)" disambiguation) match exactly and round-trip.
+function backupEntries(){
+  const counts = new Map(), entries = [];
+  const add = (label, kind, ref, section)=>{
+    const baseKey = normalizeLabel(label);
+    const n = counts.get(baseKey) || 0; counts.set(baseKey, n+1);
+    const finalLabel = n>0 ? label+" ("+(n+1)+")" : label;
+    entries.push({label:finalLabel, key:normalizeLabel(finalLabel), kind, ref, section});
+  };
+  for(const el of exportableElements()) add(fieldExportLabel(el), "field", el, backupSectionName(el));
+  for(const c of ARCHAEOLOGY_CARD_KEYS) add(c.label+" card", "card", c.key, "Cards");
+  return entries;
+}
+
+function backupEntryValue(e){
+  if(e.kind==="card") return document.getElementById(cardSettingId(e.ref))?.value || "none";
+  const el = e.ref;
+  if(el.type==="checkbox" || el.type==="radio") return el.checked ? "yes" : "no";
+  return el.value != null ? String(el.value) : "";
+}
+function backupApplyEntry(e, rawVal){
+  const val = String(rawVal).trim();
+  if(e.kind==="card"){ setCardState(e.ref, val || "none"); return; }
+  const el = e.ref;
+  if(el.type==="checkbox" || el.type==="radio") el.checked = /^(yes|true|on|1|checked|y)$/i.test(val);
+  else el.value = val;
+}
+
+function buildSaveText(){
+  const lines = [
+    "# Obelisk Miner Archaeology Optimizer save file",
+    "# Generated "+new Date().toISOString()+"  (app v"+APP_VERSION+")",
+    "# Each line is  Setting: value.  Lines starting with # are ignored.",
+    "# Edit values after the colon if you like, then load this file back in."
+  ];
+  let section = null;
+  for(const e of backupEntries()){
+    if(e.section !== section){ section = e.section; lines.push("", "# "+section); }
+    lines.push(e.label+": "+backupEntryValue(e));
+  }
+  return lines.join("\n")+"\n";
+}
+
+function downloadSaveFile(){
+  const blob = new Blob([buildSaveText()], {type:"text/plain"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const d = new Date(), p = n=>String(n).padStart(2,"0");
+  a.href = url;
+  a.download = "archaeology-save-"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+".txt";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  showStatus("Save file exported.", 3000);
+}
+
+function applySaveText(text){
+  const map = new Map();
+  for(const e of backupEntries()) map.set(e.key, e);
+  let applied = 0; const unknown = [];
+  for(const raw of String(text).split(/\r?\n/)){
+    const line = raw.trim();
+    if(!line || line[0]==="#") continue;
+    const i = line.indexOf(":");
+    if(i < 0) continue;
+    const e = map.get(normalizeLabel(line.slice(0,i)));
+    if(!e){ unknown.push(line.slice(0,i).trim()); continue; }
+    backupApplyEntry(e, line.slice(i+1).trim());
+    applied++;
+  }
+  const dmg = document.getElementById("baseDamage");
+  if(dmg && dmg.value !== "") statsImported = true;
+  syncStatCapMirror();
+  applyAscensionGating();
+  if(typeof syncBaseStatMode==="function") syncBaseStatMode();
+  if(typeof syncSecondaryGoalOptions==="function") syncSecondaryGoalOptions();
+  if(typeof syncPrimaryProtectionUI==="function") syncPrimaryProtectionUI();
+  if(typeof updateGoalUI==="function") updateGoalUI();
+  if(typeof updateSettingsSummary==="function") updateSettingsSummary();
+  if(typeof markOptimizerStale==="function") markOptimizerStale();
+  if(typeof refreshAscensionWarning==="function") refreshAscensionWarning();
+  saveState();
+  const wiz = document.getElementById("wizard");
+  if(window.__wizard && typeof window.__wizard.refresh==="function" && wiz && !wiz.hidden){
+    try{ window.__wizard.refresh(); }catch(_e){}
+  }
+  return {applied, unknown};
+}
+
+function importSaveFile(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    let res;
+    try{ res = applySaveText(String(reader.result||"")); }
+    catch(_e){ showStatus("Could not read that save file.", 4000); return; }
+    let msg = "Loaded "+res.applied+" setting"+(res.applied===1?"":"s")+" from your save file.";
+    if(res.unknown.length) msg += " ("+res.unknown.length+" line"+(res.unknown.length===1?"":"s")+" not recognized.)";
+    showStatus(msg, 5000);
+  };
+  reader.onerror = ()=>showStatus("Could not read that save file.", 4000);
+  reader.readAsText(file);
 }
 
 function blockAvailableAtAscension(b, asc){
@@ -4056,6 +4239,38 @@ syncPrimaryProtectionUI();
 wireSteppers();
 updateGoalUI();
 updateSettingsSummary();
+
+/* ---- backup / restore UI wiring ---- */
+(function(){
+  const fileInput = document.getElementById("saveFileInput");
+  const panel = document.getElementById("backupPanel");
+  const btn = document.getElementById("backupBtn");
+  const triggerImport = ()=>{ if(fileInput){ fileInput.value=""; fileInput.click(); } };
+  if(fileInput) fileInput.addEventListener("change", ()=>{ const f=fileInput.files&&fileInput.files[0]; if(f) importSaveFile(f); });
+
+  function closePanel(){ if(panel) panel.hidden=true; if(btn) btn.setAttribute("aria-expanded","false"); }
+  function openPanel(){
+    if(!panel||!btn) return;
+    const r=btn.getBoundingClientRect();
+    panel.style.top=(r.bottom+8)+"px";
+    panel.style.right=Math.max(12,(window.innerWidth-r.right))+"px";
+    panel.hidden=false; btn.setAttribute("aria-expanded","true");
+  }
+  if(btn) btn.addEventListener("click",(e)=>{ e.stopPropagation(); if(panel.hidden) openPanel(); else closePanel(); });
+  document.addEventListener("click",(e)=>{ if(panel && !panel.hidden && !panel.contains(e.target) && e.target!==btn) closePanel(); });
+  window.addEventListener("keydown",(e)=>{ if(e.key==="Escape") closePanel(); });
+  document.getElementById("backupExportBtn")?.addEventListener("click", ()=>{ downloadSaveFile(); closePanel(); });
+  document.getElementById("backupImportBtn")?.addEventListener("click", ()=>{ triggerImport(); closePanel(); });
+
+  const hint = document.getElementById("backupHint");
+  let dismissed=false; try{ dismissed = localStorage.getItem(BACKUP_HINT_KEY)==="1"; }catch(_e){}
+  if(hint && !dismissed) hint.hidden=false;
+  document.getElementById("hintExport")?.addEventListener("click", downloadSaveFile);
+  document.getElementById("hintImport")?.addEventListener("click", triggerImport);
+  document.getElementById("hintDismiss")?.addEventListener("click", ()=>{ if(hint) hint.hidden=true; try{ localStorage.setItem(BACKUP_HINT_KEY,"1"); }catch(_e){} });
+
+  window.__backup = { export:downloadSaveFile, import:triggerImport };
+})();
 </script>
 <script>
 
@@ -4463,8 +4678,11 @@ window.refreshAscensionWarning=refreshAscensionWarning;
       + '<label class="wiz-confirm"><input type="checkbox" id="wizAttrZero"> <span>I\'ve set all my attribute points to <b>0</b> in game.</span></label>'
       + '<div class="wiz-upload"><button type="button" id="wizUpload" class="runbtn" disabled>Upload stat screenshot</button></div>'
       + '<input type="file" id="wizStatFile" accept="image/*" style="display:none">'
-      + '<div class="wiz-statusline" id="wizStatStatus"></div>';
+      + '<div class="wiz-statusline" id="wizStatStatus"></div>'
+      + '<div class="wiz-backup">Already have a save file? <button type="button" class="wiz-linkbtn" id="wizLoadSave">Load it</button> &middot; <button type="button" class="wiz-linkbtn" id="wizExportSave">Export current stats</button></div>';
     gid("wizExample").addEventListener("click", function(){ var im=gid("wizExampleImg"); im.hidden=!im.hidden; });
+    gid("wizLoadSave").addEventListener("click", function(){ if(window.__backup) window.__backup.import(); });
+    gid("wizExportSave").addEventListener("click", function(){ if(window.__backup) window.__backup.export(); });
     var conf=gid("wizAttrZero"), up=gid("wizUpload"), file=gid("wizStatFile"), status=gid("wizStatStatus");
     conf.checked=!!_attrZeroConfirmed; up.disabled=!conf.checked;
     conf.addEventListener("change", function(){ _attrZeroConfirmed=conf.checked; up.disabled=!conf.checked; });
@@ -4770,7 +4988,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
   if(rModal) rModal.addEventListener("click", function(e){ if(e.target===rModal) showResetModal(false); });
   window.addEventListener("keydown", function(e){ if(e.key==="Escape" && rModal && !rModal.hidden) showResetModal(false); });
 
-  window.__wizard={ enter:enterWizard, exit:exitWizard, go:goStep, stepIndex:stepIndex, landing:setLanding, get step(){ return step; } };
+  window.__wizard={ enter:enterWizard, exit:exitWizard, go:goStep, stepIndex:stepIndex, landing:setLanding, refresh:renderStep, get step(){ return step; } };
 
   setLanding(true);
 })();

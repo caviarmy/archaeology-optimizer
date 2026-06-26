@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-06-26
+
+### Added
+- Save / load to a human-readable text file, so stats survive a cache clear. Export writes one "Setting: value" line per field (and one per card), grouped by section; load reads the same format back, and values can be hand-edited. Available from a Save / Load button in the header, a dismissible tip on the full app, and the guided stats step.
+
+### Changed
+- Result tables now show the actual XP and loot earned per hour; loot columns are real fragment amounts, not an XP-equivalent value. The blended XP-plus-loot figure is relabeled "Rewards Score" (it is a ranking number, not a quantity), and remains the optimizer's objective for the "all rewards" goal.
+
 ## 2026-06-24
 
 ### Changed
