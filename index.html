@@ -12,8 +12,9 @@
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.35}
-header{background:#101828;color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-header h1{margin:0;font-size:20px;line-height:1.15}
+header{background:#101828;color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+header h1{margin:0;font-size:20px;line-height:1.15;min-width:0;flex:1 1 auto}
+header>div{flex-wrap:wrap;justify-content:flex-end}
 .help-link{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid #ffffff55;color:#fff;text-decoration:none;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px}
 .help-link:hover{background:#ffffff22}
 header p{margin:6px 0 0;color:#cbd5e1;max-width:1080px;font-size:13px}
