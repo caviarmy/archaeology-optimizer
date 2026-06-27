@@ -60,6 +60,9 @@ const ok = (name, cond, extra="") => { (cond ? pass++ : fail++); console.log((co
   const lenient = mk(1);    // reachable 1% of the time -> deepest
   const strict  = mk(50);   // reachable 50% of the time -> ~median
   ok("maxFloor is a finite number", Number.isFinite(lenient.maxFloor), String(lenient.maxFloor));
+  ok("maxFloorPct reported and >= requested min", Number.isFinite(strict.maxFloorPct) && strict.maxFloorPct >= 50 - 1e-9,
+     `requested 50%, actual ${strict.maxFloorPct}%`);
+  ok("lenient maxFloorPct >= 1%", lenient.maxFloorPct >= 1 - 1e-9, `${lenient.maxFloorPct}%`);
   ok("stricter success rate <= lenient (deeper tail at low %)", strict.maxFloor <= lenient.maxFloor,
      `strict(50%)=${strict.maxFloor} lenient(1%)=${lenient.maxFloor}`);
   ok("maxFloor(1%) >= median floor p50", lenient.maxFloor >= lenient.p50,
@@ -75,6 +78,7 @@ const ok = (name, cond, extra="") => { (cond ? pass++ : fail++); console.log((co
     await window.runFullSimulation();
     const heroLabels = Array.from(doc.getElementById("simHero").querySelectorAll(".metric .k")).map(e=>e.textContent);
     ok("hero card shows a Max floor tile", heroLabels.includes("Max floor"), heroLabels.join(" | "));
+    ok("hero card shows a Reach chance tile", heroLabels.includes("Reach chance"), heroLabels.join(" | "));
     const results = window.__simResults || [];
     ok("sim results carry maxFloor", results.length>0 && results.every(r=>r.maxFloor!=null),
        results.length? ("first.maxFloor="+results[0].maxFloor) : "no results");

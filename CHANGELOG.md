@@ -3,7 +3,7 @@
 ## 2026-06-27
 
 ### Added
-- New "Max floor" goal: instead of aiming at a fixed target, it finds the build that reaches the deepest floor you can still hit at a chosen minimum success rate (default 3%). The success-rate field replaces the target-floor field when this goal is picked. Like "Specific block", it is a primary-only goal.
+- New "Max floor" goal: instead of aiming at a fixed target, it finds the build that reaches the deepest floor you can still hit at a chosen minimum success rate (default 3%), and shows the actual chance of reaching that floor alongside it. The success-rate field replaces the target-floor field when this goal is picked. Like "Specific block", it is a primary-only goal.
 
 ### Fixed
 - Speed Mod now banks a pool of fast attacks carried across blocks (was speeding only the spawned block), fixing over-estimated average floor.

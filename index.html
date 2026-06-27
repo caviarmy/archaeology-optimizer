@@ -1051,7 +1051,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.27.1";
+const APP_VERSION = "2026.06.27.2";
 let _blockTargetLabel = "";
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -1115,6 +1115,7 @@ function heroTiles(row, inp){
   const metricTile = k => ({label:heroMetricLabel(k), value:val(k)});
   const floorTile = ()=>({label:"Avg floor", value: row ? fmt(heroFloorValue(row),2) : "—"});
   const tiles = [{label:"Build", value: row ? buildLabel(row.stats) : "—", good:true}, metricTile(pk)];
+  if(pk === "maxFloor") tiles.push({label:"Reach chance", value: row ? fmt(row.maxFloorPct ?? 0,1)+"%" : "—"});
   if(sk !== "none") tiles.push(metricTile(sk));
   if(isTarget) tiles.push(floorTile());
   const tailKey = pk==="allLoot" ? "xp" : pk==="xp" ? "allLoot" : "allRewards";
@@ -2742,7 +2743,7 @@ function simCandidate(st, row, inp){
   metrics.allRewards = row.rewardsPerHour||0;
   const out = {stats:{...st}, der, metrics, countsPerHour:row.countsPerHour, floorReached:row.mcAvgFloor,
     rewardsPerHour:row.rewardsPerHour, rewardsPerTick:row.rewardsPerTick, rewardsPerStam:row.rewardsPerStam,
-    targetPct:row.targetPct, maxFloor:row.maxFloor, totalTicks:0, channels:null};
+    targetPct:row.targetPct, maxFloor:row.maxFloor, maxFloorPct:row.maxFloorPct, totalTicks:0, channels:null};
   out.primaryMetric = metricValue(out, primaryFocusKey(inp), inp);
   out.secondaryMetric = metricValue(out, secondaryFocusKey(inp), inp);
   out.rewardHr = out.primaryMetric;
@@ -2998,6 +2999,10 @@ function aggregateBuildSim(stats, inp, blocks, runs, rng){
   // Max Floor goal: deepest floor reached in at least successRateMin% of runs (the 1 - s quantile).
   const sMin = clamp((inp.goal?.successRateMin ?? 3) / 100, 0, 1);
   const maxFloor = pct(clamp(1 - sMin, 0, 1));
+  // Actual chance of reaching that floor: floors are sorted ascending, so the count
+  // at or beyond maxFloor over runs. Discrete floors make this >= sMin (often higher).
+  const geIdx = floors.findIndex(f => f >= maxFloor);
+  const maxFloorPct = geIdx < 0 ? 0 : (floors.length - geIdx) / floors.length * 100;
   const mcMetrics = finalizeMetrics(simChannels, Math.max(1,sumStamina));
   const sec = Math.max(1e-9, sumTime), perHr = x => x/sec*3600;
   const countsPerHour={}; let totalBlocks=0;
@@ -3005,7 +3010,7 @@ function aggregateBuildSim(stats, inp, blocks, runs, rng){
   const lootPerHour={}; let lootVal=0;
   for(const t of ["common","rare","epic","legendary","mythic","divine"]){ lootPerHour[t]=perHr(simChannels[t]); lootVal+=simChannels[t]; }
   return {
-    stats:{...stats}, metrics:mcMetrics, floorReached:mcAvgFloor, mcAvgFloor, maxFloor,
+    stats:{...stats}, metrics:mcMetrics, floorReached:mcAvgFloor, mcAvgFloor, maxFloor, maxFloorPct,
     targetPct:hitTarget/runs*100, p10:pct(0.10), p50:pct(0.50), p90:pct(0.90),
     rewardsPerHour:perHr(sumValue), rewardsPerTick:sumValue/Math.max(1,sumTicks),
     rewardsPerStam:mcMetrics.allRewards, blocksPerHour:perHr(totalBlocks),
@@ -3127,7 +3132,7 @@ function buildResultColumns(inp, opts={}){
     if(rar[fk]) return {id:synthId, label:rar[fk]+" loot / hr", sortable:true, cls, get:lootGet(fk), text:r=>fmt(lootGet(fk)(r),1)};
     if(fk==="block") return {id:synthId, label:(_blockTargetLabel||"Target block")+" / hr", sortable:true, cls, get:r=>(r.countsPerHour||{})[inp.blockTargetKey]||0, text:r=>fmt((r.countsPerHour||{})[inp.blockTargetKey]||0,1)};
     if(fk==="target") return {id:synthId, label:"Reach target %", sortable:true, cls, get:targetGet, text:r=>fmt(targetGet(r),1)+"%"};
-    if(fk==="maxFloor") return {id:synthId, label:"Max floor", sortable:true, cls, get:r=>r.maxFloor ?? r.mcAvgFloor ?? 0, text:r=>fmt(r.maxFloor ?? r.mcAvgFloor ?? 0,0)};
+    if(fk==="maxFloor") return {id:synthId, label:"Max floor", sortable:true, cls, get:r=>r.maxFloor ?? r.mcAvgFloor ?? 0, text:r=>fmt(r.maxFloor ?? r.mcAvgFloor ?? 0,0) + (r.maxFloorPct!=null ? " ("+fmt(r.maxFloorPct,1)+"%)" : "")};
     return null;
   };
   const pc = goalCol(primaryFocusKey(inp), "goal-col", "goal");      if(pc) cols.push(pc);
@@ -3320,7 +3325,7 @@ async function runCustomSim(){
   const cand=simCandidate(stats, row, inp);
   const pk=primaryFocusKey(inp), sk=secondaryFocusKey(inp);
   const goalLabel=k=> k==="target" ? "Target hit chance" : k==="maxFloor" ? "Max floor" : k==="allRewards" ? "Rewards Score" : rewardFocusLabel(k)+" / real-time hour";
-  const goalValue=(k,metric)=> k==="target" ? fmt(row.targetPct,1)+"%" : k==="maxFloor" ? fmt(row.maxFloor ?? row.mcAvgFloor,0) : fmt(metric,1);
+  const goalValue=(k,metric)=> k==="target" ? fmt(row.targetPct,1)+"%" : k==="maxFloor" ? fmt(row.maxFloor ?? row.mcAvgFloor,0) + (row.maxFloorPct!=null ? " ("+fmt(row.maxFloorPct,1)+"% chance)" : "") : fmt(metric,1);
   set("customPrimaryLabel", goalLabel(pk));
   set("customPerHour", goalValue(pk, cand.primaryMetric));
   const secEl=document.getElementById("customSecondaryMetric");
@@ -3407,6 +3412,7 @@ function buildDebugForAI(){
           floorReached:r1(x.mcAvgFloor!=null?x.mcAvgFloor:x.floorReached) };
         const pv=focusVal(x,pk); if(pv!==undefined) o.primaryGoalValue=r1(pv);
         const sv=focusVal(x,sk); if(sv!==undefined) o.secondaryGoalValue=r1(sv);
+        if(pk==="maxFloor" && x.maxFloorPct!=null) o.maxFloorReachChancePct=r1(x.maxFloorPct);
         if(der){ o.damage=r1(der.damage); o.critChancePct=r1((der.critChance||0)*100); o.maxStamina=Math.round(der.stamina||0); }
         return o;
       };
@@ -4866,7 +4872,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     var hero;
     if(focusKey==="block"){ var fv=0; try{ fv=simFocusValue(best,inp); }catch(_e){} hero={lbl:focusLabel+" / hr", val:fmt(fv,1)}; }
     else if(focusKey==="target"){ hero={lbl:"Target reached", val:fmt(best.targetPct,1)+"%"}; }
-    else if(focusKey==="maxFloor"){ hero={lbl:"Max floor", val:fmt(best.maxFloor ?? best.mcAvgFloor,0)}; }
+    else if(focusKey==="maxFloor"){ hero={lbl:"Max floor", val:fmt(best.maxFloor ?? best.mcAvgFloor,0) + (best.maxFloorPct!=null ? " ("+fmt(best.maxFloorPct,1)+"%)" : "")}; }
     else { hero={lbl: focusKey==="allRewards" ? "Rewards Score" : focusLabel+" / hr", val:fmt(best.rewardsPerHour,1)}; }
     var html='<div class="wiz-result-hero"><div class="lbl">'+esc(hero.lbl)+'</div><div class="val">'+esc(hero.val)+'</div></div>';
     html+='<div class="wiz-result-hero" style="background:var(--accent2);border-color:#c7d2fe"><div class="lbl" style="color:var(--accent)">Recommended build</div><div class="val" style="font-size:22px">'+esc(buildLabel(best.stats))+'</div></div>';
