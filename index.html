@@ -2902,9 +2902,15 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
         const hitDmg = dmg * rollCritMult(rng, der.critChance, cdmg, der.superChance, der.superDamage, der.ultraChance, der.ultraDamage);
         node.hp -= Math.max(0, hitDmg - node.armor);
         if(qk){
-
-          const share = dmg * ((sched.quake.a.dmgPct||0)/100);
-          for(const o of nodes){ if(o!==node && !o.cleared){ o.hp -= share; if(o.hp<=0) clearNode(o); } }
+          // Quake splashes 20% of the post-armor hit damage to every other node;
+          // each node rolls its own crit. No extra per-node armor reduction.
+          const splashBase = Math.max(0, dmg - node.armor) * ((sched.quake.a.dmgPct||0)/100);
+          for(const o of nodes){
+            if(o!==node && !o.cleared){
+              o.hp -= splashBase * rollCritMult(rng, der.critChance, cdmg, der.superChance, der.superDamage, der.ultraChance, der.ultraDamage);
+              if(o.hp<=0) clearNode(o);
+            }
+          }
         }
 
         const speedRate = inp.base.speedModAtkRate > 0 ? inp.base.speedModAtkRate : 2;
