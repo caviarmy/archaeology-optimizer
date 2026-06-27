@@ -285,6 +285,9 @@ body[data-target-used="false"] .target-only{
 }
 .goal-block-field{display:none!important}
 body[data-block-target="true"] .goal-block-field{display:block!important}
+.goal-maxfloor-field{display:none!important}
+body[data-maxfloor="true"] .goal-maxfloor-field{display:block!important}
+.maxfloor-input{display:inline-flex;align-items:center;gap:6px}
 
 #results.active{display:flex;flex-direction:column}
 .sim-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
@@ -527,6 +530,7 @@ body[data-landing="true"] #guidedReenter{display:none}
           <option value="divine">Divine loot</option>
           <option value="block">Specific block</option>
           <option value="target">Target floor</option>
+          <option value="maxFloor">Max floor</option>
         </select>
       </div>
       <div>
@@ -548,6 +552,13 @@ body[data-landing="true"] #guidedReenter{display:none}
       <div class="goal-target-field" id="goalTargetField">
         <label>Target floor</label>
         <input id="targetFloor" type="number" min="1" max="1000" step="1" inputmode="numeric" value="13">
+      </div>
+      <div class="goal-maxfloor-field" id="goalMaxFloorField">
+        <label>Success rate minimum</label>
+        <span class="maxfloor-input">
+          <input id="maxFloorSuccessMin" type="number" min="0.1" max="100" step="0.1" inputmode="decimal" value="3">
+          <span class="percent-label">%</span>
+        </span>
       </div>
       <div class="goal-block-field" id="goalBlockField">
         <label>Target block (most destroyed per hour)</label>
@@ -1059,7 +1070,7 @@ function abilityInputs(){
 function rewardFocusLabel(key){
   const labels = {
     allRewards:"Rewards Score", xp:"EXP", allLoot:"Loot only", common:"Common loot", rare:"Rare loot",
-    epic:"Epic loot", legendary:"Legendary loot", mythic:"Mythic loot", divine:"Divine loot", target:"Target floor", none:"None"
+    epic:"Epic loot", legendary:"Legendary loot", mythic:"Mythic loot", divine:"Divine loot", target:"Target floor", maxFloor:"Max floor", none:"None"
   };
   if(key==="block") return _blockTargetLabel || "Target block";
   return labels[key] || key;
@@ -1079,6 +1090,7 @@ function heroMetricValue(row, key, inp){
     const tf = Math.max(1, inp.targetFloor || 1);
     return Math.min(100, (heroFloorValue(row) / tf) * 100);
   }
+  if(key==="maxFloor") return row.maxFloor ?? heroFloorValue(row);
   if(key==="allRewards") return row.rewardsPerHour ?? row.metrics?.allRewards ?? 0;
   if(key==="xp") return row.xpPerHour ?? row.metrics?.xp ?? 0;
   if(key==="allLoot") return row.allLootPerHour ?? row.metrics?.allLoot ?? 0;
@@ -1087,6 +1099,7 @@ function heroMetricValue(row, key, inp){
 }
 function heroMetricLabel(key){
   if(key==="target") return "Target hit chance";
+  if(key==="maxFloor") return "Max floor";
   if(key==="allRewards") return "Rewards Score";
   if(key==="xp") return "XP / hr";
   if(key==="allLoot") return "Loot / hr";
@@ -1098,7 +1111,7 @@ function heroFloorValue(row){ return row ? (row.mcAvgFloor ?? row.floorReached ?
 function heroTiles(row, inp){
   const pk = primaryFocusKey(inp), sk = secondaryFocusKey(inp);
   const isTarget = pk === "target";
-  const val = k => !row ? "—" : (k==="target" ? fmt(heroMetricValue(row,k,inp),1)+"%" : fmt(heroMetricValue(row,k,inp),1));
+  const val = k => !row ? "—" : (k==="target" ? fmt(heroMetricValue(row,k,inp),1)+"%" : k==="maxFloor" ? fmt(heroMetricValue(row,k,inp),0) : fmt(heroMetricValue(row,k,inp),1));
   const metricTile = k => ({label:heroMetricLabel(k), value:val(k)});
   const floorTile = ()=>({label:"Avg floor", value: row ? fmt(heroFloorValue(row),2) : "—"});
   const tiles = [{label:"Build", value: row ? buildLabel(row.stats) : "—", good:true}, metricTile(pk)];
@@ -1175,6 +1188,24 @@ function validateTargetFloor(){
   return value;
 }
 
+function validateMaxFloorSuccess(){
+  const input = document.getElementById("maxFloorSuccessMin");
+  if(!input) return 3;
+  const raw = String(input.value || "").trim();
+  if(raw === ""){
+    input.setCustomValidity("");
+    if(document.activeElement === input) return 3;
+    input.value = "3";
+    return 3;
+  }
+  let value = Number(raw);
+  if(!Number.isFinite(value)) value = 3;
+  value = clamp(value, 0.1, 100);
+  input.value = String(value);
+  input.setCustomValidity("");
+  return value;
+}
+
 function validatePrimaryTolerance(){
   const input = document.getElementById("primaryToleranceValue");
   if(!input) return 0;
@@ -1203,6 +1234,7 @@ function updateGoalUI(){
   syncSecondaryGoalOptions();
   syncPrimaryProtectionUI();
   if((v("primaryGoal") || "allRewards") === "target" || (v("secondaryGoal") || "none") === "target") validateTargetFloor();
+  if((v("primaryGoal") || "allRewards") === "maxFloor") validateMaxFloorSuccess();
   const primary = v("primaryGoal") || "allRewards";
   const secondary = v("secondaryGoal") || "none";
 
@@ -1216,6 +1248,7 @@ function updateGoalUI(){
   document.body.dataset.objective = primary === "xp" && !goalUsesLoot(secondary) ? "exp" : "custom";
   document.body.dataset.targetUsed = (goalUsesTarget(primary) || goalUsesTarget(secondary)) ? "true" : "false";
   document.body.dataset.blockTarget = (primary === "block") ? "true" : "false";
+  document.body.dataset.maxfloor = (primary === "maxFloor") ? "true" : "false";
   document.body.dataset.showLootSettings = (goalUsesLoot(primary) || goalUsesLoot(secondary)) ? "true" : "false";
 
   const inp = getInputs();
@@ -1236,6 +1269,7 @@ function targetMetric(sc, inp){
 function metricValue(sc, key, inp){
   const m = sc.metrics || {};
   if(key==="target") return targetMetric(sc, inp);
+  if(key==="maxFloor") return sc.maxFloor ?? sc.floorReached ?? 0;
   if(key==="allRewards") return m.allRewards || 0;
   if(key==="xp") return m.xp || 0;
   if(key==="allLoot") return m.allLoot || 0;
@@ -1689,7 +1723,8 @@ function getInputs(){
       primaryType:(v("primaryGoal") || "allRewards") === "target" ? "target" : "rewards",
       primaryReward:(v("primaryGoal") || "allRewards") === "target" ? "allRewards" : (v("primaryGoal") || "allRewards"),
       secondary:v("secondaryGoal") || "none",
-      tolerancePct:primaryProtectionTolerance()
+      tolerancePct:primaryProtectionTolerance(),
+      successRateMin:validateMaxFloorSuccess()
     },
     cardStates:Object.fromEntries(ARCHAEOLOGY_CARD_KEYS.map(c => [c.key, (document.getElementById(cardSettingId(c.key))?.value || "none")]))
   };
@@ -2690,6 +2725,7 @@ function simFocusValue(row, inp){
   const k = primaryFocusKey(inp);
 
   if(k==="target") return (row.targetPct||0) + Math.min(2, (row.mcAvgFloor||0) / Math.max(1, inp.targetFloor||1)) * 1e-3;
+  if(k==="maxFloor") return row.maxFloor ?? row.mcAvgFloor ?? 0;
   if(k==="allRewards") return row.rewardsPerHour;
   if(k==="xp") return row.xpPerHour;
   if(k==="allLoot") return row.allLootPerHour;
@@ -2706,7 +2742,7 @@ function simCandidate(st, row, inp){
   metrics.allRewards = row.rewardsPerHour||0;
   const out = {stats:{...st}, der, metrics, countsPerHour:row.countsPerHour, floorReached:row.mcAvgFloor,
     rewardsPerHour:row.rewardsPerHour, rewardsPerTick:row.rewardsPerTick, rewardsPerStam:row.rewardsPerStam,
-    targetPct:row.targetPct, totalTicks:0, channels:null};
+    targetPct:row.targetPct, maxFloor:row.maxFloor, totalTicks:0, channels:null};
   out.primaryMetric = metricValue(out, primaryFocusKey(inp), inp);
   out.secondaryMetric = metricValue(out, secondaryFocusKey(inp), inp);
   out.rewardHr = out.primaryMetric;
@@ -2959,6 +2995,9 @@ function aggregateBuildSim(stats, inp, blocks, runs, rng){
   floors.sort((a,b)=>a-b);
   const pct = p => floors[clamp(Math.floor((floors.length-1)*p), 0, floors.length-1)];
   const mcAvgFloor = sumFloor/runs;
+  // Max Floor goal: deepest floor reached in at least successRateMin% of runs (the 1 - s quantile).
+  const sMin = clamp((inp.goal?.successRateMin ?? 3) / 100, 0, 1);
+  const maxFloor = pct(clamp(1 - sMin, 0, 1));
   const mcMetrics = finalizeMetrics(simChannels, Math.max(1,sumStamina));
   const sec = Math.max(1e-9, sumTime), perHr = x => x/sec*3600;
   const countsPerHour={}; let totalBlocks=0;
@@ -2966,7 +3005,7 @@ function aggregateBuildSim(stats, inp, blocks, runs, rng){
   const lootPerHour={}; let lootVal=0;
   for(const t of ["common","rare","epic","legendary","mythic","divine"]){ lootPerHour[t]=perHr(simChannels[t]); lootVal+=simChannels[t]; }
   return {
-    stats:{...stats}, metrics:mcMetrics, floorReached:mcAvgFloor, mcAvgFloor,
+    stats:{...stats}, metrics:mcMetrics, floorReached:mcAvgFloor, mcAvgFloor, maxFloor,
     targetPct:hitTarget/runs*100, p10:pct(0.10), p50:pct(0.50), p90:pct(0.90),
     rewardsPerHour:perHr(sumValue), rewardsPerTick:sumValue/Math.max(1,sumTicks),
     rewardsPerStam:mcMetrics.allRewards, blocksPerHour:perHr(totalBlocks),
@@ -3088,6 +3127,7 @@ function buildResultColumns(inp, opts={}){
     if(rar[fk]) return {id:synthId, label:rar[fk]+" loot / hr", sortable:true, cls, get:lootGet(fk), text:r=>fmt(lootGet(fk)(r),1)};
     if(fk==="block") return {id:synthId, label:(_blockTargetLabel||"Target block")+" / hr", sortable:true, cls, get:r=>(r.countsPerHour||{})[inp.blockTargetKey]||0, text:r=>fmt((r.countsPerHour||{})[inp.blockTargetKey]||0,1)};
     if(fk==="target") return {id:synthId, label:"Reach target %", sortable:true, cls, get:targetGet, text:r=>fmt(targetGet(r),1)+"%"};
+    if(fk==="maxFloor") return {id:synthId, label:"Max floor", sortable:true, cls, get:r=>r.maxFloor ?? r.mcAvgFloor ?? 0, text:r=>fmt(r.maxFloor ?? r.mcAvgFloor ?? 0,0)};
     return null;
   };
   const pc = goalCol(primaryFocusKey(inp), "goal-col", "goal");      if(pc) cols.push(pc);
@@ -3109,6 +3149,7 @@ function renderSimResults(sortKey, dir){
   const _rowVal = (rw, key)=>{
     if(!key || key==="none") return undefined;
     if(key==="target") return rw.targetPct;
+    if(key==="maxFloor") return rw.maxFloor ?? rw.mcAvgFloor ?? 0;
     if(key==="allRewards") return rw.rewardsPerHour;
     if(key==="xp") return rw.xpPerHour;
     if(key==="allLoot") return rw.allLootPerHour;
@@ -3278,8 +3319,8 @@ async function runCustomSim(){
 
   const cand=simCandidate(stats, row, inp);
   const pk=primaryFocusKey(inp), sk=secondaryFocusKey(inp);
-  const goalLabel=k=> k==="target" ? "Target hit chance" : k==="allRewards" ? "Rewards Score" : rewardFocusLabel(k)+" / real-time hour";
-  const goalValue=(k,metric)=> k==="target" ? fmt(row.targetPct,1)+"%" : fmt(metric,1);
+  const goalLabel=k=> k==="target" ? "Target hit chance" : k==="maxFloor" ? "Max floor" : k==="allRewards" ? "Rewards Score" : rewardFocusLabel(k)+" / real-time hour";
+  const goalValue=(k,metric)=> k==="target" ? fmt(row.targetPct,1)+"%" : k==="maxFloor" ? fmt(row.maxFloor ?? row.mcAvgFloor,0) : fmt(metric,1);
   set("customPrimaryLabel", goalLabel(pk));
   set("customPerHour", goalValue(pk, cand.primaryMetric));
   const secEl=document.getElementById("customSecondaryMetric");
@@ -3346,6 +3387,7 @@ function buildDebugForAI(){
   const focusVal=(row,key)=>{
     if(!key||key==="none") return undefined;
     if(key==="target") return row.targetPct;
+    if(key==="maxFloor") return row.maxFloor ?? row.mcAvgFloor ?? 0;
     if(key==="allRewards") return row.rewardsPerHour;
     if(key==="xp") return row.xpPerHour;
     if(key==="allLoot") return row.allLootPerHour;
@@ -3927,7 +3969,7 @@ function resetAllSettings(){
   }
 
   const defaults = {
-    maxFloor:"50",
+    maxFloorSuccessMin:"3",
     ascension:"0",
     archInfernalMult:"1",
     baseAtkSpeed:"1",
@@ -4129,6 +4171,15 @@ function bindGoalSelector(){
   });
   document.getElementById("targetFloor")?.addEventListener("change",()=>{
     validateTargetFloor();
+    updateGoalUI();
+    updateSettingsSummary();
+  });
+  document.getElementById("maxFloorSuccessMin")?.addEventListener("input",()=>{
+    updateGoalUI();
+    updateSettingsSummary();
+  });
+  document.getElementById("maxFloorSuccessMin")?.addEventListener("change",()=>{
+    validateMaxFloorSuccess();
     updateGoalUI();
     updateSettingsSummary();
   });
@@ -4815,6 +4866,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     var hero;
     if(focusKey==="block"){ var fv=0; try{ fv=simFocusValue(best,inp); }catch(_e){} hero={lbl:focusLabel+" / hr", val:fmt(fv,1)}; }
     else if(focusKey==="target"){ hero={lbl:"Target reached", val:fmt(best.targetPct,1)+"%"}; }
+    else if(focusKey==="maxFloor"){ hero={lbl:"Max floor", val:fmt(best.maxFloor ?? best.mcAvgFloor,0)}; }
     else { hero={lbl: focusKey==="allRewards" ? "Rewards Score" : focusLabel+" / hr", val:fmt(best.rewardsPerHour,1)}; }
     var html='<div class="wiz-result-hero"><div class="lbl">'+esc(hero.lbl)+'</div><div class="val">'+esc(hero.val)+'</div></div>';
     html+='<div class="wiz-result-hero" style="background:var(--accent2);border-color:#c7d2fe"><div class="lbl" style="color:var(--accent)">Recommended build</div><div class="val" style="font-size:22px">'+esc(buildLabel(best.stats))+'</div></div>';
