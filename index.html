@@ -1779,7 +1779,11 @@ function reverseBaseStats(b, pts, inc, inf={}){
     armorPenFlat: cl("Armor penetration", (b.armorPenFlat || 0) / ((1+infv("armorPenMultPct")) * (1 + (inc.nonAttrPenPct||0) + I*(inc.intArmorPenPct||0))) - P*(inc.perArmorPen || 0) - infv("armorPenFlat"), 0),
 
     xpModGain: (b.xpModGain || 3) / modMulti,
-    lootModGain: ((b.lootModGain || 3.8) / (1+infv("lootModGainPct"))) / modMulti
+    lootModGain: ((b.lootModGain || 3.8) / (1+infv("lootModGainPct"))) / modMulti,
+    // Speed-mod gain scales with the All-Mod Multiplier (Corruption) just like
+    // the other mod gains, so back out the imported Corruption here; the sim
+    // re-applies each candidate build's Corruption.
+    speedModGain: (b.speedModGain || 0) / modMulti
 
   };
   out.clampedFields = clamped;
@@ -2756,7 +2760,10 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
   // attack swings at speedModAtkRate. Previously speed only sped up the single
   // flagged block, which understated attack speed and inflated run time.
   let speedPool = 0;
-  const speedGain = inp.base.speedModGain > 0 ? inp.base.speedModGain : 0;
+  // Re-apply this build's Corruption to speed-mod gain via the All-Mod Multiplier
+  // (the imported value had the player's own Corruption backed out at import).
+  const speedModMulti = 1 + stats.C*(inp.inc.corrAllModMultiPct||0);
+  const speedGain = (inp.base.speedModGain > 0 ? inp.base.speedModGain : 0) * speedModMulti;
   const channels=blankChannels();
   const blockCounts=Object.create(null);
   let floorReached=1;
