@@ -1961,9 +1961,7 @@ function loadState(){
 /* ---------- Human-readable save file (export / import) ---------- */
 function normalizeLabel(s){ return String(s||"").toLowerCase().replace(/\s+/g," ").trim(); }
 
-// The label shown in the save file: the field's own on-screen label, so the
-// file matches what the user sees in the app. Colons are swapped out so the
-// "Setting: value" split stays unambiguous.
+// The field's own on-screen label; colons become " -" so "key: value" stays splittable.
 function fieldExportLabel(el){
   let lbl = el.getAttribute("aria-label") || "";
   if(!lbl){
@@ -1994,31 +1992,16 @@ function exportableElements(){
   });
 }
 
-const BACKUP_SECTION_NAMES = {
-  goalCard:"Goal", "settings-loot":"Loot handling", "settings-base":"Stats",
-  "settings-skills":"Abilities", "settings-upgrades":"Upgrades & modifiers",
-  "settings-cards":"Cards", "settings-scaling":"Attribute scaling", "settings-mc":"Simulation"
-};
-function backupSectionName(el){
-  const sec = el.closest('section[id], #goalCard, .workflow-card[id]');
-  const id = sec ? sec.id : "";
-  if(BACKUP_SECTION_NAMES[id]) return BACKUP_SECTION_NAMES[id];
-  if(!id) return "General";
-  return id.replace(/^settings-/,"").replace(/[-_]/g," ").replace(/\b\w/g, c=>c.toUpperCase());
-}
-
-// One ordered list of entries, used by BOTH export and import, so the labels
-// (including any "(2)" disambiguation) match exactly and round-trip.
+// Shared by export and import so labels (incl. any "(2)" on collision) round-trip.
 function backupEntries(){
   const counts = new Map(), entries = [];
-  const add = (label, kind, ref, section)=>{
-    const baseKey = normalizeLabel(label);
-    const n = counts.get(baseKey) || 0; counts.set(baseKey, n+1);
+  const add = (label, kind, ref)=>{
+    const n = (counts.get(normalizeLabel(label)) || 0); counts.set(normalizeLabel(label), n+1);
     const finalLabel = n>0 ? label+" ("+(n+1)+")" : label;
-    entries.push({label:finalLabel, key:normalizeLabel(finalLabel), kind, ref, section});
+    entries.push({label:finalLabel, key:normalizeLabel(finalLabel), kind, ref});
   };
-  for(const el of exportableElements()) add(fieldExportLabel(el), "field", el, backupSectionName(el));
-  for(const c of ARCHAEOLOGY_CARD_KEYS) add(c.label+" card", "card", c.key, "Cards");
+  for(const el of exportableElements()) add(fieldExportLabel(el), "field", el);
+  for(const c of ARCHAEOLOGY_CARD_KEYS) add(c.label+" card", "card", c.key);
   return entries;
 }
 
@@ -2026,7 +2009,7 @@ function backupEntryValue(e){
   if(e.kind==="card") return document.getElementById(cardSettingId(e.ref))?.value || "none";
   const el = e.ref;
   if(el.type==="checkbox" || el.type==="radio") return el.checked ? "yes" : "no";
-  return el.value != null ? String(el.value) : "";
+  return el.value;
 }
 function backupApplyEntry(e, rawVal){
   const val = String(rawVal).trim();
@@ -2043,11 +2026,7 @@ function buildSaveText(){
     "# Each line is  Setting: value.  Lines starting with # are ignored.",
     "# Edit values after the colon if you like, then load this file back in."
   ];
-  let section = null;
-  for(const e of backupEntries()){
-    if(e.section !== section){ section = e.section; lines.push("", "# "+section); }
-    lines.push(e.label+": "+backupEntryValue(e));
-  }
+  for(const e of backupEntries()) lines.push(e.label+": "+backupEntryValue(e));
   return lines.join("\n")+"\n";
 }
 
@@ -2077,22 +2056,19 @@ function applySaveText(text){
     backupApplyEntry(e, line.slice(i+1).trim());
     applied++;
   }
-  const dmg = document.getElementById("baseDamage");
-  if(dmg && dmg.value !== "") statsImported = true;
+  if(document.getElementById("baseDamage").value !== "") statsImported = true;
   syncStatCapMirror();
   applyAscensionGating();
-  if(typeof syncBaseStatMode==="function") syncBaseStatMode();
-  if(typeof syncSecondaryGoalOptions==="function") syncSecondaryGoalOptions();
-  if(typeof syncPrimaryProtectionUI==="function") syncPrimaryProtectionUI();
-  if(typeof updateGoalUI==="function") updateGoalUI();
-  if(typeof updateSettingsSummary==="function") updateSettingsSummary();
-  if(typeof markOptimizerStale==="function") markOptimizerStale();
-  if(typeof refreshAscensionWarning==="function") refreshAscensionWarning();
+  syncBaseStatMode();
+  syncSecondaryGoalOptions();
+  syncPrimaryProtectionUI();
+  updateGoalUI();
+  updateSettingsSummary();
+  markOptimizerStale();
+  refreshAscensionWarning();
   saveState();
   const wiz = document.getElementById("wizard");
-  if(window.__wizard && typeof window.__wizard.refresh==="function" && wiz && !wiz.hidden){
-    try{ window.__wizard.refresh(); }catch(_e){}
-  }
+  if(window.__wizard && !wiz.hidden) window.__wizard.refresh();
   return {applied, unknown};
 }
 
@@ -2290,8 +2266,7 @@ function quakeHitsSaved(grossHits, nodes, floorHP, der){
 }
 
 function blankChannels(){
-  // Rarity keys hold the ACTUAL loot earned (fragments). The matching _val keys
-  // hold the same loot put on the XP scale, used only for the Rewards Score.
+  // rarity keys = actual loot earned; _val keys = same loot on the XP scale, for Rewards Score
   return {xp:0, common:0, rare:0, epic:0, legendary:0, mythic:0, divine:0,
           common_val:0, rare_val:0, epic_val:0, legendary_val:0, mythic_val:0, divine_val:0};
 }
@@ -2307,7 +2282,7 @@ function finalizeMetrics(channels, used){
   const metrics = {};
   for(const k of Object.keys(channels)) metrics[k] = channels[k] * scale;
   metrics.allLoot = metrics.common + metrics.rare + metrics.epic + metrics.legendary + metrics.mythic + metrics.divine;
-  metrics.allRewards = metrics.xp + lootValueSum(metrics); // Rewards Score: XP + loot normalized to the XP scale
+  metrics.allRewards = metrics.xp + lootValueSum(metrics); // Rewards Score
   return metrics;
 }
 
