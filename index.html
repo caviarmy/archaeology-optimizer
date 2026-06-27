@@ -1051,7 +1051,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.27.2";
+const APP_VERSION = "2026.06.27.3";
 let _blockTargetLabel = "";
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -4870,10 +4870,9 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     var focusKey="allRewards"; try{ focusKey=primaryFocusKey(inp); }catch(_e){}
     var focusLabel="Rewards"; try{ focusLabel=rewardFocusLabel(focusKey); }catch(_e){}
     var hero;
-    if(focusKey==="block"){ var fv=0; try{ fv=simFocusValue(best,inp); }catch(_e){} hero={lbl:focusLabel+" / hr", val:fmt(fv,1)}; }
-    else if(focusKey==="target"){ hero={lbl:"Target reached", val:fmt(best.targetPct,1)+"%"}; }
+    if(focusKey==="target"){ hero={lbl:"Target reached", val:fmt(best.targetPct,1)+"%"}; }
     else if(focusKey==="maxFloor"){ hero={lbl:"Max floor", val:fmt(best.maxFloor ?? best.mcAvgFloor,0) + (best.maxFloorPct!=null ? " ("+fmt(best.maxFloorPct,1)+"%)" : "")}; }
-    else { hero={lbl: focusKey==="allRewards" ? "Rewards Score" : focusLabel+" / hr", val:fmt(best.rewardsPerHour,1)}; }
+    else { var fv=0; try{ fv=simFocusValue(best,inp); }catch(_e){} hero={lbl: focusKey==="allRewards" ? "Rewards Score" : focusLabel+" / hr", val:fmt(fv,1)}; }
     var html='<div class="wiz-result-hero"><div class="lbl">'+esc(hero.lbl)+'</div><div class="val">'+esc(hero.val)+'</div></div>';
     html+='<div class="wiz-result-hero" style="background:var(--accent2);border-color:#c7d2fe"><div class="lbl" style="color:var(--accent)">Recommended build</div><div class="val" style="font-size:22px">'+esc(buildLabel(best.stats))+'</div></div>';
     html+='<div class="wiz-result-metrics">'
