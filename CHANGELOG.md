@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-06-27
+
+### Fixed
+- Average floor was over-estimated (e.g. ~60 reported where the true value is ~54). Two causes: (1) the simulation modeled a Speed Mod as a one-block speedup instead of the in-game pool of extra fast attacks carried across blocks, which made each run take ~2x the in-game time and therefore triggered Flurry's cooldown-based stamina refund about twice as often, pushing runs deeper; (2) avg floor counted partial-floor credit for the floor a run died on. Speed Mod now banks a pool of fast attacks, and floor reached is reported as the integer "highest floor entered," matching the game. Validated against an independent reference simulator (now agree to within Monte-Carlo noise).
+
 ## 2026-06-26
 
 ### Added

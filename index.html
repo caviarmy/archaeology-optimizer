@@ -2751,6 +2751,12 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
   const der=getDerived(stats,inp);
   let stamina=der.stamina;
   let ticksSpent=0, totalValue=0, timeSec=0;
+  // Speed-mod banks a POOL of extra fast attacks (gained on killing a speed-mod
+  // block) that carry across blocks, matching the in-game mechanic. Each banked
+  // attack swings at speedModAtkRate. Previously speed only sped up the single
+  // flagged block, which understated attack speed and inflated run time.
+  let speedPool = 0;
+  const speedGain = inp.base.speedModGain > 0 ? inp.base.speedModGain : 0;
   const channels=blankChannels();
   const blockCounts=Object.create(null);
   let floorReached=1;
@@ -2800,6 +2806,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
     blockCounts[ck] = (blockCounts[ck] || 0) + 1;
 
     if(node.staminaMod) stamina = Math.min(der.stamina, stamina + inp.inc.staminaModGain);
+    if(node.speedMod) speedPool += speedGain;
   }
 
   const CH_P = inp.crosshair?.spawnPct ?? 0.02175, CH_INTERVAL = inp.crosshair?.interval || 1.005, CH_DELAY = inp.crosshair?.fireDelay ?? 2;
@@ -2847,8 +2854,12 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
   for(let floor=1; floor<=FLOOR_CAP && stamina>0 && ticksSpent<cap; floor++){
     const special = isSpecialFloor(floor);
 
+    // Floor reached is the deepest floor ENTERED, reported as an integer to match
+    // the in-game "highest floor" (no partial-floor credit). We only reach this
+    // line while stamina>0 (loop guard), i.e. the player has entered this floor.
+    floorReached = floor;
+
     const slotCount = 24;
-    let clearedCount = 0;
     chQueue.length = 0;
 
     const floorGleam = (rng() < clamp(inp.base.gleamingChance||0,0,1)) ? (inp.base.gleamingMulti>0?inp.base.gleamingMulti:1) : 1;
@@ -2856,11 +2867,11 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
     const nodes = [];
     for(let i=0;i<slotCount;i++){
       const type = randBlockTypeForFloor(floor, inp, rng, special);
-      if(!type){ clearedCount++; continue; }
+      if(!type){ continue; }
       const b = blockForFloor(type, floor, blocks);
       if(!b) continue;
       nodes.push({type, b, hp:b.hp, armor:effectiveArmor(b.armor, der, inp),
-        hasSpeed: der.speedChance>0 ? rng()<der.speedChance : false,
+        speedMod: der.speedChance>0 ? rng()<der.speedChance : false,
         xpMod: rng() < xpModChance ? (inp.base.xpModGain||3)*modMulti : 1,
         lootMod: rng() < lootModChance ? lootModGainEff*modMulti : 1,
         staminaMod: rng() < der.staminaModChance,
@@ -2885,7 +2896,9 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
         }
 
         const speedRate = inp.base.speedModAtkRate > 0 ? inp.base.speedModAtkRate : 2;
-        const rate = atkSpeedBase * (flu ? 1+(sched.flurry.a.atkSpeedPct||0)/100 : 1) * (node.hasSpeed ? speedRate : 1);
+        const useSpeed = speedPool > 0;
+        const rate = atkSpeedBase * (flu ? 1+(sched.flurry.a.atkSpeedPct||0)/100 : 1) * (useSpeed ? speedRate : 1);
+        if(useSpeed) speedPool--;
         timeSec += 1/Math.max(0.01, rate);
         processCrosshairs(nodes);
         if(enr) sched.enrage.left--;
@@ -2895,9 +2908,6 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
       }
       if(node.hp<=0) clearNode(node);
     }
-    clearedCount += nodes.reduce((c,nd)=>c+(nd.cleared?1:0),0);
-    if(stamina>0) floorReached = floor+1;
-    else floorReached = floor + (slotCount>0 ? Math.min(1, clearedCount/slotCount) : 0);
   }
 
   const usedStamina = Math.max(1, der.stamina - stamina);
