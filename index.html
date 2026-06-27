@@ -2768,7 +2768,7 @@ function simulateOneRun(stats, inp, blocks, rng=Math.random, maxTicks=0){
   // Corruption point. The imported value had the player's own Corruption backed
   // out at import (reverseBaseStats), so candidate builds scale correctly.
   const speedModMulti = 1 + stats.C*((inp.inc.corrAllModMultiPct||0) + (inp.inc.corrSpeedPct||0));
-  const speedGain = (inp.base.speedModGain > 0 ? inp.base.speedModGain : 0) * speedModMulti;
+  const speedGain = (inp.base.speedModGain || 0) * speedModMulti;
   const channels=blankChannels();
   const blockCounts=Object.create(null);
   let floorReached=1;
