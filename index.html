@@ -1025,11 +1025,6 @@ function totalRateForFloorRates(rates){
   return Object.values(rates).reduce((a,b)=>a+(b||0),0);
 }
 
-function expectedActiveNodesForFloor(floor, inp){
-  const total = Math.min(100, totalRateForFloorRates(ratesForFloor(floor, inp)));
-  return isSpecialFloor(floor) ? 24 : 24 * total / 100;
-}
-
 function expectedTypeCountForFloor(type, floor, rates, inp){
   const rate = rates[type] || 0;
   return rate <= 0 ? 0 : 24 * rate / 100;
@@ -1039,9 +1034,6 @@ function typeProbabilityForFloor(type, floor, rates, inp){
   return (rates[type] || 0) / 100;
 }
 
-const HP_SCALE = 1;
-const XP_DISPLAY_SCALE = 1;
-const FRAG_DISPLAY_SCALE = 1;
 
 let lastExactTopBuilds = [];
 let lastExactSignature = null;
@@ -1177,7 +1169,7 @@ function validateTargetFloor(){
 
   let value = Math.floor(Number(raw));
   if(!Number.isFinite(value)) value = 1;
-  value = Math.max(1, Math.min(FLOOR_CAP, value));
+  value = clamp(value, 1, FLOOR_CAP);
   input.value = String(value);
   input.setCustomValidity("");
   return value;
@@ -1189,7 +1181,7 @@ function validatePrimaryTolerance(){
   let cleaned = String(input.value || "").replace(/[^0-9]/g, "").slice(0,3);
   let value = Number(cleaned);
   if(!Number.isFinite(value)) value = 0;
-  value = Math.max(0, Math.min(100, value));
+  value = clamp(value, 0, 100);
   input.value = String(value);
   input.setCustomValidity("");
   return value;
@@ -1465,7 +1457,7 @@ function syncAllCardFields(){
 }
 
 function currentAscension(){
-  return Math.max(0, Math.min(2, Math.floor(Number(v("ascension") || 0))));
+  return clamp(Math.floor(Number(v("ascension") || 0)), 0, 2);
 }
 
 function setCardState(key, state){
@@ -1612,7 +1604,7 @@ function getInputs(){
     mode:v("mode"),
     objective:v("objective") || "total",
     selectedLevel:Math.max(0, Math.floor(n("selectedLevel"))),
-    targetFloor:Math.max(1, Math.min(FLOOR_CAP, Math.floor(numOr("targetFloor", 1)) || 1)),
+    targetFloor:clamp(Math.floor(numOr("targetFloor", 1)) || 1, 1, FLOOR_CAP),
     ascension:currentAscension(),
     polyUpgrade:checked("polyUpgrade"),
     archInfernalMult:Math.max(0, n("archInfernalMult") || 1),
@@ -1624,8 +1616,8 @@ function getInputs(){
       fireDelay: Math.max(0, numOr("crosshairFireDelay", 2))
     },
     speedModel:"none",
-    mcTopCount:Math.max(1, Math.min(1000, Math.floor(n("mcTopCount") || 50))),
-    mcRunsPerBuild:Math.max(100, Math.min(20000, Math.floor(n("mcRunsPerBuild") || 1000))),
+    mcTopCount:clamp(Math.floor(n("mcTopCount") || 50), 1, 1000),
+    mcRunsPerBuild:clamp(Math.floor(n("mcRunsPerBuild") || 1000), 100, 20000),
     simSeedMode:v("simSeedMode") || "random",
     simSeedValue:String(v("simSeedValue") || "12345"),
     worthless:{
@@ -1702,7 +1694,7 @@ function getInputs(){
     cardStates:Object.fromEntries(ARCHAEOLOGY_CARD_KEYS.map(c => [c.key, (document.getElementById(cardSettingId(c.key))?.value || "none")]))
   };
 
-  const lvl = (id, max) => Math.max(0, Math.min(max, Math.floor(numOr(id, 0))));
+  const lvl = (id, max) => clamp(Math.floor(numOr(id, 0)), 0, max);
 
   const _asc = out.ascension;
   const mStrA0 = lvl("modStrA0", 5), mStrA1 = _asc>=1 ? lvl("modStrA1", 1) : 0;
@@ -1726,11 +1718,11 @@ function getInputs(){
   out.inc.nonAttrDmgPct = 0.02 * lvl("bonusDmgArpenA0", 20) + 0.10 * (_asc>=1 ? lvl("bonusDmgExpA1", 5) : 0);
   out.inc.nonAttrPenPct = 0.02 * lvl("bonusArpenCdA0", 10);
 
-  const bbPct = chkOr("blockBonker") ? Math.max(0, Math.min(100, Math.floor(numOr("highestFloor", 0)))) / 100 : 0;
+  const bbPct = chkOr("blockBonker") ? clamp(Math.floor(numOr("highestFloor", 0)), 0, 100) / 100 : 0;
   out.inc.nonAttrDmgPct += bbPct;
   out.inc.blockBonkerStamPct = bbPct;
 
-  out.blockTarget = { tier: Math.max(1, Math.min(4, parseInt(v("blockTargetTier")||"3",10)||3)), type: (v("blockTargetType")||"epic") };
+  out.blockTarget = { tier: clamp(parseInt(v("blockTargetTier")||"3",10)||3, 1, 4), type: (v("blockTargetType")||"epic") };
   out.blockTargetKey = "t"+out.blockTarget.tier+"_"+out.blockTarget.type;
   _blockTargetLabel = "Tier "+out.blockTarget.tier+" "+out.blockTarget.type.charAt(0).toUpperCase()+out.blockTarget.type.slice(1);
 
@@ -2106,17 +2098,17 @@ function visibleBlocks(inp){
   const blocks = baseBlocks.filter(b => blockAvailableAtAscension(b, asc)).map(b => {
     const cardState = inp.cardStates?.[`t${b.tier}_${b.type}`] || "none";
     const cardBonus = cardBonusForState(cardState, cardOpts);
-    const xp0 = b.xp*XP_DISPLAY_SCALE*cardBonus.rewardMult;
-    const loot0 = b.frag*FRAG_DISPLAY_SCALE*cardBonus.rewardMult;
+    const xp0 = b.xp*cardBonus.rewardMult;
+    const loot0 = b.frag*cardBonus.rewardMult;
     return {
       tier:b.tier,
       type:b.type,
       floorMin:b.floorMin,
       floorMax:b.floorMax,
       cardState,
-      hp:b.health*HP_SCALE*cardBonus.hpMult,
-      hp100:(b.health100 ?? b.health)*HP_SCALE*cardBonus.hpMult,
-      hp150:(b.health150 ?? b.health100 ?? b.health)*HP_SCALE*cardBonus.hpMult,
+      hp:b.health*cardBonus.hpMult,
+      hp100:(b.health100 ?? b.health)*cardBonus.hpMult,
+      hp150:(b.health150 ?? b.health100 ?? b.health)*cardBonus.hpMult,
 
       armor:b.armor ?? 0,
       armor100:b.armor100 ?? b.armor ?? 0,
@@ -2965,7 +2957,7 @@ function aggregateBuildSim(stats, inp, blocks, runs, rng){
     if(sim.floorReached >= inp.targetFloor) hitTarget++;
   }
   floors.sort((a,b)=>a-b);
-  const pct = p => floors[Math.max(0, Math.min(floors.length-1, Math.floor((floors.length-1)*p)))];
+  const pct = p => floors[clamp(Math.floor((floors.length-1)*p), 0, floors.length-1)];
   const mcAvgFloor = sumFloor/runs;
   const mcMetrics = finalizeMetrics(simChannels, Math.max(1,sumStamina));
   const sec = Math.max(1e-9, sumTime), perHr = x => x/sec*3600;
@@ -3235,7 +3227,7 @@ function wireSteppers(){
       const b=document.createElement("button");
       b.type="button"; b.className="stepper-btn"; b.textContent=txt; b.tabIndex=-1;
       b.addEventListener("click",()=>{
-        const v=Math.max(min, Math.min(max, Math.round((+input.value||0)+delta)));
+        const v=clamp(Math.round((+input.value||0)+delta), min, max);
         input.value=String(v);
         input.dispatchEvent(new Event("change",{bubbles:true}));
       });
@@ -3396,7 +3388,7 @@ function buildDebugForAI(){
       }
       const leanLabel=(s)=>{ const tot=ATTRS.reduce((a,k)=>a+(s[k]||0),0)||1; let mk="S",mv=-1; ATTRS.forEach(k=>{ if((s[k]||0)>mv){ mv=s[k]||0; mk=k; } }); const frac=mv/tot; return frac>=0.6?("heavy "+STAT_NAME[mk]):(frac>=0.4?(STAT_NAME[mk]+"-leaning"):"balanced"); };
 
-      const RUNS=Math.max(60, Math.min(160, inp.mcRunsPerBuild||160));
+      const RUNS=clamp(inp.mcRunsPerBuild||160, 60, 160);
       const mkrng=()=>{ let s=987654321>>>0; return ()=>{ s=(Math.imul(s,1103515245)+12345)>>>0; return s/4294967296; }; };
       simTop=chosenStats.map((st,i)=>{ const row=aggregateBuildSim(st, inp, blocks, RUNS, mkrng()); row.stats=st; row.__label=(i===0?"recommended":leanLabel(st)); return pick(row); });
     }
@@ -4149,7 +4141,7 @@ document.getElementById("resetAllSettings")?.addEventListener("click",resetAllSe
 
 document.querySelectorAll(".lvl-step").forEach(el=>el.addEventListener("change",()=>{
   const min = el.min!=="" ? +el.min : 0, max = el.max!=="" ? +el.max : Infinity;
-  el.value = String(Math.max(min, Math.min(max, Math.round(+el.value || 0))));
+  el.value = String(clamp(Math.round(+el.value || 0), min, max));
 }));
 
 function setAllUpgrades(toMax){
@@ -4198,8 +4190,6 @@ document.querySelectorAll('input[name="baseStatMode"]').forEach(el=>el.addEventL
 document.addEventListener("keydown",(e)=>{
   if(e.key==="Escape" && document.getElementById("settingsModal")?.classList.contains("open")) cancelSettings();
 });
-
-populateCardSettings();
 
 populateCardSettings();
 document.querySelectorAll("input, select").forEach(el=>{
@@ -4434,7 +4424,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     bubble.hidden=false; backdrop.hidden=false;
     var r=trigger.getBoundingClientRect();
     var bw=bubble.offsetWidth, bh=bubble.offsetHeight;
-    var left=Math.max(10, Math.min(r.left, window.innerWidth-bw-10));
+    var left=clamp(r.left, 10, window.innerWidth-bw-10);
     var top=r.bottom+8;
     if(top+bh > window.innerHeight-10) top=Math.max(10, r.top-bh-8);
     bubble.style.left=left+"px"; bubble.style.top=top+"px";
@@ -4480,7 +4470,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     if(window.__simResults && window.__simResults.length) return true;
     return false;
   }
-  function pad(n){ return (n<10?"0":"")+n; }
+  function pad(n){ return String(n).padStart(2,"0"); }
   function hms(ms){ var s=Math.max(0,Math.floor(ms/1000)); return pad(Math.floor(s/3600))+":"+pad(Math.floor(s%3600/60))+":"+pad(s%60); }
   function cooling(){ return resetsAt && Date.now()<resetsAt; }
 
@@ -4894,7 +4884,7 @@ window.refreshAscensionWarning=refreshAscensionWarning;
     nextBtn.disabled = (s.key==="stats" && !(typeof statsImported!=="undefined" && statsImported));
     var stage=wiz.querySelector(".wiz-stage"); if(stage) stage.scrollTop=0;
   }
-  function goStep(i){ step=Math.max(0, Math.min(STEPS.length-1, i)); renderStep(); }
+  function goStep(i){ step=clamp(i, 0, STEPS.length-1); renderStep(); }
 
   backBtn.addEventListener("click", function(){ if(step>0) goStep(step-1); });
   nextBtn.addEventListener("click", function(){
