@@ -414,6 +414,8 @@ body[data-landing="true"] #guidedReenter{display:none}
 .wiz-confirm-cancel:hover{color:var(--accent)}
 .wiz-exit{background:transparent;color:#cbd5e1;border:1px solid #ffffff44;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:800}
 .wiz-exit:hover{background:#ffffff18;color:#fff}
+.wiz-iconbtn{flex:none;width:32px;height:32px;border-radius:9px;border:1px solid #ffffff55;background:transparent;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.wiz-iconbtn:hover{background:#ffffff22}
 .wiz-progress{flex:none;display:flex;flex-direction:column;gap:6px;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line)}
 .wiz-progress-label{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .wiz-progress-bar{height:6px;border-radius:999px;background:#e6ebf3;overflow:hidden}
@@ -474,11 +476,6 @@ body[data-landing="true"] #guidedReenter{display:none}
 .backup-panel h3{margin:0 0 6px;font-size:15px}
 .backup-panel .small{margin:0 0 10px}
 .backup-panel button{display:block;width:100%;margin-top:8px}
-.backup-hint{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;background:var(--accent2,#eef2ff);border:1px solid var(--line,#d4d4d8);border-radius:10px;padding:8px 12px;margin:0 0 14px;font-size:13px;font-weight:600;color:var(--ink,#1f2937)}
-.backup-hint-actions{display:flex;align-items:center;gap:8px}
-.backup-hint-actions button{font-size:13px;padding:6px 10px}
-.backup-hint-x{background:transparent;border:0;color:var(--muted,#6b7280);font-weight:800;cursor:pointer;padding:4px 6px;line-height:1}
-.backup-hint-x:hover{color:var(--accent,#4f46e5)}
 .wiz-backup{margin-top:16px;text-align:center;font-size:13px;color:var(--muted,#6b7280)}
 .wiz-backup .wiz-linkbtn{font-size:13px}
 </style>
@@ -502,14 +499,6 @@ body[data-landing="true"] #guidedReenter{display:none}
 <input type="file" id="saveFileInput" accept=".txt,text/plain" style="display:none">
 
 <main>
-  <div id="backupHint" class="backup-hint" hidden>
-    <span>&#128190; Your stats are saved only in this browser. Export a backup file so a cache clear can't wipe them.</span>
-    <span class="backup-hint-actions">
-      <button type="button" id="hintExport">Export save</button>
-      <button type="button" id="hintImport" class="ghost">Load save</button>
-      <button type="button" id="hintDismiss" class="backup-hint-x" aria-label="Dismiss this tip">&#10005;</button>
-    </span>
-  </div>
   <section id="landing">
     <div class="landing-card" id="landingIntro">
       <h2>The optimizer finds your best archaeology build for the goal you choose.</h2>
@@ -681,6 +670,7 @@ body[data-landing="true"] #guidedReenter{display:none}
   <div class="wiz-panel">
     <div class="wiz-top">
       <div class="wiz-brand"><span class="wiz-app">Obelisk Miner Optimizer</span><span class="wiz-sub">Guided setup</span></div>
+      <button type="button" id="wizBackupBtn" class="wiz-iconbtn" aria-haspopup="true" aria-expanded="false" title="Save / load your data" aria-label="Save or load your data"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg></button>
       <a class="help-link" href="about.html" target="_blank" rel="noopener" style="width:30px;height:30px;font-size:17px" title="How this works" aria-label="How this works">?</a>
       <button type="button" id="wizExit" class="wiz-exit">Exit guided mode</button>
     </div>
@@ -1969,8 +1959,6 @@ function loadState(){
 }
 
 /* ---------- Human-readable save file (export / import) ---------- */
-const BACKUP_HINT_KEY = "obeliskArchaeologyOptimizer.backupHintDismissed";
-
 function normalizeLabel(s){ return String(s||"").toLowerCase().replace(/\s+/g," ").trim(); }
 
 // The label shown in the save file: the field's own on-screen label, so the
@@ -4245,30 +4233,27 @@ updateSettingsSummary();
 (function(){
   const fileInput = document.getElementById("saveFileInput");
   const panel = document.getElementById("backupPanel");
-  const btn = document.getElementById("backupBtn");
+  const anchors = ["backupBtn","wizBackupBtn"].map(id=>document.getElementById(id)).filter(Boolean);
   const triggerImport = ()=>{ if(fileInput){ fileInput.value=""; fileInput.click(); } };
   if(fileInput) fileInput.addEventListener("change", ()=>{ const f=fileInput.files&&fileInput.files[0]; if(f) importSaveFile(f); });
 
-  function closePanel(){ if(panel) panel.hidden=true; if(btn) btn.setAttribute("aria-expanded","false"); }
-  function openPanel(){
-    if(!panel||!btn) return;
-    const r=btn.getBoundingClientRect();
+  let openAnchor = null;
+  function closePanel(){ if(panel) panel.hidden=true; anchors.forEach(a=>a.setAttribute("aria-expanded","false")); openAnchor=null; }
+  function openPanel(anchor){
+    if(!panel||!anchor) return;
+    const r=anchor.getBoundingClientRect();
+    const pw=Math.min(300, window.innerWidth-24); // matches .backup-panel width / max-width
+    let right=Math.max(12, window.innerWidth-r.right);
+    if(window.innerWidth-right-pw < 12) right=window.innerWidth-pw-12; // keep left edge on-screen
     panel.style.top=(r.bottom+8)+"px";
-    panel.style.right=Math.max(12,(window.innerWidth-r.right))+"px";
-    panel.hidden=false; btn.setAttribute("aria-expanded","true");
+    panel.style.right=Math.max(12,right)+"px";
+    panel.hidden=false; anchor.setAttribute("aria-expanded","true"); openAnchor=anchor;
   }
-  if(btn) btn.addEventListener("click",(e)=>{ e.stopPropagation(); if(panel.hidden) openPanel(); else closePanel(); });
-  document.addEventListener("click",(e)=>{ if(panel && !panel.hidden && !panel.contains(e.target) && e.target!==btn) closePanel(); });
+  anchors.forEach(a=>a.addEventListener("click",(e)=>{ e.stopPropagation(); if(panel.hidden || openAnchor!==a){ closePanel(); openPanel(a); } else closePanel(); }));
+  document.addEventListener("click",(e)=>{ if(panel && !panel.hidden && !panel.contains(e.target) && !anchors.includes(e.target.closest("button"))) closePanel(); });
   window.addEventListener("keydown",(e)=>{ if(e.key==="Escape") closePanel(); });
   document.getElementById("backupExportBtn")?.addEventListener("click", ()=>{ downloadSaveFile(); closePanel(); });
   document.getElementById("backupImportBtn")?.addEventListener("click", ()=>{ triggerImport(); closePanel(); });
-
-  const hint = document.getElementById("backupHint");
-  let dismissed=false; try{ dismissed = localStorage.getItem(BACKUP_HINT_KEY)==="1"; }catch(_e){}
-  if(hint && !dismissed) hint.hidden=false;
-  document.getElementById("hintExport")?.addEventListener("click", downloadSaveFile);
-  document.getElementById("hintImport")?.addEventListener("click", triggerImport);
-  document.getElementById("hintDismiss")?.addEventListener("click", ()=>{ if(hint) hint.hidden=true; try{ localStorage.setItem(BACKUP_HINT_KEY,"1"); }catch(_e){} });
 
   window.__backup = { export:downloadSaveFile, import:triggerImport };
 })();
