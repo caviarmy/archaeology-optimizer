@@ -200,7 +200,7 @@ export default {
     const mimeType = m[1], b64 = m[2];
     if (b64.length > 9_000_000) return json({ error: "Image too large (downscale before sending)" }, 413, cors);
 
-    const model = env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+    const model = env.GEMINI_OCR_MODEL || "gemini-2.5-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
 
     const generationConfig = { temperature: 0, responseMimeType: "application/json", responseSchema: SCHEMA };

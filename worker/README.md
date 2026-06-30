@@ -18,7 +18,7 @@ to pick up the change.
 ## What you need
 - A Cloudflare account (free).
 - A Google **Gemini API key** — create one at https://aistudio.google.com/app/apikey
-  (free tier works; the worker defaults to `gemini-2.0-flash-lite`).
+  (free tier works; the worker defaults to `gemini-2.5-flash` for OCR).
 - Node.js installed locally (for `wrangler`).
 
 ## Deploy (5 minutes)
@@ -57,7 +57,7 @@ finds the URL can spend your quota. Sensible options:
   uncomment it, then `wrangler deploy` again. Cap is `DAILY_LIMIT` (default 100/IP/day).
 - **Origin lock**: set `ALLOWED_ORIGINS` in `wrangler.toml` to your Pages origin
   (e.g. `https://caviarmy.github.io`). Note CORS/Origin is only a soft guard.
-- **Model**: change `GEMINI_MODEL` in `wrangler.toml` to a newer lite model if you like.
+- **Model**: OCR reads screenshots with `GEMINI_OCR_MODEL` (default `gemini-2.5-flash`, picked for accuracy on dense panels); the Diagnose text call uses the cheaper `GEMINI_MODEL` (default `gemini-2.5-flash-lite`). Change either in `wrangler.toml`.
 
 ## Notes
 - Screenshots are sent to Google. On the free tier, inputs may be used to improve

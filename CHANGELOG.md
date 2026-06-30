@@ -3,8 +3,11 @@
 ## 2026-06-30
 
 ### Fixed
-- Screenshot import (AI OCR) conflated "Exp Mod Chance" with "Exp Mod Gain", putting the gain multiplier into the chance field and leaving the gain blank. The OCR prompt now anchors every right-column row to its unit (Chance = %, XP/Loot Gain = x, Speed/Stamina Gain = +flat) and rejects a number whose unit doesn't match the target field, keeping chance and gain distinct.
-- Screenshot import sometimes dropped or substituted digits in decimal percentages (e.g. reading "Speed Mod Chance: 7.40%" as 2.4). The prompt now requires transcribing every printed digit exactly, including the leading digit and decimals.
+- Screenshot import no longer swaps mod chance with mod gain; the OCR prompt now ties each row to its unit (chance is %, XP/loot gain is x, speed/stamina gain is +flat).
+- Screenshot import reads decimal percentages correctly (e.g. 7.40% no longer comes in as 2.4).
+
+### Changed
+- Screenshot OCR runs on gemini-2.5-flash again for better accuracy on dense stat panels; the cheaper lite model is kept for the Diagnose text.
 
 ## 2026-06-27
 
