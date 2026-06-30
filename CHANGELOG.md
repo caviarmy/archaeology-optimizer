@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-06-30
+
+### Fixed
+- Screenshot import (AI OCR) conflated "Exp Mod Chance" with "Exp Mod Gain", putting the gain multiplier into the chance field and leaving the gain blank. The OCR prompt now anchors every right-column row to its unit (Chance = %, XP/Loot Gain = x, Speed/Stamina Gain = +flat) and rejects a number whose unit doesn't match the target field, keeping chance and gain distinct.
+- Screenshot import sometimes dropped or substituted digits in decimal percentages (e.g. reading "Speed Mod Chance: 7.40%" as 2.4). The prompt now requires transcribing every printed digit exactly, including the leading digit and decimals.
+
 ## 2026-06-27
 
 ### Added

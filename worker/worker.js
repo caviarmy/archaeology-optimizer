@@ -24,6 +24,12 @@ Formatting rules:
 - Multipliers: number only, drop the x (e.g. "4.21x" -> 4.21).
 - Flat/integer stats: the integer (e.g. "Damage: 1396" -> 1396; "+30" -> 30; "2/sec" -> 2).
 - Read every value straight from its OWN row's printed digits. Never copy or reuse a number from another field — neighbouring rows like "Exp Mod Gain" and "Loot Mod Gain" are independent and usually DIFFER. Transcribe exactly what is shown on each line.
+- Transcribe EVERY printed digit exactly, including the leading digit and any decimals. Do not drop, add, or substitute digits (e.g. "7.40%" is 7.4, never 2.4 or 7.0; do not confuse 7 with 2, 5 with 6, or 8 with 0). When a value has a decimal point, output every digit before and after it.
+- UNIT DISCIPLINE — each value carries a unit on its row; use that unit to decide which field it belongs to, and never move a number into a field whose unit it does not match:
+  * A "... Mod Chance" row is ALWAYS a percentage (ends in %). Its field must receive the % value, never a multiplier (x) or a flat (+N) value.
+  * "Exp Mod Gain" and "Loot Mod Gain" are ALWAYS multipliers (end in x).
+  * "Speed Mod Gain" and "Stamina Mod Gain" are ALWAYS flat bonuses (shown as "+N").
+  If the number you are about to assign does not carry the unit expected for that field, you have misaligned a row — re-read the rows and correct it. Specifically: do NOT put the "Exp Mod Gain" multiplier (e.g. 3x) into "Exp Mod Chance"; read the % on the Exp Mod Chance line for baseXpMod and the x on the Exp Mod Gain line for baseXpModGain as two distinct numbers.
 - If a field is NOT visible in the image, set it to null. Never guess or infer.
 
 Stat panel mapping (label -> key):
@@ -34,9 +40,9 @@ Enrage "+N% Damage"=enrageDmgPct, Enrage "+N% Crit Damage"=enrageCritDmgPct, Enr
 Flurry "+N% Atk Speed"=flurryAtkSpeedPct, Flurry "+N Stamina On Cast"=flurryStaminaOnCast, Flurry charges=flurryCharges, Flurry cooldown seconds=flurryCooldown,
 Quake "deal N% Damage"=quakeDmgPct, Quake charges=quakeCharges, Quake cooldown seconds=quakeCooldown.
 
-The RIGHT column is dense and easy to misalign. Walk it strictly top-to-bottom and output a value for EVERY visible row without skipping any. Its order is:
-Exp Gain, Fragment Gain, Exp Mod Chance, Exp Mod Gain, Loot Mod Chance, Loot Mod Gain, Speed Mod Chance, Speed Mod Gain, Speed Mod Atk Rate, Stamina Mod Chance, Stamina Mod Gain.
-Each "... Mod Chance" is a % and the "... Mod Gain" beneath it is a SEPARATE value — read both from their own lines and never reuse one row's number for a neighbour. In particular Exp Mod Gain, Loot Mod Chance, and Loot Mod Gain are three different numbers on three different lines.
+The RIGHT column is dense and easy to misalign. Walk it strictly top-to-bottom and output a value for EVERY visible row without skipping any. Its order is, with the unit each row must carry:
+Exp Gain (x), Fragment Gain (x), Exp Mod Chance (%), Exp Mod Gain (x), Loot Mod Chance (%), Loot Mod Gain (x), Speed Mod Chance (%), Speed Mod Gain (+flat), Speed Mod Atk Rate (x), Stamina Mod Chance (%), Stamina Mod Gain (+flat).
+Each "... Mod Chance" is a % and the "... Mod Gain" beneath it is a SEPARATE value with a DIFFERENT unit — read both from their own lines and never reuse one row's number for a neighbour. In particular Exp Mod Chance (%), Exp Mod Gain (x), Loot Mod Chance (%), and Loot Mod Gain (x) are four different numbers on four different lines: a value that ends in % is a Chance and must not land in a Gain field, and a value that ends in x is a Gain and must not land in a Chance field.
 
 Return ONLY the JSON object.`;
 
