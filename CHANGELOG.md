@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-07-01
+
+### Changed
+- Removed the Stat scaling settings page. Those per-point values are game constants, not something to edit; the optimizer still uses them and applies your Skill Buff levels on top.
+
 ## 2026-06-30
 
 ### Fixed

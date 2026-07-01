@@ -610,7 +610,6 @@ body[data-landing="true"] #guidedReenter{display:none}
       <summary>Advanced</summary>
       <div class="settings-list">
         <button class="setting-row loot-setting" data-open-settings="loot"><span><span class="k">Resource values</span><span class="v" id="summaryLoot">All kept</span><span class="desc">Ignore drops you don't care about</span></span></button>
-        <button class="setting-row" data-open-settings="scaling"><span><span class="k">Stat scaling</span><span class="v">Per-point values &amp; caps</span><span class="desc">Advanced: how each attribute point scales</span></span></button>
         <button class="setting-row" data-open-settings="sim"><span><span class="k">Simulation</span><span class="v" id="summaryMC">—</span><span class="desc">Simulation sample sizes</span></span></button>
       </div>
     </details>
@@ -907,7 +906,7 @@ body[data-landing="true"] #guidedReenter{display:none}
         </div>
       </section>
 
-<section id="settings-scaling" class="settings-section">
+<section id="settings-scaling" class="settings-section" hidden aria-hidden="true"><!-- Not user-facing: holds the per-point stat-scaling constants read by getInputs(); upgrades modify these per-point values in code (see reverseBaseStats / inc buildup). -->
         <div class="form-grid">
           <div><label>STR flat damage</label><input id="strFlatDamage" type="number" step="0.001" value="1"></div>
           <div><label>STR damage %</label><input id="strDamagePct" type="number" step="0.001" value="1"></div>
@@ -1051,7 +1050,7 @@ let lastExactSignature = null;
 let isRunningExact = false;
 
 function v(id){ return document.getElementById(id).value; }
-const APP_VERSION = "2026.06.27.3";
+const APP_VERSION = "2026.07.01.1";
 let _blockTargetLabel = "";
 function n(id){ return Number(document.getElementById(id).value); }
 function pct(id){ return n(id)/100; }
@@ -3532,7 +3531,6 @@ const SETTINGS_GROUPS = {
   stats:   {title:"Stat / Skill / Upgrade Settings", tabs:[["settings-base","Stats"],["settings-skills","Skills"],["settings-upgrades","Upgrades"]]},
   cards:   {title:"Card Settings", tabs:[["settings-cards","Cards"]]},
   loot:    {title:"Resource Value Settings", tabs:[["settings-loot","Resource value"]]},
-  scaling: {title:"Stat Scaling Settings", tabs:[["settings-scaling","Stat scaling"]]},
   sim:     {title:"Simulation Settings", tabs:[["settings-mc","Simulation"]]}
 };
 function activateSettingsSection(sectionId){
